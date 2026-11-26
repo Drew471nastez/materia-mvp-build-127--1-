@@ -64,8 +64,8 @@
 }
 
 .grid { display: grid; gap: 24px; margin-top: 32px; grid-template-columns: repeat(var(--cols-m), minmax(0, 1fr)); }
-@container (min-width: 640px) { .grid { grid-template-columns: repeat(var(--cols-t), minmax(0, 1fr)); } }
-@container (min-width: 900px) { .grid { grid-template-columns: repeat(var(--cols-d), minmax(0, 1fr)); } }
+@container (min-width: 640px) { .grid { grid-template-columns: repeat(var(--cols-t), minmax(0, 400px)); } }
+@container (min-width: 900px) { .grid { grid-template-columns: repeat(var(--cols-d), minmax(0, 400px)); } }
 .card { position: relative; display: flex; flex-direction: column; }
 /* The card's look (Card style): the picture and words on the page, a line around both, or both on a tint. */
 .wl--bordered .card { padding: 10px 10px 14px; border: 1px solid var(--s-border); border-radius: var(--s-radius); }

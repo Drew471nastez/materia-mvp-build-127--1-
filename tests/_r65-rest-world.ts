@@ -86,6 +86,8 @@ export const world = {
   byTable: new Map<string, { n: number; bytes: number }>(),
   writes: [] as { table: string; method: string }[],
   rpc: new Map<string, (body: Record<string, unknown>) => { status: number; body: unknown }>(),
+  /** Every PostgREST ask in order, when set to a list (round 66): table, method, select, bytes, start and end times. */
+  log: null as null | { table: string; method: string; select: string; bytes: number; at: number; end: number }[],
 }
 export const table = (name: string): Row[] => {
   let t = world.tables.get(name)
@@ -215,6 +217,18 @@ function rest(url: URL, method: string, accept: string, prefer: string, body: un
     let list = t.filter((r) => matches(r, url))
     const lim = url.searchParams.get("limit")
     const off = Number(url.searchParams.get("offset") ?? 0)
+    /* order=col.desc,col2 (round 66: a backup's "newest row" is read by created_at, descending). */
+    const order = url.searchParams.get("order")
+    if (order) {
+      const keys = order.split(",").map((k) => { const [col, dir] = k.split("."); return { col, desc: dir === "desc" } })
+      list = [...list].sort((a, b) => {
+        for (const { col, desc } of keys) {
+          const x = String(a[col] ?? ""), y = String(b[col] ?? "")
+          if (x !== y) return (x < y ? -1 : 1) * (desc ? -1 : 1)
+        }
+        return 0
+      })
+    }
     if (off) list = list.slice(off)
     if (lim) list = list.slice(0, Number(lim))
     if (method === "HEAD") return { status: 200, text: "", headers: { "content-range": `*/${list.length}` } }
@@ -230,11 +244,14 @@ function rest(url: URL, method: string, accept: string, prefer: string, body: un
         const keys = conflict.split(",")
         const hit = t.find((x) => keys.every((k) => x[k] === r[k]))
         if (hit) {
-          if (!prefer.includes("ignore-duplicates")) Object.assign(hit, r)
+          /* An update, as the table's BEFORE UPDATE trigger stamps it (round 66: the canvas's revision reads updated_at). */
+          if (!prefer.includes("ignore-duplicates")) Object.assign(hit, r, { updated_at: new Date().toISOString() })
           continue
         }
       }
-      const row = { id: randomUUID(), created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ...r }
+      /* Column defaults the routes count on (round 66): the live release pointer's rev starts at 0, as part 180 declares it. */
+      const defaults: Row = path === "site_live_releases" ? { rev: 0, release_id: null } : {}
+      const row = { id: randomUUID(), created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ...defaults, ...r }
       t.push(row)
       made.push(row)
     }
@@ -293,7 +310,9 @@ export function installFetch(app: (path: string, init?: RequestInit) => Promise<
       seen.n++
       seen.bytes += size
       world.byTable.set(name, seen)
+      const at = performance.now()
       await transfer(size)
+      world.log?.push({ table: name, method, select: url.searchParams.get("select") ?? "", bytes: size, at, end: performance.now() })
       if (signal?.aborted) throw signal.reason
       return new Response(a.status === 204 || a.text === "" ? null : a.text, { status: a.status, headers: a.headers })
     }

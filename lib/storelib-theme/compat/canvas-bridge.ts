@@ -1756,10 +1756,12 @@ export const CANVAS_BRIDGE = `
         there, once, as it starts.
       */
       el.replaceWith(next);
-      runScripts(next);
+      runScripts(next, true);
       next.style.minHeight = held + "px";
       var pending = Array.prototype.filter.call(next.querySelectorAll("img"), function (i) { return !i.complete; });
       var release = function () { next.style.minHeight = ""; };
+      /* Never held for good (round 66): a frame or an event that never comes left the section at its old height after a setting was put back. */
+      setTimeout(release, 3000);
       if (!pending.length) requestAnimationFrame(release);
       else {
         var left = pending.length;
@@ -1937,7 +1939,7 @@ export const CANVAS_BRIDGE = `
     pairs.forEach(function (p) {
       var fresh = document.importNode(p[1], true);
       p[0].replaceWith(fresh);
-      if (fresh.querySelector("script")) runScripts(fresh);
+      if (fresh.querySelector("script")) runScripts(fresh, true);
     });
     if (watcher) watcher.takeRecords();
     if (scrollY !== y) scrollTo(0, y);
@@ -2582,14 +2584,39 @@ export const CANVAS_BRIDGE = `
   */
   var ran = new Set();
   document.querySelectorAll("script").forEach(function (x) { ran.add(x.src || x.textContent); });
-  var runScripts = function (el) {
+  /*
+    A SECTION DRAWN AGAIN RUNS ITS OWN INLINE SCRIPTS AGAIN (round 66), as
+    Shopify's editor does. Night shop's sky reads its settings from data-
+    attributes in a script whose text never changes, and moves its layer out
+    of the section to the back of the page. Drawn again, the new layer stayed
+    in the section, never drawn, over every section below the announcement
+    bar, because a script whose text had run once was never run again. Now
+    an inline script of the section is run again (again = true): inside a
+    block, so a top level const is not declared twice, and caught, so a
+    custom element defined twice says nothing. What its last run added to
+    window and document (listeners, intervals; CANVAS_SCRIPT_OWN) is taken
+    off first, so nothing answers twice. A script with an address still
+    runs once.
+  */
+  var JS_TYPE = /^(|text\\/javascript|application\\/javascript|module)$/i;
+  var runScripts = function (el, again) {
     el.querySelectorAll("script").forEach(function (old) {
       var key = old.src || old.textContent;
-      if (ran.has(key)) return;
+      var type = (old.getAttribute("type") || "").trim();
+      var rerun = !!again && !old.src && JS_TYPE.test(type) && /\\S/.test(key) && ran.has(key);
+      if (ran.has(key) && !rerun) return;
       ran.add(key);
       var s = document.createElement("script");
       Array.prototype.slice.call(old.attributes).forEach(function (a) { s.setAttribute(a.name, a.value); });
-      s.textContent = old.textContent;
+      if (rerun) {
+        var own = window.__slOwn, mine = own && own.get(key);
+        if (mine) {
+          own.delete(key);
+          mine.forEach(function (r) { try { if (r[0] === null) clearInterval(r[1]); else r[0].removeEventListener(r[1], r[2], r[3]); } catch (e) {} });
+        }
+        s.__slKey = key;
+        s.textContent = /^module$/i.test(type) ? key : "{try{" + key + "\\n}catch(e){}}";
+      } else s.textContent = old.textContent;
       old.replaceWith(s);
     });
   };
@@ -2699,7 +2726,7 @@ export const CANVAS_BRIDGE = `
     }
     added.forEach(function (el) {
       var id = el.getAttribute("data-section-id");
-      runScripts(el);
+      runScripts(el, true);
       fire(el, "shopify:section:load", { sectionId: id, load: true });
       fire(el, "storelib:section-load", { sectionId: id });
       wake(el);
@@ -3399,6 +3426,44 @@ export const CANVAS_REQUESTS = `
   };
   void formSubmit;
   /*
+    NOTHING A SCRIPT OPENS LEAVES THE CANVAS (round 66). "storelib.com
+    refused to connect" was this frame gone to an address of the builder's
+    own host or of the live website, both of which refuse to be framed. Two
+    ways a theme's script opens a page are taken here and opened as the
+    builder opens a link: window.open into this same frame (_self, _parent,
+    _top), and a link the script makes and clicks without putting it in the
+    page, whose click no listener of the document hears. A new tab is left
+    to the browser. location.href cannot be taken from inside a frame with no
+    origin; the builder hides the frame as it goes (unloading, below) and
+    draws the page again.
+  */
+  var openNative = window.open;
+  window.open = function (u, target) {
+    var t = String(target === undefined || target === null ? "" : target).toLowerCase();
+    if ((t === "_self" || t === "_parent" || t === "_top") && u !== undefined && u !== null && String(u) !== "") {
+      var href = String(u);
+      var path = routed(href);
+      post({ type: "navigate", href: path !== null ? path : href, chrome: false });
+      return null;
+    }
+    return openNative.apply(window, arguments);
+  };
+  var clickNative = typeof HTMLAnchorElement !== "undefined" ? HTMLAnchorElement.prototype.click : null;
+  if (clickNative) HTMLAnchorElement.prototype.click = function () {
+    var raw = this.getAttribute("href");
+    if (!this.isConnected && raw && !this.hasAttribute("download") && !/^(blob|data|javascript|mailto|tel):/i.test(raw) && raw.charAt(0) !== "#") {
+      var tg = String(this.getAttribute("target") || "").toLowerCase();
+      if (tg !== "_blank") {
+        var path = routed(raw);
+        post({ type: "navigate", href: path !== null ? path : this.href, chrome: false });
+        return;
+      }
+    }
+    return clickNative.apply(this, arguments);
+  };
+  /* Said before the page goes, while this window is still the frame's (pagehide is heard from a window the builder no longer knows): the builder hides the frame at once, so whatever answers in its place is never seen. */
+  addEventListener("beforeunload", function () { post({ type: "unloading" }); });
+  /*
     A PAGE A SCRIPT OPENS (location.href = "/checkout") cannot be stopped from
     in here: a frame with no origin is told of no navigation it starts. The
     builder is told the page is leaving, draws it again in its place, and,
@@ -3871,8 +3936,18 @@ export const CANVAS_SWITCH = `
 */
 export const CANVAS_DESIGN_GUARD = `<script>(function(){var de=document.documentElement;if(!de||de.classList.contains("shopify-design-mode")||typeof MutationObserver!=="function")return;var edited=false;var keep=function(){if(!edited&&de.classList.contains("shopify-design-mode"))de.classList.remove("shopify-design-mode")};new MutationObserver(keep).observe(de,{attributes:true,attributeFilter:["class"]});["storelib:settings-change","storelib:section-load"].forEach(function(n){document.addEventListener(n,function(){edited=true},true)})})();</script>`
 
+/**
+ * WHAT A SECTION'S OWN SCRIPT ADDED TO THE PAGE (round 66). While an inline
+ * script inside a section runs, the listeners it adds to window and document
+ * and the intervals it starts are noted under its text, so running it again
+ * for a section drawn again (runScripts, A SECTION DRAWN AGAIN) first takes
+ * its earlier ones away. Only what the script does as it runs is seen: what
+ * a callback adds later is the theme's own business, as on the website.
+ */
+export const CANVAS_SCRIPT_OWN = `<script>(function(){var own=new Map();window.__slOwn=own;var cur=function(){var s=document.currentScript;if(!s||s.src||!s.closest||!s.closest(".shopify-section"))return null;return s.__slKey||s.textContent};var note=function(r){var k=cur();if(k===null)return;var l=own.get(k);if(!l)own.set(k,l=[]);l.push(r)};var P=EventTarget.prototype,add=P.addEventListener;P.addEventListener=function(t,f,o){var me=this==null?window:this;if((me===window||me===document)&&f)note([me,t,f,o]);return add.apply(me,arguments)};var si=window.setInterval;window.setInterval=function(){var id=si.apply(window,arguments);note([null,id]);return id}})()</script>`
+
 export const CANVAS_HEAD = `${CANVAS_DESIGN_GUARD}<script>addEventListener("pointerdown",function(){var g=window.__slGiveBack;if(g)g()},true);addEventListener("keydown",function(){var g=window.__slGiveBack;if(g)g()},true);</script><style data-sl-canvas>preload-page,.preload-page,website-intro,.website-intro,#preloader,.site-preloader,.page-loader,.page-loading-overlay{position:fixed!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;animation-duration:1ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:1ms!important;transition-delay:0s!important}preload-page *,.preload-page *,website-intro *,.website-intro *,#preloader *,.site-preloader *,.page-loader *,.page-loading-overlay *{visibility:hidden!important;animation-duration:1ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:1ms!important;transition-delay:0s!important}</style><script>(function(){var seed=window.__slSeed||{};function S(n){var m=new Map();var held=seed[n];if(held&&typeof held==="object")Object.keys(held).forEach(function(k){if(typeof held[k]==="string")m.set(k,held[k])});var t=0;var tell=function(){if(t)return;t=setTimeout(function(){t=0;var o={};m.forEach(function(v,k){o[k]=v});try{parent.postMessage({storelib:1,type:"storage",area:n,items:o},window.__slTo||"*")}catch(e){}},0)};return{get length(){return m.size},key:function(i){return Array.from(m.keys())[i]??null},getItem:function(k){return m.has(String(k))?m.get(String(k)):null},setItem:function(k,v){m.set(String(k),String(v));tell()},removeItem:function(k){m.delete(String(k));tell()},clear:function(){m.clear();tell()}}}
 ["localStorage","sessionStorage"].forEach(function(n){var ok=false;try{ok=!!window[n]}catch(e){ok=false}if(!ok){try{Object.defineProperty(window,n,{value:S(n),configurable:true})}catch(e){}}});
 try{document.cookie}catch(e){var jar=S("cookie");try{Object.defineProperty(document,"cookie",{get:function(){var o=[];for(var i=0;i<jar.length;i++){var k=jar.key(i);o.push(k+"="+jar.getItem(k))}return o.join("; ")},set:function(v){var parts=String(v).split(";"),first=parts.shift()||"",at=first.indexOf("=");if(at<1)return;var k=first.slice(0,at).trim(),val=first.slice(at+1).trim(),gone=false;parts.forEach(function(p){var q=p.split("="),n=(q[0]||"").trim().toLowerCase(),x=q.slice(1).join("=").trim();if(n==="max-age"&&Number(x)<=0)gone=true;if(n==="expires"){var t=Date.parse(x);if(!isNaN(t)&&t<=Date.now())gone=true}});if(gone)jar.removeItem(k);else jar.setItem(k,val)},configurable:true})}catch(e2){}}
 if(typeof IntersectionObserver==="function"){var IO=IntersectionObserver,watching=new WeakMap(),bySig=new Map(),gone=new WeakSet();var sig=function(el){return el.tagName+"."+String(el.getAttribute("class")||"").split(/\\s+/).filter(Boolean).sort().join(".")};var W=class extends IO{observe(t){try{gone.delete(this);if(t&&t.nodeType===1&&t.closest&&t.closest(".shopify-section")){var by=watching.get(t);if(!by)watching.set(t,by=new Set());by.add(this);if(String(t.getAttribute("class")||"").trim()){var k=sig(t),set=bySig.get(k);if(!set)bySig.set(k,set=new Set());set.add(this)}}}catch(e){}return super.observe(t)}unobserve(t){try{var by=watching.get(t);if(by)by.delete(this)}catch(e){}return super.unobserve(t)}disconnect(){gone.add(this);var me=this;bySig.forEach(function(set){set.delete(me)});return super.disconnect()}};window.IntersectionObserver=W;window.__slIO=IO;window.__slWatch={watching:watching,bySig:bySig,usable:function(io){var r=io.root;return !gone.has(io)&&(!r||r.nodeType===9)}}}
-["pushState","replaceState"].forEach(function(k){var f=history[k];if(typeof f!=="function")return;history[k]=function(s,t){try{return f.apply(this,arguments)}catch(e){try{return f.call(this,s,t)}catch(e2){}}}});})();</script><script>${CANVAS_REQUESTS}</script><script>${CANVAS_SWITCH}</script>`
+["pushState","replaceState"].forEach(function(k){var f=history[k];if(typeof f!=="function")return;history[k]=function(s,t){try{return f.apply(this,arguments)}catch(e){try{return f.call(this,s,t)}catch(e2){}}}});})();</script>${CANVAS_SCRIPT_OWN}<script>${CANVAS_REQUESTS}</script><script>${CANVAS_SWITCH}</script>`

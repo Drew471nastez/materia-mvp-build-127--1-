@@ -395,6 +395,8 @@ async function main() {
   const PATH_ONLY = new Set([
     "app/api/website-builder/themes/[installId]/agent/decide/route.ts",
     "lib/github-sync/editor-status.ts",
+    /* Changed on purpose (r66): the canvas's revision reads each row's path and updated_at, never its text. */
+    "lib/website-builder/files-revision.ts",
   ])
   const MODULE = "lib/website-builder/theme-file-refs.ts"
   /* Resolves the rows its caller asked for with the reference column (the asset route's withRefColumn). */

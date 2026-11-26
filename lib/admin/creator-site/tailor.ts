@@ -13,6 +13,8 @@
  *   home      their hero (their picture, their words, one button to the
  *             products), their products as a grid, and their About (their
  *             avatar and bio) only when they wrote a bio
+ *   about     always (round 66; the menu links it): their picture, name,
+ *             bio, products and contact routes, see aboutPage
  *   product   the product's own title, price, buttons, description,
  *             reviews and sales; the template's sample promises, info table
  *             and sample testimonials are taken out
@@ -21,7 +23,7 @@
  *   footer    their name, their bio when they have one, their social links
  *
  * WHAT IT DOES NOT HAVE: the template's sample studio (mugs, bags, small
- * runs), its FAQ, shipping and About pages, its popups (one offered a 10%
+ * runs), its FAQ and shipping pages, its sample About page, its popups (one offered a 10%
  * code), its sample social addresses. Where the creator gave nothing, the
  * section is left out rather than filled.
  *
@@ -174,12 +176,163 @@ export function homePage(c: CreatorSiteContent): Json {
   return page(sections)
 }
 
-/** The About page: their avatar and bio, or no page at all. */
-export function aboutPage(c: CreatorSiteContent): Json | null {
-  if (!c.bio) return null
-  const home = homePage(c)
-  const about = obj(obj(home.sections).about)
-  return page([["about", { ...about, settings: { ...obj(about.settings), color_scheme: "default" } }]])
+/** Social settings (content.ts SOCIAL_SETTING) as people name the platforms. */
+export const SOCIAL_NAMES: Readonly<Record<string, string>> = {
+  instagram: "Instagram",
+  tiktok: "TikTok",
+  youtube: "YouTube",
+  social_x: "X",
+  facebook: "Facebook",
+  linkedin: "LinkedIn",
+  social_spotify: "Spotify",
+}
+
+/** "@liambailey" from instagram.com/liambailey, youtube.com/@liambailey or linkedin.com/in/liambailey; else the host. */
+export function socialHandle(url: string): string {
+  try {
+    const u = new URL(url)
+    const parts = u.pathname.split("/").filter(Boolean)
+    const last = parts[parts.length - 1] ?? ""
+    const name = decodeURIComponent(last).replace(/^@/, "")
+    if (/^[A-Za-z0-9._-]{1,30}$/.test(name) && !/^(channel|user|c|in|profile\.php)$/i.test(name)) return `@${name}`
+    return u.hostname.replace(/^www\./, "")
+  } catch {
+    return ""
+  }
+}
+
+/**
+ * THE ABOUT PAGE (round 66). The owner: "build his About page", and every
+ * built site's About clean. Made of the Storelib Default template's own
+ * sections, the ones its sample About page and home already use, so it reads
+ * as the rest of the site:
+ *
+ *   intro     Image-and-video-text: their picture, "About", their name as
+ *             the page's h1, their bio in its own paragraphs, a button to
+ *             the products. Without a picture the same words sit in a
+ *             text-columns header (Image-and-video-text with no picture
+ *             draws the theme's demo photograph, which is not theirs).
+ *   products  products-listing of what they sell, under the heading they
+ *             gave their products ("Gym Programmes"), drawn from the
+ *             database on every visit like the home grid.
+ *   contact   text-columns: a column for each social link they have (the
+ *             platform, their handle, a link), and one for the contact form
+ *             every built site keeps (/pages/contact). The footer's
+ *             newsletter sign up sits right under it on every page.
+ *
+ * Only what they gave: no bio means no paragraph, no picture no image, no
+ * links no link columns, no products no grid. Nothing is written about
+ * them that they did not write; the few words here name what a section
+ * is ("About", "Contact"), as the template's own labels do.
+ */
+export function aboutPage(c: CreatorSiteContent): Json {
+  const sections: [string, Json][] = []
+  const name = escapeHtml(c.name || "About")
+  const bio = c.bio ? paragraphs(c.bio) : ""
+
+  if (c.avatar) {
+    const intro: [string, string, Json][] = [
+      ["eyebrow", "eyebrow", { text: "About" }],
+      ["heading", "heading", { text: name, tag: "h1" }],
+    ]
+    if (bio) intro.push(["text", "subheading", { text: bio }])
+    if (c.products.length) intro.push(["button", "button", { label: "Shop all", link: "/collections/all" }])
+    sections.push([
+      "intro",
+      {
+        type: "Image-and-video-text",
+        settings: {
+          color_scheme: "default",
+          section_width: "container",
+          image_position: "left",
+          text_column_width: 52,
+          content_align: "left",
+          content_gap: 18,
+          media_type: "image",
+          image: c.avatar,
+          image_alt: c.name,
+          aspect_w: 4,
+          aspect_h: 5,
+          image_fit: "cover",
+          image_radius: 6,
+          gap_desktop: 80,
+          padding_top_desktop: 72,
+          padding_bottom_desktop: 72,
+          mobile_order: "media_first",
+          padding_top_mobile: 24,
+          padding_bottom_mobile: 40,
+        },
+        ...blocks(intro),
+      },
+    ])
+  } else {
+    sections.push([
+      "intro",
+      {
+        type: "text-columns",
+        settings: { color_scheme: "default", section_width: "container", content_alignment: "left", header_gap: 0, padding_top: 72, padding_bottom: 40, padding_top_mobile: 40, padding_bottom_mobile: 24 },
+        ...blocks([["heading", "heading", { text: name }], ...(bio ? ([["text", "subheading", { text: bio }]] as [string, string, Json][]) : [])]),
+      },
+    ])
+  }
+
+  if (c.products.length) {
+    sections.push([
+      "products",
+      {
+        type: "products-listing",
+        settings: {
+          color_scheme: "default",
+          section_width: "container",
+          items_to_show: Math.min(c.products.length, 12),
+          items_per_row: perRow(c.products.length),
+          items_per_row_mobile: c.products.length === 1 ? 1 : 2,
+          column_gap: 24,
+          row_gap: 40,
+          header_alignment: "left",
+          show_price: true,
+          show_add_to_cart: false,
+          padding_top: 40,
+          padding_bottom: 72,
+        },
+        ...blocks(c.productsHeading ? [["heading", "heading", { text: escapeHtml(c.productsHeading) }]] : []),
+      },
+    ])
+  }
+
+  const columns: [string, string, Json][] = []
+  for (const [setting, label] of Object.entries(SOCIAL_NAMES)) {
+    const url = c.socials[setting]
+    if (!url) continue
+    columns.push([`social_${setting}`, "column", { label, heading: escapeHtml(socialHandle(url) || label), text: "", link_label: `Open ${label}`, link: url }])
+  }
+  /* text "" on every column: a column without the key draws the theme's sample sentence. */
+  columns.push(["contact", "column", { label: "Message", heading: escapeHtml(c.name ? `Write to ${c.name}` : "Write a message"), text: "", link_label: "Open the contact form", link: "/pages/contact" }])
+  sections.push([
+    "contact",
+    {
+      type: "text-columns",
+      settings: {
+        color_scheme: "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        section_width: "container",
+        content_alignment: "left",
+        columns_desktop: Math.min(columns.length, 4),
+        columns_tablet: Math.min(columns.length, 2),
+        column_gap: 40,
+        header_gap: 32,
+        show_dividers: columns.length > 1,
+        item_heading_size: 20,
+        padding_top: 64,
+        padding_bottom: 64,
+        padding_top_mobile: 40,
+        padding_bottom_mobile: 40,
+        mobile_layout: "stack",
+      },
+      ...blocks([["heading", "heading", { text: "Contact" }], ...columns]),
+    },
+  ])
+
+  return page(sections)
 }
 
 /** The product page without the template's sample words; the product's own blocks stay. */
@@ -384,9 +537,7 @@ export function tailorTemplate(files: Files, c: CreatorSiteContent): Map<string,
   const out = new Map(files)
   write(out, "templates/index.json", homePage(c))
 
-  const about = aboutPage(c)
-  if (about) write(out, "templates/page.about.json", about)
-  else out.delete("templates/page.about.json")
+  write(out, "templates/page.about.json", aboutPage(c))
   for (const p of SAMPLE_ONLY_PAGES) out.delete(p)
 
   const product = readJson(files, "templates/product.json")

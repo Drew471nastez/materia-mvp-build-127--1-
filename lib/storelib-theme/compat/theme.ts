@@ -139,6 +139,7 @@ import { canonicalPageOf, pageQuery } from "@/lib/website-builder/tab-title"
 import { MISSING_IMAGE_HEAD } from "@/lib/media/missing-image"
 import { COVER_TRIM_HEAD } from "@/lib/images/cover-trim"
 import { BUSY_BUTTON_FIX } from "./busy-buttons"
+import { SHOP_CALM_HEAD, headerWishlistOn } from "./shop-calm"
 import { SEALED_NOTE, sealMarkup } from "./seal"
 import { hideAsked, poweredByLink } from "./powered-by"
 
@@ -860,6 +861,15 @@ export class CompatTheme {
     const themeRes = res.hideThemePictures ? { ...res, hideThemePictures: false } : res
     const settings = typedSettings(allSettings, this.settingsValues, themeRes, resolverFor(() => pageCtx), { exactProducts: true })
     if (schemeSetting?.id) settings[schemeSetting.id] = schemes
+    /*
+      NO WISHLIST HEART ON A STORE WITHOUT A WISHLIST (round 66). Materia draws a heart on every card from Theme
+      settings > Product cards > Show wishlist heart, on by default, while the header's wishlist icon is the
+      store's only way to its wishlist: a store whose header has none showed hearts that led nowhere
+      (liam-bailey.storelib.com). The header says: with its wishlist icon off, every theme setting that turns
+      a wishlist on reads off, and the page is marked so a section's own heart is hidden too (./shop-calm.ts).
+    */
+    const wishlistOff = this.wishlistOff(page)
+    if (wishlistOff) for (const d of allSettings) if (d && typeof d.id === "string" && d.type === "checkbox" && /wishlist/i.test(d.id)) settings[d.id] = false
     const currency = page.shop.currency ?? "USD"
     const moneyFormat = page.shop.moneyFormat ?? "${{amount}}"
 
@@ -1030,7 +1040,17 @@ export class CompatTheme {
     ctx.registers.compat = registers
     ctx.registers.page = page
     ctx.registers.res = res
+    if (wishlistOff) ctx.registers.slWishlistOff = true
     return ctx
+  }
+
+  /** The header has a wishlist icon setting and it is off on every header section (./shop-calm.ts headerWishlistOn). */
+  private wishlistOff(page: CompatPage): boolean {
+    const group = Object.entries(this.opts.chromeGroups ?? {}).find(([, k]) => k === "header")?.[0] ?? "header-group"
+    const listed = page.groups?.header
+    const headers = listed && listed.length ? listed : groupSections(this.files[`sections/${group}.json`])
+    const on = headerWishlistOn(headers.map((h) => ({ settings: h.settings as Record<string, unknown>, disabled: h.disabled, hidden: h.hidden, schema: this.schemaOf("sections", this.typeOf(h.type)) as { settings?: unknown } })))
+    return on === false
   }
 
   private env(page: CompatPage): Env {
@@ -1739,7 +1759,7 @@ export class CompatTheme {
     /* `{% layout 'alternate' %}` in a template: that layout when the theme has it, the theme's own otherwise. */
     const path = (head.layout && head.layout !== "theme" ? this.fileFor("layout", head.layout) : null) ?? this.fileFor("layout", "theme")
     const tree = path ? this.tree(path) : null
-    if (!tree) return `<!doctype html><html><head><meta charset="utf-8">${MISSING_IMAGE_HEAD}${BUSY_BUTTON_FIX}${COVER_TRIM_HEAD}${head.extraHead ?? ""}</head><body>${content}${head.extraBodyEnd ?? ""}</body></html>`
+    if (!tree) return `<!doctype html><html><head><meta charset="utf-8">${MISSING_IMAGE_HEAD}${BUSY_BUTTON_FIX}${COVER_TRIM_HEAD}${SHOP_CALM_HEAD}${head.extraHead ?? ""}</head><body>${content}${head.extraBodyEnd ?? ""}</body></html>`
     ctx.globals.content_for_layout = content
     const drawnIds = new Set<string>()
     ctx.registers.drawnIds = drawnIds
@@ -1785,6 +1805,9 @@ export class CompatTheme {
     html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${MISSING_IMAGE_HEAD}</head>`) : `${MISSING_IMAGE_HEAD}${html}`
     /* A product's padded 16:9 copy shows its picture without the grey bars, as on Storelib's own pages (lib/images/cover-trim, round AL). */
     html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${COVER_TRIM_HEAD}</head>`) : `${COVER_TRIM_HEAD}${html}`
+    /* Cards a sensible size, a product picture that fits the window, nothing that moves under the pointer, a logo in its own shape (./shop-calm.ts, round 66). */
+    html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${SHOP_CALM_HEAD}</head>`) : `${SHOP_CALM_HEAD}${html}`
+    if (ctx.registers.slWishlistOff) html = html.replace(/<html\b/i, '<html data-sl-wishlist="off"')
     /* A layout without a </head> (or without a </body>) still gets what goes there: at the top of the body, at the end of the page. */
     if (head.extraHead) html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${head.extraHead}</head>`) : /<body\b[^>]*>/i.test(html) ? html.replace(/<body\b[^>]*>/i, (m) => `${m}${head.extraHead}`) : `${head.extraHead}${html}`
     if (head.extraBodyEnd) html = /<\/body>/i.test(html) ? html.replace(/<\/body>(?![\s\S]*<\/body>)/i, `${head.extraBodyEnd}</body>`) : `${html}${head.extraBodyEnd}`

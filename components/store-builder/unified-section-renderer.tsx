@@ -4549,7 +4549,7 @@ export function UnifiedProductsGrid({
                     fill
                     /* A card in a grid of up to three, not the window's width. */
                     sizes={isMobile ? "100vw" : columns === 3 ? "(max-width: 640px) 100vw, (max-width: 768px) 50vw, 400px" : "(max-width: 640px) 100vw, 600px"}
-                    className="object-cover transition-all duration-500 [@media(hover:hover)]:group-hover:scale-105 opacity-0"
+                    className="object-cover transition-opacity duration-500 opacity-0"
                     /*
                       A PICTURE THAT IS ALREADY DECODED DOES NOT FADE IN.
 

@@ -313,9 +313,11 @@ async function warm() {
 
   const publish = code("app/api/website-builder/themes/[installId]/publish/route.ts")
   const cleared = publish.indexOf("await revalidatePublishedSite(creator.id)\n")
-  const warmAt = publish.indexOf("after(() => warmAfterPublish(creatorId, { countries: [publisherCountry] }))")
-  const releaseAt = publish.indexOf("const kept = await recordRelease(admin, { installId, creatorId })")
-  check("Publish draws its pages right after the caches are cleared, not after the release", cleared > 0 && warmAt > cleared && warmAt < releaseAt && !/await warmAfterPublish/.test(publish))
+  /* Changed on purpose (r66): the pages are drawn once the website is pointed at its release, waiting WARM_WAITS_FOR_RELEASE_MS at most, so they read the release's files every server keeps instead of every row beside the release reading them too (lib/website-builder/after-publish.ts). Still after the caches are cleared and after the answer. */
+  const warmAt = publish.indexOf("await warmAfterPublish(creatorId, { countries: [publisherCountry] })")
+  const releaseAt = publish.indexOf("const kept = await recordRelease(admin, { installId, creatorId }")
+  const warmAfter = publish.lastIndexOf("after(async () => {", warmAt)
+  check("Publish draws its pages after the caches are cleared and the release is pointed at, for a stated time at most, after the answer", cleared > 0 && releaseAt > cleared && warmAt > releaseAt && warmAfter > releaseAt && /after\(async \(\) => \{\s*await follow\.waitForRelease\(WARM_WAITS_FOR_RELEASE_MS\)\s*await warmAfterPublish\(creatorId, \{ countries: \[publisherCountry\] \}\)/.test(publish))
   check("  for the country the publisher is in", /const publisherCountry = seenCountry\(req\.headers\)/.test(publish))
   const restore = code("app/api/website-builder/themes/[installId]/releases/[releaseId]/restore/route.ts")
   check("putting a published version back draws its pages too", restore.indexOf("warmAfterPublish(creatorId") > restore.indexOf("await revalidatePublishedSite(creator.id)"))
@@ -393,7 +395,8 @@ function sources() {
   section("The rest, where it is decided")
   const compat = code("lib/website-builder/compat-site.ts")
   const publish = code("app/api/website-builder/themes/[installId]/publish/route.ts")
-  const recorded = publish.indexOf("const kept = await recordRelease(admin, { installId, creatorId })")
+  /* Changed on purpose (r66): the release is handed the publish's one read (follow.liveRows). */
+  const recorded = publish.indexOf("const kept = await recordRelease(admin, { installId, creatorId }")
   check("once Publish's release is pointed at, only the pointer is let go", publish.indexOf("releasePointed(creatorId)") > recorded && /if \(\(kept as \{ live\?: boolean \}\)\.live\) releasePointed\(creatorId\)/.test(publish))
   check("the site from memory only for the live site, never a preview", /const known = previewToken !== null \? null :/.test(compat) && /siteMemo\.get\(memoKey, known\.stamp\)/.test(compat))
   const route = code("app/api/site-theme/site/[username]/[[...path]]/route.ts")

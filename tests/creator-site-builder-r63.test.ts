@@ -179,7 +179,8 @@ async function main() {
     const json = [...tailored].filter(([p]) => /^(templates|sections)\/.*\.json$/.test(p)).map(([, b]) => b.toString("utf8")).join("\n")
     const settingsCurrent = JSON.stringify((JSON.parse(tailored.get("config/settings_data.json")!.toString("utf8")) as { current: unknown }).current)
     for (const w of SAMPLE_WORDS) check(`no "${w}" in the tailored pages`, !json.includes(w) && !settingsCurrent.includes(w))
-    check("the template's FAQ and shipping pages are gone, and About without a bio", !tailored.has("templates/page.faqs.json") && !tailored.has("templates/page.shipping.json") && !tailored.has("templates/page.about.json"))
+    /* Changed on purpose (r66): About is always built (his menu links it), from his picture, name, products and contact; tests/creator-about-r66.test.ts. */
+    check("the template's FAQ and shipping pages are gone; About is his, not the template's", !tailored.has("templates/page.faqs.json") && !tailored.has("templates/page.shipping.json") && tailored.has("templates/page.about.json") && !tailored.get("templates/page.about.json")!.toString("utf8").includes("We make a few good things"))
     check("the template's own sample pictures are not carried", ![...tailored.keys()].some((k) => /^assets\/default-/.test(k)))
     const overlay = JSON.parse(tailored.get("sections/overlay-group.json")!.toString("utf8")) as { sections: Record<string, { disabled?: boolean }> }
     check("no popup is carried (one offered a 10% code), and what is left stays off", Object.keys(overlay.sections).length > 0 && Object.values(overlay.sections).every((s) => s.disabled === true) && !JSON.stringify(overlay).includes("popup"))

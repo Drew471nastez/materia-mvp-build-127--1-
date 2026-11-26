@@ -1,6 +1,6 @@
 import { websiteInstallCaller } from "@/lib/team/website"
 import { NextResponse } from "next/server"
-import { readSnapshot, type BackupSnapshot } from "@/lib/website-builder/backups"
+import { fullSnapshot, readSnapshot, type BackupSnapshot } from "@/lib/website-builder/backups"
 import { previewBackup } from "@/lib/website-builder/backup-preview"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -43,10 +43,13 @@ export async function GET(_req: Request, { params }: Params) {
   }
   if (!backup) return NextResponse.json({ error: "Backup not found" }, { status: 404 })
 
-  const snapshot = backup.snapshot as BackupSnapshot
-  if (!snapshot || typeof snapshot !== "object" || !Array.isArray(snapshot.pages)) {
+  const stored = backup.snapshot as BackupSnapshot
+  if (!stored || typeof stored !== "object" || !Array.isArray(stored.pages)) {
     return NextResponse.json({ error: "This backup cannot be read" }, { status: 422 })
   }
+  /* Round 66: a light backup's named files, read back from the blobs (lib/website-builder/backups.ts fullSnapshot). */
+  const snapshot = await fullSnapshot(stored).catch(() => null)
+  if (!snapshot) return NextResponse.json({ error: "Could not load that. Try again." }, { status: 503 })
   const current = await readSnapshot(c.supabase, installId)
   /* Round M: what was added after the backup, and which of it a restore removes (the AI's, never published) or keeps (lib/website-builder/added-since.ts). */
   const added = await addedSince(createAdminClient(), installId, { created_at: String(backup.created_at), snapshot }).catch(() => ({ remove: [], keep: [] }))

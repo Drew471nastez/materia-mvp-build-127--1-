@@ -13,7 +13,9 @@ import { withStorelibReviewsSection } from "@/lib/storelib-theme/compat/storelib
 import { THEME_DATA_FILE, THEME_SCHEMA_FILE } from "@/lib/storelib-theme/theme-config"
 import { settingsDataFor } from "@/lib/website-builder/theme-config-store"
 import { dbFailure } from "@/lib/website-builder/write-retry"
-import { REVALIDATED_CACHE, revalidatedJson } from "@/lib/website-builder/revalidated-json"
+import { REVALIDATED_CACHE } from "@/lib/website-builder/revalidated-json"
+import { filesRevision, revisionJson, unchangedSince } from "@/lib/website-builder/files-revision"
+import { createHash } from "node:crypto"
 import { fileCols, isRefRow, refsOn, resolveRef, resolveRefs, withRefColumn, type MaybeRef } from "@/lib/website-builder/theme-file-refs"
 
 type Params = { params: Promise<{ installId: string }> }
@@ -148,6 +150,15 @@ async function handleGET(req: Request, { params }: Params) {
   }
 
   if (searchParams.get("compat") === "1") {
+    /*
+      Round 66: asked first whether the rows changed since the copy the
+      browser holds, by their paths and times alone (lib/website-builder/
+      files-revision.ts). Unchanged: a 304 before a file is read.
+    */
+    const pass = draftAssetPass(installId)
+    const revision = await filesRevision(supabase!, installId, ["shopify/%"], `compat:${createHash("sha1").update(pass).digest("base64url")}`)
+    const unchanged = unchangedSince(req, revision)
+    if (unchanged) return unchanged
     const files: Record<string, string> = {}
     const refCols = withRefColumn("path, content, draft_content", await refsHere())
     for (let from = 0; from < 10_000; from += 1000) {
@@ -178,7 +189,7 @@ async function handleGET(req: Request, { params }: Params) {
     }
     /* The pass the canvas's draft asset addresses carry (lib/storelib-theme/compat/draft-version.ts): only for whoever may read these files. */
     /* Round 27: megabytes on a Materia theme; asked again with what the browser has, unchanged files are a 304 and nothing is sent (revalidated-json.ts). */
-    return revalidatedJson(req, { files, asset_pass: draftAssetPass(installId) })
+    return revisionJson(req, revision, { files, asset_pass: pass })
   }
 
   if (searchParams.get("sources") === "1") {
@@ -188,6 +199,10 @@ async function handleGET(req: Request, { params }: Params) {
      * editing a section would be shown the version they have not saved over
      * yet. The storefront reads `content` and only `content`.
      */
+    /* Round 66: the rows' paths and times first; unchanged since the browser's copy, a 304 before a file is read (lib/website-builder/files-revision.ts). */
+    const revision = await filesRevision(supabase!, installId, ["%.storelib", THEME_SCHEMA_FILE], "sources")
+    const unchanged = unchangedSince(req, revision)
+    if (unchanged) return unchanged
     /* Round 27: the theme's own settings file is asked beside the sources, not after them. */
     const sourceCols = withRefColumn("path, content, draft_content", await refsHere())
     const schemaAsked = Promise.resolve(supabase!.from("store_theme_custom_files").select(sourceCols).eq("install_id", installId).eq("path", THEME_SCHEMA_FILE).maybeSingle())
@@ -214,7 +229,7 @@ async function handleGET(req: Request, { params }: Params) {
     if (!schemaRows) return NextResponse.json({ error: "Could not read theme settings. Try again." }, { status: 503 })
     const settingsSchema = schemaRows.length ? (sourceMap(schemaRows)[THEME_SCHEMA_FILE] ?? null) : null
     /* An imported theme offers Storelib Reviews' section in Add section like one of its own (lib/storelib-theme/compat/storelib-reviews.ts). */
-    return revalidatedJson(req, { files: withStorelibReviewsSection(files), settings_schema: settingsSchema })
+    return revisionJson(req, revision, { files: withStorelibReviewsSection(files), settings_schema: settingsSchema })
   }
 
   // List all custom files if no path
