@@ -674,6 +674,12 @@ const SUITES = [
   "tests/theme-marketplace.test.ts",
   /* Round 58: the theme marketplace as a search channel: titles, features proven by the files, JSON-LD, sitemap, pictures, llms.txt. */
   "tests/theme-seo-r58.test.ts",
+  /* Round 30: X on a template's preview closes the preview only, back on the marketplace at the same scroll (scripts/check-theme-preview-close.mjs measures it in Chromium). */
+  "tests/theme-preview-close.test.ts",
+  /* Round 30: the covers show cards at rest (no wishlist or quick view buttons) and paint a fixed background once, read off every cover (scripts/check-theme-covers.ts measures the pages). */
+  "tests/theme-cover-hygiene.test.ts",
+  /* Round 30: /admin/themes Download covers, every template's covers and SEO pictures as PNG in one zip, admin cookie only. */
+  "tests/theme-cover-export.test.ts",
   /* Theme releases from /admin/themes and Update in the library: one numbering per theme, the merge keeps the creator's content and their edited files (reported), a full library is refused, the website Update is pressed on is never written, admin only writes (RUN_THEME_RELEASES.sql). */
   "tests/theme-releases.test.ts",
   /* Round AD3: every setting in /app/settings reaches what reads it (the live website's name and photo, Store details' form, the checklist, campaign emails). */
@@ -1724,6 +1730,8 @@ const SUITES = [
   "tests/journey-theme-plans.test.ts",
   /* Round 28, layout on every template: one picture fills a two column gallery and a sticky column starts level with the details; the price at least half the title and the rating 14px; product rows keep the page padding and the theme's card gap; the sticky add to cart bar keeps its side padding; bordered FAQ items have room inside; a picture fills its ratio frame (blog cards); emoji flags fill their circle; dropdowns and the phone menu close as one piece in 220 and 300ms. Measured by scripts/check-theme-layout-r28.mjs. */
   "tests/theme-layout-r28.test.ts",
+  /* Round 30, every template: filter dropdowns open over the product cards; a stacked hero keeps 24px between its buttons and its picture on a phone; a card's hover never shows the page through a see-through second picture, and a cover never rises into its title; Lowmoth's folders have real icons and its header is glass (the solid fill left a glass header alone); each template its own scroll reveal (Editorial added), transform and opacity only, the defaults installs have unchanged. Measured by scripts/check-theme-r30.mjs. */
+  "tests/theme-r30.test.ts",
 ]
 
 /**

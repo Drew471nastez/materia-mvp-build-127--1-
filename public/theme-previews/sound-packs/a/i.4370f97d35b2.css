@@ -1,0 +1,203 @@
+.section-header:not(.shopify-section-header-sticky) .header.glass-enabled {position: relative;
+    }
+    .shopify-section-header-sticky .header.glass-enabled {
+      position: relative;
+    }
+    .section-header .header.glass-enabled,
+    .shopify-section-header-sticky .header.glass-enabled {
+      background: transparent !important;
+      background-color: transparent !important;
+      background-image: none !important;
+      background-attachment: initial !important;
+      box-shadow:
+        0 0px 0px -0px color-mix(in srgb, #0b0b0c 35%, #00000028),
+        0 1px 0 0 color-mix(in srgb, #ffffff 3%, transparent) inset;
+    }
+    .section-header .header.glass-enabled .header__inner,
+    .section-header .header.glass-enabled header-inner,
+    .section-header .header.glass-enabled .header__menu,
+    .section-header .header.glass-enabled .header__logo,
+    .section-header .header.glass-enabled .header__action,
+    .section-header .header.glass-enabled .horizontal-list,
+    .section-header .header.glass-enabled .horizontal-list > li,
+    .section-header .header.glass-enabled .horizontal-list > li > menu-item,
+    .section-header .header.glass-enabled .horizontal-list > li > menu-item > a,
+    .section-header .header.glass-enabled .navigation.horizontal:not(.fixed),
+    .section-header .header.glass-enabled .navigation.horizontal:not(.mobile),
+    .section-header .header.glass-enabled .navigation__menu-content:not(.navigation__menu-content-mobile),
+    .shopify-section-header-sticky .header.glass-enabled .header__inner,
+    .shopify-section-header-sticky .header.glass-enabled header-inner,
+    .shopify-section-header-sticky .header.glass-enabled .header__menu,
+    .shopify-section-header-sticky .header.glass-enabled .header__logo,
+    .shopify-section-header-sticky .header.glass-enabled .header__action,
+    .shopify-section-header-sticky .header.glass-enabled .horizontal-list,
+    .shopify-section-header-sticky .header.glass-enabled .horizontal-list > li,
+    .shopify-section-header-sticky .header.glass-enabled .horizontal-list > li > menu-item,
+    .shopify-section-header-sticky .header.glass-enabled .horizontal-list > li > menu-item > a,
+    .shopify-section-header-sticky .header.glass-enabled .navigation.horizontal:not(.fixed),
+    .shopify-section-header-sticky .header.glass-enabled .navigation.horizontal:not(.mobile),
+    .shopify-section-header-sticky .header.glass-enabled .navigation__menu-content:not(.navigation__menu-content-mobile) {
+      background: transparent !important;
+      background-color: transparent !important;
+      background-image: none !important;
+    }
+    .section-header .header.glass-enabled .header__inner,
+    .shopify-section-header-sticky .header.glass-enabled .header__inner {
+      position: relative;
+      z-index: 3;
+    }
+    .section-header .header.glass-enabled .submenu,
+    .section-header .header.glass-enabled .sub-children-menu,
+    .section-header .header.glass-enabled .dropdown-menu .submenu,
+    .section-header .header.glass-enabled .menu-parent .submenu,
+    .shopify-section-header-sticky .header.glass-enabled .submenu,
+    .shopify-section-header-sticky .header.glass-enabled .sub-children-menu,
+    .shopify-section-header-sticky .header.glass-enabled .dropdown-menu .submenu,
+    .shopify-section-header-sticky .header.glass-enabled .menu-parent .submenu {
+      background: var(--color-background) !important;
+      background-color: var(--color-background) !important;
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+    }
+    .section-header .header.glass-enabled::before,
+    .shopify-section-header-sticky .header.glass-enabled::before {
+      content: none !important;
+      display: none !important;
+      background: none !important;
+      opacity: 0 !important;
+    }
+    #shopify-section-header .header.glass-enabled > .header-glass-layer,
+.shopify-section-header-sticky .header.glass-enabled > .header-glass-layer {
+      position: absolute;
+      inset: 0;
+      display: block;
+      border-radius: 0;
+      overflow: hidden;
+      z-index: 0;
+      pointer-events: none;
+    }
+    #shopify-section-header .header.glass-enabled > .header-glass-layer > .header-glass-blur,
+.shopify-section-header-sticky .header.glass-enabled > .header-glass-layer > .header-glass-blur {
+      position: absolute;
+      inset: 0;
+      display: block;
+      background:
+        linear-gradient(
+          180deg,
+          color-mix(in srgb, #ffffff 6%, transparent) 0%,
+          color-mix(in srgb, #ffffff 1%, transparent) 35%,
+          transparent 100%
+        ),
+        linear-gradient(
+          180deg,
+          color-mix(in srgb, #0b0b0c 68%, transparent) 0%,
+          color-mix(in srgb, #0b0b0c 54%, transparent) 100%
+        );
+      -webkit-backdrop-filter: blur(22px) saturate(150%) brightness(100%) contrast(100%);
+      backdrop-filter: blur(22px) saturate(150%) brightness(100%) contrast(100%);
+    }
+    .section-header .header.glass-enabled.glass-border::after,
+    .shopify-section-header-sticky .header.glass-enabled.glass-border::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, color-mix(in srgb, #0b0b0c 50%, #00000045), transparent) !important;
+      pointer-events: none;
+      z-index: 2;
+    }
+    #shopify-section-header .header.glass-enabled .navigation.horizontal,
+#shopify-section-header .header.glass-enabled .navigation.horizontal *,
+.shopify-section-header-sticky .header.glass-enabled .navigation.horizontal,
+.shopify-section-header-sticky .header.glass-enabled .navigation.horizontal * {
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+    }
+    #shopify-section-header .header.glass-enabled .navigation.horizontal.fixed::before,
+#shopify-section-header .header.glass-enabled .navigation.horizontal.fixed::after,
+.shopify-section-header-sticky .header.glass-enabled .navigation.horizontal.fixed::before,
+.shopify-section-header-sticky .header.glass-enabled .navigation.horizontal.fixed::after {
+      content: none !important;
+      display: none !important;
+    }
+    #shopify-section-header .header.glass-enabled .navigation.horizontal.fixed .level0::before,
+#shopify-section-header .header.glass-enabled .navigation.horizontal.fixed .level0::after,
+#shopify-section-header .header.glass-enabled .navigation.horizontal.fixed menu-item::before,
+#shopify-section-header .header.glass-enabled .navigation.horizontal.fixed menu-item::after,
+#shopify-section-header .header.glass-enabled .navigation.horizontal.fixed .menu-parent::before,
+#shopify-section-header .header.glass-enabled .navigation.horizontal.fixed .menu-parent::after,
+.shopify-section-header-sticky .header.glass-enabled .navigation.horizontal.fixed .level0::before,
+.shopify-section-header-sticky .header.glass-enabled .navigation.horizontal.fixed .level0::after,
+.shopify-section-header-sticky .header.glass-enabled .navigation.horizontal.fixed menu-item::before,
+.shopify-section-header-sticky .header.glass-enabled .navigation.horizontal.fixed menu-item::after {
+      content: none !important;
+      display: none !important;
+      background: none !important;
+      border: 0 !important;
+    }
+    #shopify-section-header .header.glass-enabled .navigation.horizontal.fixed.mobile {
+      background: var(--color-background) !important;
+      background-image: none !important;
+      isolation: auto !important;
+      box-shadow: none !important;
+    }
+    @media screen and (min-width: 1025px) {
+      #shopify-section-header .header.glass-enabled .navigation.horizontal,
+      #shopify-section-header .header.glass-enabled .navigation__menu-content,
+      #shopify-section-header .header.glass-enabled .horizontal-list,
+      #shopify-section-header .header.glass-enabled .horizontal-list > .level0,
+      #shopify-section-header .header.glass-enabled .horizontal-list > .level0 > menu-item,
+      #shopify-section-header .header.glass-enabled .horizontal-list > .level0 > menu-item > a,
+      #shopify-section-header .header.glass-enabled .horizontal-list > .level0 > menu-item > a:hover,
+      #shopify-section-header .header.glass-enabled .horizontal-list > .level0 > menu-item > a:focus,
+      #shopify-section-header .header.glass-enabled .horizontal-list > .level0 > menu-item > a.active,
+      #shopify-section-header .header.glass-enabled .horizontal-list > .level0 > menu-item > a.current,
+      #shopify-section-header .header.glass-enabled .horizontal-list > .level0.active > menu-item > a,
+      #shopify-section-header .header.glass-enabled .horizontal-list > .level0 > menu-item > a[aria-current],
+      .shopify-section-header-sticky .header.glass-enabled .navigation.horizontal,
+      .shopify-section-header-sticky .header.glass-enabled .navigation__menu-content,
+      .shopify-section-header-sticky .header.glass-enabled .horizontal-list,
+      .shopify-section-header-sticky .header.glass-enabled .horizontal-list > .level0,
+      .shopify-section-header-sticky .header.glass-enabled .horizontal-list > .level0 > menu-item,
+      .shopify-section-header-sticky .header.glass-enabled .horizontal-list > .level0 > menu-item > a,
+      .shopify-section-header-sticky .header.glass-enabled .horizontal-list > .level0 > menu-item > a:hover,
+      .shopify-section-header-sticky .header.glass-enabled .horizontal-list > .level0 > menu-item > a.active,
+      .shopify-section-header-sticky .header.glass-enabled .horizontal-list > .level0 > menu-item > a.current {
+        background: transparent !important;
+        background-color: transparent !important;
+        background-image: none !important;
+        box-shadow: none !important;
+      }
+      #shopify-section-header .header.glass-enabled .horizontal-list > .level0 > menu-item > a::before,
+      #shopify-section-header .header.glass-enabled .horizontal-list > .level0 > menu-item > a:hover::before,
+      .shopify-section-header-sticky .header.glass-enabled .horizontal-list > .level0 > menu-item > a::before,
+      .shopify-section-header-sticky .header.glass-enabled .horizontal-list > .level0 > menu-item > a:hover::before {
+        background: transparent !important;
+        background-color: transparent !important;
+        box-shadow: none !important;
+      }
+    }
+    @media screen and (min-width: 1025px) {
+      .header.glass-enabled .horizontal-list > .level0 > menu-item,
+      .header.glass-enabled .horizontal-list > .level0 > menu-item > a,
+      .shopify-section-header-sticky .header.glass-enabled .horizontal-list > .level0 > menu-item,
+      .shopify-section-header-sticky .header.glass-enabled .horizontal-list > .level0 > menu-item > a {
+        align-self: stretch;
+        display: inline-flex;
+        align-items: center;
+      }
+      .header.glass-enabled .horizontal-list,
+      .shopify-section-header-sticky .header.glass-enabled .horizontal-list {
+        align-items: stretch !important;
+      }
+      .header.glass-enabled .menu-parent.visible .submenu:not(.submenu-vertical),
+      .shopify-section-header-sticky .header.glass-enabled .menu-parent.visible .submenu:not(.submenu-vertical) {
+        margin-top: calc(var(--section-pb, 10) * 1px);
+      }
+    }@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      #shopify-section-header .header.glass-enabled > .header-glass-layer {
+        background: color-mix(in srgb, #0b0b0c 85%, transparent) !important;
+      }
+    }

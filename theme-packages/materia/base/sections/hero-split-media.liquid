@@ -116,6 +116,9 @@
   #shopify-section-{{ sid }} .hsm[data-empty-text] .hsm__content{display:none}
   @media (max-width:767px){
     #shopify-section-{{ sid }} .hsm__media{order:2}
+    {%- comment -%} Stacked, the text never meets the picture: the side of the text that faces it keeps 24px or more (round 30: Wren Studio's buttons sat on the picture with a 0px bottom padding). {%- endcomment -%}
+    #shopify-section-{{ sid }} .hsm:not([data-empty-text]) .hsm__content{padding-bottom:max(24px,calc(var(--r7h-pb-m,40px)*var(--sl-space-scale,1)))}
+    #shopify-section-{{ sid }} .hsm[data-media-first]:not([data-empty-text]) .hsm__content{padding-top:max(24px,calc(var(--r7h-pt-m,40px)*var(--sl-space-scale,1)));padding-bottom:calc(var(--r7h-pb-m,40px)*var(--sl-space-scale,1))}
     #shopify-section-{{ sid }} .hsm[data-media-first] .hsm__grid{grid-template-rows:minmax(var(--hsm-media-h-m,320px),1fr) auto}
     #shopify-section-{{ sid }} .hsm[data-media-first] .hsm__media{order:0}
     #shopify-section-{{ sid }} .hsm[data-empty-text] .hsm__grid{grid-template-rows:minmax(var(--hsm-media-h-m,320px),1fr)}

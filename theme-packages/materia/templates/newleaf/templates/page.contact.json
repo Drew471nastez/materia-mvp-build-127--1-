@@ -1,4 +1,4 @@
-/* Templates round 29: New Leaf. A message form with the address and reply time, and the questions people ask most. */
+/* Templates round 29: Octavo. A message form with the address and reply time, and the questions people ask most. */
 {
   "sections": {
     "heading": {
@@ -63,7 +63,7 @@
           "type": "info",
           "settings": {
             "icon": "mail",
-            "line1": "hello@newleaf.example",
+            "line1": "hello@octavo.example",
             "line2": "Write any time"
           }
         },

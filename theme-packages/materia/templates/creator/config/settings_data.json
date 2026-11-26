@@ -191,6 +191,8 @@
     "product_image_ratio": "portrait",
     "product_alignment": "left",
     "scroll_animation": "slide_in",
+    "reveal_stagger": 75,
+    "animation_delay": 0,
     "hover_effect": "hover_lift",
     "btn_hover_effect": "fade",
     "show_delivery_day": false,

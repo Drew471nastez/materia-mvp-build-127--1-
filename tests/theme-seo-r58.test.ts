@@ -40,6 +40,10 @@ import {
   themeImages,
   themePageCopy,
   themeSitemapEntries,
+  themeImagePath,
+  themeImageStem,
+  themeSeoFor,
+  slugWords,
   type ThemeFeature,
 } from "../lib/themes/theme-seo"
 import { categoryJsonLd, marketplaceJsonLd, themeJsonLd } from "../lib/themes/theme-seo-jsonld"
@@ -159,7 +163,8 @@ async function main() {
   check("the shared pages are in every template", CODE_TEMPLATES.every((c) => ["index.json", "product.json", "collection.json", "cart.json", "page.about.json", "page.contact.json", "page.faqs.json", "blog.json"].every((x) => templateFiles(c.template).files.includes(x))))
 
   console.log("\n  3. Categories")
-  check("seven categories, each with at least three templates, each template in one at least", THEME_SEO_CATEGORIES.length === 7 && THEME_SEO_CATEGORIES.every((c) => c.members.length >= 3) && THEME_SEO.every((s) => THEME_SEO_CATEGORIES.some((c) => c.members.includes(s.slug))))
+  /* Changed on purpose (round 30): ten categories. The owner asked for a page answering each use people search for; Notion template websites, ebook websites and streetwear stores had none, so each is a category of the templates that really are that. */
+  check("ten categories, each with at least three templates, each template in one at least", THEME_SEO_CATEGORIES.length === 10 && THEME_SEO_CATEGORIES.every((c) => c.members.length >= 3) && THEME_SEO.every((s) => THEME_SEO_CATEGORIES.some((c) => c.members.includes(s.slug))))
   check("a template's own category lists it", THEME_SEO.every((s) => THEME_SEO_CATEGORIES.find((c) => c.slug === s.primaryCategory)?.members.includes(s.slug)))
   check("every category names templates that exist", THEME_SEO_CATEGORIES.every((c) => c.members.every((m) => CODE_TEMPLATES.some((t) => t.slug === m))))
   const uploaded: ThemeListing = { ...bySlug("clothing"), id: "x", slug: "aurora", name: "Aurora", category: "music", codePackage: null, cover: "https://cdn.example.com/a.webp", screenshots: ["https://cdn.example.com/a.webp"], author: "Jun", description: null }
@@ -224,7 +229,8 @@ async function main() {
 
   console.log("\n  5. Sitemap, robots, noindex")
   const entries = themeSitemapEntries(listings)
-  check("the sitemap lists seven category pages and every template's page", entries.length === 7 + listings.length && THEME_SEO_CATEGORIES.every((c) => entries.some((e) => e.url === `https://storelib.com/themes/category/${c.slug}`)) && listings.every((l) => entries.some((e) => e.url === `https://storelib.com/themes/${l.slug}`)))
+  /* Changed on purpose (round 30): ten category pages (above), each with the card pictures it shows. */
+  check("the sitemap lists ten category pages and every template's page", entries.length === 10 + listings.length && THEME_SEO_CATEGORIES.every((c) => entries.some((e) => e.url === `https://storelib.com/themes/category/${c.slug}`)) && listings.every((l) => entries.some((e) => e.url === `https://storelib.com/themes/${l.slug}`)))
   check("  absolute, no query strings, each template with its three pictures", entries.every((e) => /^https:\/\/storelib\.com\/themes\/[a-z0-9/-]+$/.test(e.url)) && entries.filter((e) => !e.url.includes("/category/")).every((e) => e.images?.length === 3))
   const sm = stripComments(read("lib/seo/sitemaps.ts"))
   check("  pages.xml takes them from the published list, the code's templates when that read fails", /\.\.\.\(await themeMarketplaceEntries\(\)\)/.test(sm) && /publishedListings\(\)\.catch\(\(\) => builtinListings\(\)\)/.test(sm) && /themeSitemapEntries\(listings, BASE\)/.test(sm))
@@ -239,7 +245,8 @@ async function main() {
     const img = themeImages(l)
     const file = (src: string) => join(root, "public", src)
     const sizes: Array<[string, number, number, number]> = [
-      ...CARD_WIDTHS.map((w) => [`${SEO_IMAGE_DIR}/${c.template}-card-${w}.webp`, w, (w * 5) / 4, w === 480 ? 45 : 80] as [string, number, number, number]),
+      /* Changed on purpose (round 30): each template's pictures in a folder by its address, each file named for what the template is (themeImagePath). */
+      ...CARD_WIDTHS.map((w) => [themeImagePath(c.slug, `card-${w}`), w, (w * 5) / 4, w === 480 ? 45 : 80] as [string, number, number, number]),
       [img.hero!.src, HERO_SIZE.w, HERO_SIZE.h, 80],
       [img.phone!.src, PHONE_SIZE.w, PHONE_SIZE.h, 50],
       [img.og!.src, OG_SIZE.w, OG_SIZE.h, 120],
@@ -257,6 +264,14 @@ async function main() {
     }
     check(`  ${c.template}: cards 480 and 800 (4:5), hero 1200x750, phone 390x844, share card 1200x630, each within its budget`, bad.length === 0, bad)
   }
+  /* Round 30: the file names say what the template is, and the record of what was written is current. */
+  const stems = JSON.parse(read("lib/themes/theme-image-stems.json")) as Record<string, string>
+  const stale = CODE_TEMPLATES.filter((c) => stems[c.slug] !== themeImageStem(c.slug)).map((c) => `${c.slug}: written ${stems[c.slug] ?? "never"}, now ${themeImageStem(c.slug)} (run node scripts/build-theme-seo-images.mjs ${c.template})`)
+  check("every template's SEO pictures are written under the name it has now: its primary keyword, then its name", stale.length === 0, stale)
+  check("  in a folder by its address, the file a word list of what it is", CODE_TEMPLATES.every((c) => new RegExp(`^${SEO_IMAGE_DIR}/${c.slug}/[a-z0-9-]+-hero\\.webp$`).test(themeImagePath(c.slug, "hero")) && themeImagePath(c.slug, "hero").includes(slugWords(themeSeoFor(c.slug)!.primaryKeyword))))
+  check("  no flat <template>-<kind> file of before round 30 is left", CODE_TEMPLATES.every((c) => !existsSync(join(root, "public", SEO_IMAGE_DIR, `${c.template}-hero.webp`))))
+  check("  the builder's preview finds the same files through the small names module, not the copy deck", /themeImagePathOf\(t\.slug, device === "phone" \? "phone" : "card-480"\)/.test(read("app/(storelib)/app/website-builder/themes/theme-preview.tsx")) && !/theme-seo"/.test(read("app/(storelib)/app/website-builder/themes/theme-preview.tsx")))
+  check("  the category pages carry their cards' pictures in the sitemap", entries.filter((e) => e.url.includes("/category/")).every((e) => (e.images?.length ?? 0) >= 3 && e.images!.every((u) => /-card-800\.webp$/.test(u))))
   check("every picture's alt text says which template and where it is shown", listings.every((l) => /computer/.test(themeAlt(l, "hero", themePageCopy(l).h1)) && /phone/.test(themeAlt(l, "phone")) && themeAlt(l, "card", themePageCopy(l).h1).startsWith(l.name)))
   check("a card is the cut picture with a srcset, not the whole page screenshot", listings.every((l) => { const card = marketplaceCard(l); return !!card.image && card.image.src.includes("/seo/") && card.image.srcSet.includes("800w") }))
 

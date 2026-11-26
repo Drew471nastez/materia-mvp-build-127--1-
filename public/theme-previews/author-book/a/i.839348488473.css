@@ -1,0 +1,145 @@
+
+  
+  cart-notification.minicart,
+  cart-notification.minicart .minicart__wrapper,
+  cart-notification.minicart .minicart-form,
+  cart-notification.minicart .cart-footer,
+  cart-notification.minicart .drawer-bottom,
+  body cart-notification.minicart,
+  body cart-notification.minicart .minicart__wrapper,
+  body cart-notification.minicart .minicart-form,
+  html cart-notification.minicart,
+  html cart-notification.minicart .minicart__wrapper {
+    background-color: #fdfcf9 !important;
+    background: #fdfcf9 !important;
+    color: #45423d !important;
+  }
+  /* Re-declare scheme variables on the cart drawer scope so any
+     descendant that uses var(--color-background) etc. resolves to
+     the cart scheme — not the page scheme. */
+  cart-notification.minicart,
+  cart-notification.minicart .minicart__wrapper,
+  cart-notification.minicart .minicart-form {
+    --color-background: #fdfcf9 !important;
+    --color-text: #45423d !important;
+    --color-heading: #1a1817 !important;
+    --color-primary: #b8322a !important;
+    --color-border: #e7e3da !important;
+    --gradient-background: #fdfcf9 !important;
+    --btn-primary-color: #ffffff !important;
+    --btn-primary-bg-color: #c8372d !important;
+    --btn-primary-hover-color: #ffffff !important;
+    --btn-primary-hover-bg-color: #1a1817 !important;
+    --btn-outline-color: #1a1817 !important;
+    --btn-outline-border-color: #d3cec4 !important;
+    --grey-color: color-mix(in srgb, #fdfcf9 93%, #45423d 7%) !important;
+  }
+  /* All `grey-bg` regions (header sit-on, free-shipping bar, drawer
+     bottom) inherit the SAME scheme background so the whole drawer
+     reads as one continuous panel. The previous 7% tint created
+     subtle bands between the free-ship bar / countdown / cart
+     items / subtotal — merchant feedback was the drawer should be
+     ONE colour, not a banded panel. Section separation is handled by
+     scheme-aware hairline borders below. */
+  cart-notification.minicart .grey-bg,
+  cart-notification.minicart .cart_shipping.grey-bg,
+  cart-notification.minicart .drawer-bottom.grey-bg,
+  cart-notification.minicart .minicart__header,
+  cart-notification.minicart .cart-countdown-time {
+    background-color: #fdfcf9 !important;
+    background: #fdfcf9 !important;
+  }
+  /* Hairline scheme-aware dividers replace the old `grey-bg` tint. */
+  cart-notification.minicart .minicart__header {
+    border-bottom: 1px solid color-mix(in srgb, #45423d 12%, transparent) !important;
+  }
+  cart-notification.minicart .cart_shipping.border-top,
+  cart-notification.minicart .cart_shipping.border-bottom,
+  cart-notification.minicart .drawer-bottom.border-top {
+    border-color: color-mix(in srgb, #45423d 12%, transparent) !important;
+  }
+  /* Checkout button — cart scheme's primary. */
+  cart-notification.minicart .btn-checkout{
+    background-color: #c8372d !important;
+    color: #ffffff !important;
+    border-color: #c8372d !important;
+  }cart-notification.minicart .btn-checkout *{background-color:transparent !important;
+    color: #ffffff !important;
+    border-color: #c8372d !important;
+  }
+  cart-notification.minicart .btn-checkout:hover {
+    background-color: #1a1817 !important;
+    color: #ffffff !important;
+  }
+  /* View Cart — outline. */
+  cart-notification.minicart .btn-outline.viewcart{
+    color: #1a1817 !important;
+    border-color: #d3cec4 !important;
+    background: transparent !important;
+  }cart-notification.minicart .btn-outline.viewcart *{
+    color: #1a1817 !important;
+    border-color: #d3cec4 !important;background:transparent !important;
+  }
+  /* Cart drawer header — "Your Cart (X)", count bubble, and close
+     icon. Pins them to the cart scheme so the title text + close
+     icon stay legible regardless of which scheme the merchant picks. */
+  cart-notification.minicart .minicart__header,
+  cart-notification.minicart .minicart-heading,
+  cart-notification.minicart .minicart-heading *,
+  cart-notification.minicart .cart-count,
+  cart-notification.minicart .cart-count-drawer {
+    color: #1a1817 !important;
+  }
+  cart-notification.minicart .button-close,
+  cart-notification.minicart .button-close svg,
+  cart-notification.minicart .button-close svg use,
+  cart-notification.minicart .button-close svg path,
+  cart-notification.minicart .close-cart-button,
+  cart-notification.minicart .close-cart-button svg,
+  cart-notification.minicart .close-cart-button svg use,
+  cart-notification.minicart .close-cart-button svg path {
+    color: #45423d !important;
+    fill: currentColor !important;
+    stroke: currentColor !important;
+  }
+  /* Reservation timer — "Your items are reserved for 01m41s". */
+  cart-notification.minicart .cart-countdown-time,
+  cart-notification.minicart .cart-countdown-time *,
+  cart-notification.minicart countdown-timer,
+  cart-notification.minicart countdown-timer *,
+  cart-notification.minicart .countdown-inner,
+  cart-notification.minicart .countdown-inner * {
+    color: #45423d !important;
+  }
+  cart-notification.minicart .border-bottom-dashed {
+    border-bottom-color: color-mix(in srgb, #45423d 20%, transparent) !important;
+  }
+  /* Empty cart state — title, description, and Continue Shopping
+     button (uses .btn-primary so the global button rule already
+     pins it; we only need to pin the empty-state TEXT here). */
+  cart-notification.minicart .cart-empty,
+  cart-notification.minicart .cart-empty *,
+  cart-notification.minicart .cart-body,
+  cart-notification.minicart .cart-body :is(h1, h2, h3, h4, h5, h6, p, span, div):not(.btn-primary):not(.btn-primary *):not(.minicart-action):not(.minicart-action *) {
+    color: #45423d !important;
+  }
+  cart-notification.minicart .cart-empty :is(h1, h2, h3, h4, h5, h6, .h6) {
+    color: #1a1817 !important;
+  }
+  /* The empty-cart icon SVG had hardcoded stroke="#C9CCD1" — pin to
+     scheme text so it reads on every scheme. */
+  cart-notification.minicart .cart-empty__icon,
+  cart-notification.minicart .cart-empty__icon path {
+    stroke: color-mix(in srgb, #45423d 35%, transparent) !important;
+  }
+  /* Continue Shopping button (.btn-primary.minicart-action) —
+     ensure the cart scheme's button-primary customiser drives the
+     colours, not the page-default scheme. */
+  cart-notification.minicart .minicart-action.btn-primary{
+    background-color: #c8372d !important;
+    color: #ffffff !important;
+    border-color: #c8372d !important;
+  }cart-notification.minicart .minicart-action.btn-primary *{background-color:transparent !important;
+    color: #ffffff !important;
+    border-color: #c8372d !important;
+  }

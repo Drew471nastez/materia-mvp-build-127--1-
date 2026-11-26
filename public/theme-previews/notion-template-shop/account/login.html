@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/notion-template-shop/a/cart.a589b1753b5e.json",WISH_DATA="",QV_DATA="/theme-previews/notion-template-shop/a/quickview.968bfb7d3ad6.json",RV_DATA="/theme-previews/notion-template-shop/a/recent.6b4a872a3802.json";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/notion-template-shop/a/cart.ba3494e07833.json",WISH_DATA="",QV_DATA="/theme-previews/notion-template-shop/a/quickview.997915f8d537.json",RV_DATA="/theme-previews/notion-template-shop/a/recent.a5da16249d5c.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -180,7 +180,7 @@ var IT=0,ITH="";function intent(a){if(!a||a.hasAttribute("download"))return;var 
 D.addEventListener("pointerover",function(e){if(!HAND||e.pointerType==="touch")return;var a=e.target&&e.target.closest&&e.target.closest("a[href]");clearTimeout(IT);if(a)IT=setTimeout(function(){intent(a)},80)},{passive:true});
 D.addEventListener("touchstart",function(e){if(!HAND)return;intent(e.target&&e.target.closest&&e.target.closest("a[href]"))},{passive:true});
 
-})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#f8f7f3}</style><script>
+})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#f7f7f4}</style><script>
       (function () {
         function show(img) {
           if (!img || img.tagName !== 'IMG' || !img.classList.contains('bls-loading-image')) return;
@@ -199,13 +199,15 @@ D.addEventListener("touchstart",function(e){if(!HAND)return;intent(e.target&&e.t
 <script src="/theme-previews/notion-template-shop/a/i.59a2755e14fa.js"></script><meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content=""><script src="/theme-previews/notion-template-shop/a/i.5802c928e030.js"></script><title>Sign in | New Leaf</title>
-<meta property="og:site_name" content="New Leaf">
-<meta property="og:title" content="Sign in | New Leaf">
+<meta name="theme-color" content=""><script src="/theme-previews/notion-template-shop/a/i.5802c928e030.js"></script><title>Sign in | Octavo</title>
+<meta property="og:site_name" content="Octavo">
+<meta property="og:title" content="Sign in | Octavo">
 <meta property="og:type" content="website">
-<meta property="og:description" content="New Leaf"><meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Sign in | New Leaf">
-<meta name="twitter:description" content="New Leaf">
+<meta property="og:description" content="Octavo">
+<meta property="og:image:width" content="345">
+<meta property="og:image:height" content="117"><meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Sign in | Octavo">
+<meta name="twitter:description" content="Octavo">
 <style id="speed-optimization-css">
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -234,7 +236,7 @@ D.addEventListener("touchstart",function(e){if(!HAND)return;intent(e.target&&e.t
           document.head.appendChild(l);
         } catch (e) {}
       })();
-    </script><link href="/theme-previews/_base/a/base-static.c7b74da5b1b4.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":20,"price_size":17,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
+    </script><link href="/theme-previews/_base/a/base.227cf93255fb.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":20,"price_size":17,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = false === true ? 'true' : 'false';</script>
 <script type="application/json" data-badge-style-settings>true</script>
@@ -244,11 +246,11 @@ D.addEventListener("touchstart",function(e){if(!HAND)return;intent(e.target&&e.t
     document.addEventListener('DOMContentLoaded',function(){setTimeout(go,4000)},{once:true})}
     ['pointerdown','click','keydown','scroll','touchstart'].forEach(function(n){addEventListener(n,go,{once:true,passive:true,capture:true})})})(["/theme-previews/_base/a/popup.537a49cfcb3e.css","/theme-previews/_base/a/tingle-min.ed947d9dd1c7.css"]);</script><link rel="stylesheet" href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" media="print" onload="this.media='all'">
 <noscript><link href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" rel="stylesheet" type="text/css" media="all"></noscript>
-<link rel="stylesheet" href="/theme-previews/_base/a/fonts.20f7c8c43dc9.css" data-materia-fonts>
-<style data-materia-font-fallbacks>@font-face{font-family:"Work Sans Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:112.5%;ascent-override:82.7%;descent-override:21.6%;line-gap-override:0%}@font-face{font-family:"Work Sans Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:112.5%;ascent-override:82.7%;descent-override:21.6%;line-gap-override:0%}@font-face{font-family:"Young Serif Fallback";src:local("Times New Roman"), local("TimesNewRomanPSMT"), local("Liberation Serif");font-weight:100 549;size-adjust:122.7%;ascent-override:85.2%;descent-override:29.8%;line-gap-override:0%}@font-face{font-family:"Young Serif Fallback";src:local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold");font-weight:550 1000;size-adjust:122.7%;ascent-override:85.2%;descent-override:29.8%;line-gap-override:0%}</style><style data-shopify>
+<link rel="stylesheet" href="/theme-previews/_base/a/fonts.8681b8c44c94.css" data-materia-fonts>
+<style data-materia-font-fallbacks>@font-face{font-family:"Karla Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:102.7%;ascent-override:89.3%;descent-override:24.5%;line-gap-override:0%}@font-face{font-family:"Karla Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:102.7%;ascent-override:89.3%;descent-override:24.5%;line-gap-override:0%}@font-face{font-family:"Libre Baskerville Fallback";src:local("Times New Roman"), local("TimesNewRomanPSMT"), local("Liberation Serif");font-weight:100 549;size-adjust:126.5%;ascent-override:76.7%;descent-override:21.3%;line-gap-override:0%}@font-face{font-family:"Libre Baskerville Fallback";src:local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold");font-weight:550 1000;size-adjust:126.5%;ascent-override:76.7%;descent-override:21.3%;line-gap-override:0%}</style><style data-shopify>
   :root {
-    --body-font: "Work Sans", "Work Sans Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --heading-font: "Young Serif", "Young Serif Fallback", Georgia, "Times New Roman", serif, sans-serif;
+    --body-font: "Karla", "Karla Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --heading-font: "Libre Baskerville", "Libre Baskerville Fallback", Georgia, "Times New Roman", serif, sans-serif;
     --menu-font: var(--body-font);
     --btn-font: var(--body-font);
     --heading-font-style: normal;
@@ -256,7 +258,7 @@ D.addEventListener("touchstart",function(e){if(!HAND)return;intent(e.target&&e.t
     --font-heading-family: var(--heading-font);
   }
 </style>
-<link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.6e574b4b67d3.css" data-shopify><noscript><link href="/theme-previews/_base/a/popup.537a49cfcb3e.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.e2eadba68934.css">
+<link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.ce432bd440b0.css" data-shopify><noscript><link href="/theme-previews/_base/a/popup.537a49cfcb3e.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.e2eadba68934.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/minicart.679b4fb18845.css" fetchpriority="low">
 <link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.6a68b7e13653.css" fetchpriority="low">
 <link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.1085677a567b.css"><link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.5c93b97a449e.css"><link rel="modulepreload" href="/theme-previews/_base/a/theme.b49152a98599.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/notion-template-shop/a/i.2dfcabf4f604.js"></script>
@@ -293,7 +295,7 @@ D.addEventListener("touchstart",function(e){if(!HAND)return;intent(e.target&&e.t
 class="gradient rounded-style  customers/login"
 data-btn-style="solid"
 data-btn-secondary-style="solid"
-data-scroll-animation="none"
+data-scroll-animation="editorial"
 data-zoom-image="false"
 data-btn-shape="rounded"
 data-btn-hover="fade"
@@ -345,7 +347,7 @@ data-pc-show="all"
 style="--section-pt: 0; --section-pb: 0;"
 >
 <div class="fluid_container" data-pc-width="fluid_container">
-<div class="sec__inner"><link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.41b15864c83f.css"></div>
+<div class="sec__inner"><link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.daa4b702cb28.css"></div>
 </div>
 </div></section><div id="shopify-section-header" class="shopify-section shopify-section-group-header-group section-header has-popup" data-section-id="header" data-section-type="theme-header"><link href="/theme-previews/_base/a/header-section.0b1f3e2d8175.css" rel="stylesheet" type="text/css" media="all">
 <script src="/theme-previews/_base/a/header-section.529bac1525b9.js" defer="defer"></script><style>
@@ -366,12 +368,12 @@ style="--section-pt: 0; --section-pb: 0;"
     --count-bubble-animation: mt-count-pop;
   }
 </style><style data-shopify>#shopify-section-header {
-    --hs-mnav-bg: #f8f7f3;
-    --hs-mnav-heading: #1c1c1a;
-    --hs-mnav-text: #55554f;
+    --hs-mnav-bg: #f7f7f4;
+    --hs-mnav-heading: #15182a;
+    --hs-mnav-text: #4a4d57;
     --hs-hover-fill: #ffffff;
-    --hs-logo-width: 150px;
-    --hs-logo-width-mobile: 124px;
+    --hs-logo-width: 112px;
+    --hs-logo-width-mobile: 98px;
     --hs-logo-max-height: 56px;
     --hs-logo-box-height: 72px;
   }#shopify-section-header { --hs-menu-gap: 28px; --hs-icon-gap: 10px; --hs-icon-gap-mobile: 6px; --hs-logo-x: 0px; --hs-logo-x-mobile: 0px; }@media (max-width: 1024.98px) {
@@ -379,7 +381,7 @@ style="--section-pt: 0; --section-pb: 0;"
       --hs-logo-max-height: 44px;
       --hs-logo-box-height: 60px;
     }
-  }:root { --hs-mnav-title-bg: #f8f7f3; --hs-mnav-title-color: #1c1c1a; }</style><link href="/theme-previews/_base/a/header-layout.784e491443d1.css" rel="stylesheet" type="text/css" media="all">
+  }:root { --hs-mnav-title-bg: #f8f7f3; --hs-mnav-title-color: #15182a; }</style><link href="/theme-previews/_base/a/header-layout.fc46be605c4a.css" rel="stylesheet" type="text/css" media="all">
 <style>
   #shopify-section-header {
     --header-height-desktop: 72px;
@@ -401,12 +403,24 @@ style="--section-pt: 0;--section-pb: 0;--transparent-color: #ffffff;--menu-hover
 <div class="header__logo text-center text-left-1025 inline-flex align-center"><a
 class="logo-img no-underline inline-flex align-center h1 my-0"
 href="/theme-previews/notion-template-shop/index.html"
-aria-label="New Leaf"
+aria-label="Octavo"
 >
 <span
 class="header__logo inline-flex align-center"
 style="--header-logo-width: 208px; --header-logo-width-mobile: 78px;"
-><span class="header__logo-text" style="font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 600); font-size: clamp(20px, 2.2vw, 28px); line-height: 1; letter-spacing: -0.01em; color: inherit; white-space: nowrap;">New Leaf</span></span>
+><img
+srcset="/theme-previews/notion-template-shop/a/newleaf-logo.e3a9504ab2bc.webp 165w,/theme-previews/notion-template-shop/a/newleaf-logo.e3a9504ab2bc.webp 330w,/theme-previews/notion-template-shop/a/newleaf-logo.e3a9504ab2bc.webp 345w
+"
+src="/theme-previews/notion-template-shop/a/newleaf-logo.e3a9504ab2bc.webp"
+sizes="(max-width: 1024.98px) 98px, 112px"
+loading="eager"
+decoding="sync"
+fetchpriority="high"
+class="header__normal-logo"
+width="208"
+height="71"
+alt="Octavo"
+></span>
 </a>
 </div>
 <div class="header__menu"><button
@@ -523,7 +537,7 @@ data-badge-case="style"
 data-badge-pos="above"
 data-badge-lift
 style="
---mm-title-bg: #f8f7f3; --mm-title-color: #1c1c1a;
+--mm-title-bg: #f8f7f3; --mm-title-color: #15182a;
 --mb-badge-size: 10px;--mb-badge-border: 1px;
 --hot-cl: ;--hot-bg-cl: ;
 --new-cl: ;--new-bg-cl: ;
@@ -540,7 +554,7 @@ height="13"
 viewBox="0 0 13 13"
 fill="none"
 class="heading-color"
-style="color: #1c1c1a !important; --color-heading: #1c1c1a;"
+style="color: #15182a !important; --color-heading: #15182a;"
 >
 <use href="#icon-close" />
 </svg>
@@ -548,11 +562,11 @@ style="color: #1c1c1a !important; --color-heading: #1c1c1a;"
 <div class="navigation__menu-content navigation__menu-content-mobile word-break">
 <div
 class="menu-mobile-title min-h-55 min-h-1025-50 flex align-center px-30 py-5 hidden-1025 gap-30"
-style="background: #f8f7f3 !important; color: #1c1c1a !important; --color-heading: #1c1c1a; --mm-title-bg: #f8f7f3; --mm-title-color: #1c1c1a;"
+style="background: #f8f7f3 !important; color: #15182a !important; --color-heading: #15182a; --mm-title-bg: #f8f7f3; --mm-title-color: #15182a;"
 >
 <a
 class="active no-underline heading-style py-10 inline-flex align-center gap-10"
-style="color: #1c1c1a !important;"
+style="color: #15182a !important;"
 data-menu="horizontal-list"
 role="link"
 aria-disabled="true"
@@ -643,7 +657,7 @@ href="/theme-previews/notion-template-shop/index.html#newsletter"
 </style>
 <div class="nlm color-scheme-nl-slate gradient" data-nlm>
 <div class="container">
-<div class="nlm__word" aria-hidden="true"><span>New Leaf</span></div>
+<div class="nlm__word" aria-hidden="true"><span>Octavo</span></div>
 </div>
 </div>
 <script src="/theme-previews/notion-template-shop/a/i.955a15aad272.js"></script>
@@ -652,6 +666,18 @@ href="/theme-previews/notion-template-shop/index.html#newsletter"
     font-weight: var(--subheading-weight, 500);
   }
 </style><style>
+  #shopify-section-footer.scroll-trigger {
+    --animation-duration: 900ms;
+    --animation-delay: 0ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-footer');
+    if (!el || el.classList.contains('scroll-trigger') || document.documentElement.classList.contains('shopify-design-mode') || (window.SlTheme && window.SlTheme.designMode)) return;
+    el.classList.add('scroll-trigger', "editorial");
+  })();
+</script><style>
   #shopify-section-footer,#shopify-section-footer>.section,#shopify-section-footer>section,#shopify-section-footer>div,#shopify-section-footer>div>.section{margin-top:0!important;margin-bottom:0!important}
   #shopify-section-footer+.shopify-section,#shopify-section-footer+section,.shopify-section+#shopify-section-footer{margin-top:0!important}
   #shopify-section-footer{font-weight:var(--body-weight,inherit);isolation:isolate;position:relative}
@@ -723,7 +749,7 @@ Contact
 </div>
 <div class="footer__bottom"><div class="container"><div class="footer_bottom-inner footer-bottom border-top footer-bottom--one-row"><div class="footer-bottom__row footer-bottom__row--legal">
 <div class="footer-bottom__legal">
-<div class="footer__copyright" data-ft-copyright>© 2026 New Leaf Templates</div>
+<div class="footer__copyright" data-ft-copyright>© 2026 Octavo</div>
 <ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/notion-template-shop/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/notion-template-shop/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/notion-template-shop/policies/terms-of-service.html">Terms of service</a></li></ul><div class="footer__powered" data-ft-powered><a href="#" data-preview-inert data-storelib-badge="" style="display:inline-flex;align-items:center;gap:.45em;white-space:nowrap;vertical-align:middle"><svg data-storelib-badge-mark="" aria-hidden="true" focusable="false" viewBox="0 0 200 200" width="14" height="14" style="display:block;flex:none;width:1.2em;height:1.2em;overflow:visible"><mask id="sl-pb-s" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="200"><rect width="200" height="200" fill="#fff"/><path transform="translate(48.97 38.44) scale(1.08) translate(-54 -43) translate(134.125,52.875)" d="M0 0 C0.99749268 0.36665771 0.99749268 0.36665771 2.01513672 0.74072266 C6.62777473 2.59663113 6.62777473 2.59663113 7.68823242 4.86303711 C7.94652165 7.99120666 7.02705902 10.04467511 5.85546875 12.94921875 C5.41009766 14.05974609 4.96472656 15.17027344 4.50585938 16.31445312 C4.02955078 17.46880859 3.55324219 18.62316406 3.0625 19.8125 C2.59779297 20.97845703 2.13308594 22.14441406 1.65429688 23.34570312 C-1.85471661 31.98985831 -1.85471661 31.98985831 -4.125 33.125 C-6.02961204 32.43054915 -7.90085447 31.64344514 -9.75 30.8125 C-19.66422998 26.58368153 -27.26609106 25.85047702 -38.125 26.125 C-38.455 27.115 -38.785 28.105 -39.125 29.125 C-38.14402344 29.36734375 -37.16304687 29.6096875 -36.15234375 29.859375 C-33.31305776 30.56236873 -30.47635159 31.27497918 -27.640625 31.9921875 C-24.80213536 32.70970135 -21.95989766 33.40235421 -19.109375 34.0703125 C-6.69949938 37.1089446 3.02755655 40.84926977 9.875 52.125 C13.29151905 58.95803811 12.61307566 67.23479967 10.625 74.4375 C7.53029491 83.45189328 1.37513276 90.18616729 -7.02734375 94.67578125 C-26.20884362 103.04454374 -49.04415352 101.90170642 -68.5 94.625 C-72.25964144 93.07749587 -75.67848864 91.2806362 -79.125 89.125 C-78.55593823 84.90468545 -77.56543969 81.39586411 -75.83984375 77.5078125 C-75.39189453 76.48945313 -74.94394531 75.47109375 -74.48242188 74.421875 C-73.77956055 72.85179688 -73.77956055 72.85179688 -73.0625 71.25 C-72.59005859 70.18007812 -72.11761719 69.11015625 -71.63085938 68.0078125 C-70.46832699 65.3774362 -69.29955398 62.75002483 -68.125 60.125 C-63.80181734 61.13483216 -60.07150265 62.96083682 -56.07421875 64.87109375 C-49.32009515 67.74271451 -43.48344492 68.41757298 -36.25 68.3125 C-35.38375 68.31185547 -34.5175 68.31121094 -33.625 68.31054688 C-29.55080641 68.64235092 -29.55080641 68.64235092 -26.125 67.125 C-32.43853708 64.84703882 -38.66045093 62.93279428 -45.25 61.625 C-56.73505022 59.25968679 -67.31315991 55.21661495 -74.125 45.125 C-77.1608836 40.09281577 -77.67121961 36.10082917 -77.625 30.375 C-77.62072998 29.57876221 -77.61645996 28.78252441 -77.61206055 27.9621582 C-77.37730644 19.82208022 -74.95520496 14.3797357 -69.625 8.25 C-68.8 7.54875 -67.975 6.8475 -67.125 6.125 C-66.403125 5.465 -65.68125 4.805 -64.9375 4.125 C-46.69751714 -8.84565448 -20.22397968 -7.61423584 0 0 Z" fill="#000"/></mask><rect width="200" height="200" rx="48" fill="currentColor" mask="url(#sl-pb-s)"/></svg><span>Powered by Storelib</span></a></div></div><div class="footer-bottom__end"><div class="footer__payment flex grow-1 align-center max-w-100" style="justify-content: flex-start; --pb-width: 100%;" data-ft-block="pay" data-ft-type="payment_badges" data-block-id="pay">
 <ul class="footer__payment-badges"><li class="payment-badge" aria-label="Visa"><svg class="icon icon--full-color" viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Visa">
 <title>Visa</title>
@@ -800,11 +826,11 @@ aria-modal="true"
 aria-label="Search"
 data-search-mode="popup"
 class="search-overlay search-overlay--popup search__type-popup search__popup-anim--fade color-default"
-style="--color-background: #f8f7f3;          --color-text: #55554f;          --color-heading: #1c1c1a;          --color-primary: #1c1c1a;          --color-border: #e6e3dc;          --gradient-background: #f8f7f3;          background-color: #f8f7f3;          color: #55554f;"
+style="--color-background: #f7f7f4;          --color-text: #4a4d57;          --color-heading: #15182a;          --color-primary: #15182a;          --color-border: #e4e4df;          --gradient-background: #f7f7f4;          background-color: #f7f7f4;          color: #4a4d57;"
 ><div
 class="search__type-popup search__popup-anim--fade color-default h-full overflow-auto px-15 custom-scrollbar"
 data-search-popup-anim="fade"
-style="--color-background: #f8f7f3;    --color-text: #55554f;    --color-heading: #1c1c1a;    --color-primary: #1c1c1a;    --color-border: #e6e3dc;    --gradient-background: #f8f7f3;    background-color: #f8f7f3;    color: #55554f;"
+style="--color-background: #f7f7f4;    --color-text: #4a4d57;    --color-heading: #15182a;    --color-primary: #15182a;    --color-border: #e4e4df;    --gradient-background: #f7f7f4;    background-color: #f7f7f4;    color: #4a4d57;"
 >
 <div class="fluid_container">
 <h3 class="search-title search-title--animated text-center h4 m-0 hidden block-sm" aria-label="Search"><span class="search-title__char" style="--char-i: 0;" aria-hidden="true">S</span><span class="search-title__char" style="--char-i: 1;" aria-hidden="true">e</span><span class="search-title__char" style="--char-i: 2;" aria-hidden="true">a</span><span class="search-title__char" style="--char-i: 3;" aria-hidden="true">r</span><span class="search-title__char" style="--char-i: 4;" aria-hidden="true">c</span><span class="search-title__char" style="--char-i: 5;" aria-hidden="true">h</span></h3>
@@ -935,13 +961,13 @@ style=" ;--col-number: 1;--col-tablet: 1;--col-desktop-small:3;--col-desktop: 5;
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><link rel="stylesheet" href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"></noscript><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.9e8e2d8ea469.css" data-cart-drawer-style="paint">
+</style><link rel="stylesheet" href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"></noscript><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.ac79dfba451c.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #f8f7f3;    --color-text: #55554f;    --color-heading: #1c1c1a;    --color-primary: #1c1c1a;    --color-border: #e6e3dc;    --gradient-background: #f8f7f3;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #2f5d50;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #244b40;    --btn-secondary-color: #1c1c1a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #dcd8cf;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #1c1c1a;    --btn-outline-color: #1c1c1a;    --btn-outline-border-color: #e6e3dc;    background-color: #f8f7f3 !important;    color: #55554f !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #f8f7f3;    --color-text: #55554f;    --color-heading: #1c1c1a;    --color-primary: #1c1c1a;    --color-border: #e6e3dc;    --gradient-background: #f8f7f3;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #2f5d50;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #244b40;    --btn-secondary-color: #1c1c1a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #dcd8cf;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #1c1c1a;    --btn-outline-color: #1c1c1a;    --btn-outline-border-color: #e6e3dc;    background-color: #f8f7f3 !important;    color: #55554f !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #f7f7f4;    --color-text: #4a4d57;    --color-heading: #15182a;    --color-primary: #15182a;    --color-border: #e4e4df;    --gradient-background: #f7f7f4;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #2b44a8;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #22378b;    --btn-secondary-color: #15182a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d9dae0;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #15182a;    --btn-outline-color: #15182a;    --btn-outline-border-color: #e4e4df;    background-color: #f7f7f4 !important;    color: #4a4d57 !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #f7f7f4;    --color-text: #4a4d57;    --color-heading: #15182a;    --color-primary: #15182a;    --color-border: #e4e4df;    --gradient-background: #f7f7f4;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #2b44a8;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #22378b;    --btn-secondary-color: #15182a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d9dae0;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #15182a;    --btn-outline-color: #15182a;    --btn-outline-border-color: #e4e4df;    background-color: #f7f7f4 !important;    color: #4a4d57 !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">
@@ -991,6 +1017,7 @@ Continue Shopping
   #shopify-section-custom-colors { isolation: isolate; position: relative; }
 </style>
 </div><script src="/theme-previews/notion-template-shop/a/i.7878e9c8a781.js"></script>
+<script src="/theme-previews/_base/a/animation.197cc38a1ae3.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/tingle-min.2433104e28fc.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-discount.31276c74b980.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/theme.b49152a98599.js"  defer="defer" type="module"></script>
@@ -1059,7 +1086,21 @@ window.__mtFormsUrl=u;if(/[?&](customer_posted|contact_posted|form_type)=/.test(
   html.mt-img-reveal img.media-fade-hold { opacity: 0 !important; }
 </style>
 <script src="/theme-previews/notion-template-shop/a/i.aa500cf99adf.js"></script>
-<link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.7c52d5318a5a.css">
+<style>
+        :root {
+          /* Wire the user's Animations & motion settings to the keyframe vars used by animation.css */
+          --duration-long: 630ms;
+          --duration-extra-long: 900ms;
+          --duration-extra-longer: 900ms;
+          --animation-duration: 900ms;
+          --animation-delay-base: 0ms;
+          --reveal-stagger: 110ms;
+        }
+        /* Every reveal type, its timing, the first screen, the builder and
+           reduced motion are drawn by animation.css for every .scroll-trigger
+           (theme-wide sections below and cards inside sections alike). */
+      </style>
+<script src="/theme-previews/notion-template-shop/a/i.999e279c57f1.js"></script><link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.7c52d5318a5a.css">
 <script src="/theme-previews/notion-template-shop/a/i.c9b8b9c1028c.js"></script><script id="materia-shipping-data" type="application/json">
   {
     "country": "US",
@@ -1075,13 +1116,13 @@ window.__mtFormsUrl=u;if(/[?&](customer_posted|contact_posted|form_type)=/.test(
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.9e8e2d8ea469.css" data-cart-drawer-style="paint">
+</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.ac79dfba451c.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #f8f7f3;    --color-text: #55554f;    --color-heading: #1c1c1a;    --color-primary: #1c1c1a;    --color-border: #e6e3dc;    --gradient-background: #f8f7f3;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #2f5d50;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #244b40;    --btn-secondary-color: #1c1c1a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #dcd8cf;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #1c1c1a;    --btn-outline-color: #1c1c1a;    --btn-outline-border-color: #e6e3dc;    background-color: #f8f7f3 !important;    color: #55554f !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #f8f7f3;    --color-text: #55554f;    --color-heading: #1c1c1a;    --color-primary: #1c1c1a;    --color-border: #e6e3dc;    --gradient-background: #f8f7f3;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #2f5d50;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #244b40;    --btn-secondary-color: #1c1c1a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #dcd8cf;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #1c1c1a;    --btn-outline-color: #1c1c1a;    --btn-outline-border-color: #e6e3dc;    background-color: #f8f7f3 !important;    color: #55554f !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #f7f7f4;    --color-text: #4a4d57;    --color-heading: #15182a;    --color-primary: #15182a;    --color-border: #e4e4df;    --gradient-background: #f7f7f4;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #2b44a8;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #22378b;    --btn-secondary-color: #15182a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d9dae0;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #15182a;    --btn-outline-color: #15182a;    --btn-outline-border-color: #e4e4df;    background-color: #f7f7f4 !important;    color: #4a4d57 !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #f7f7f4;    --color-text: #4a4d57;    --color-heading: #15182a;    --color-primary: #15182a;    --color-border: #e4e4df;    --gradient-background: #f7f7f4;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #2b44a8;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #22378b;    --btn-secondary-color: #15182a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d9dae0;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #15182a;    --btn-outline-color: #15182a;    --btn-outline-border-color: #e4e4df;    background-color: #f7f7f4 !important;    color: #4a4d57 !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">

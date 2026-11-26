@@ -5574,6 +5574,10 @@
           {
             "value": "split_text",
             "label": "Headings word by word"
+          },
+          {
+            "value": "editorial",
+            "label": "Editorial (slow, one part after another)"
           }
         ],
         "info": "Plays once, as each section reaches the screen. The first screen shows at once."
@@ -5607,7 +5611,7 @@
         "step": 5,
         "unit": "ms",
         "default": 75,
-        "info": "Cards, and the parts of a section with Rise in one by one, Mask reveal or Headings word by word"
+        "info": "Cards, and the parts of a section with Rise in one by one, Mask reveal, Headings word by word or Editorial"
       },
       {
         "type": "header",

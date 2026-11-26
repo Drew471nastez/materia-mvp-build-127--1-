@@ -21,7 +21,13 @@
         "heading_size": 56,
         "heading_size_mobile": 34,
         "padding_top": 56,
-        "padding_bottom": 40
+        "padding_bottom": 40,
+        "ink": "#13292c",
+        "muted": "#4b5a5c",
+        "accent": "#f07a5c",
+        "accent_hover": "#e4654a",
+        "line_color": "#dde5e3",
+        "background": "#fbfbf9"
       }
     },
     "features": {
@@ -196,13 +202,17 @@
     "buyers": {
       "type": "workspace-reviews",
       "settings": {
-        "background": "#fbfbfa",
+        "background": "#fbfbf9",
         "card_background": "#ffffff",
         "eyebrow": "From buyers",
         "heading": "What people say after a month",
         "text": "<p>Sample quotes and photos, to show the layout. Replace them with what your buyers write back.</p>",
         "padding_top": 96,
-        "padding_bottom": 96
+        "padding_bottom": 96,
+        "ink": "#13292c",
+        "muted": "#4b5a5c",
+        "star_color": "#f07a5c",
+        "line_color": "#e2e7e5"
       },
       "blocks": {
         "review_1": {
@@ -278,7 +288,7 @@
     "maker": {
       "type": "workspace-creator",
       "settings": {
-        "background": "#f2f1ee",
+        "background": "#edf3f1",
         "image": "shopify://shop_images/workspace-adda-desk.webp",
         "image_alt": "Adda Lind at her desk with a laptop and a notebook",
         "image_ratio": "4 / 3",
@@ -300,7 +310,10 @@
         "padding_top": 96,
         "padding_bottom": 96,
         "padding_top_mobile": 56,
-        "padding_bottom_mobile": 56
+        "padding_bottom_mobile": 56,
+        "ink": "#13292c",
+        "muted": "#4b5a5c",
+        "line_color": "#d6e2df"
       }
     },
     "faq": {
@@ -482,11 +495,15 @@
     "tour": {
       "type": "workspace-tour",
       "settings": {
-        "background": "#fbfbfa",
+        "background": "#fbfbf9",
         "eyebrow": "Look inside",
         "heading": "See every template <mark>before you buy</mark>",
         "padding_top": 88,
-        "padding_bottom": 104
+        "padding_bottom": 104,
+        "ink": "#13292c",
+        "muted": "#4b5a5c",
+        "accent": "#f07a5c",
+        "line_color": "#e2e7e5"
       },
       "blocks": {
         "tab_1": {

@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/author-book/a/cart.a853d7507fdb.json",WISH_DATA="",QV_DATA="/theme-previews/author-book/a/quickview.fb66fcb6dc10.json",RV_DATA="/theme-previews/author-book/a/recent.67ecebb3c985.json";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/author-book/a/cart.2aa7f18d0145.json",WISH_DATA="",QV_DATA="/theme-previews/author-book/a/quickview.8dc3c50b4d14.json",RV_DATA="/theme-previews/author-book/a/recent.004521dbeb34.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -161,7 +161,7 @@ if(wait)return setTimeout(look,50);
 Promise.all(seen.slice(0,24).map(function(g){return g.decode?g.decode().catch(function(){}):0})).then(fin,fin)}
 look();setTimeout(fin,1500)}
 D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn)});
-var PAGES=["/","/collections","/collections/all","/cart","/search","/blogs/news","/pages/about","/pages/contact","/pages/faqs","/account/login","/account/register","/products/known-for-it","/products/known-for-it-audiobook","/products/post-prompts-printable","/products/your-profile-in-an-afternoon","/collections/gifts","/collections/new-in","/collections/best-sellers","/blogs/news/a-headline-that-says-what-you-do","/blogs/news/comment-before-you-post","/blogs/news/never-run-out-of-post-ideas","/policies/refund-policy","/policies/privacy-policy","/policies/terms-of-service","/pages/newsletter"];
+var PAGES=["/","/collections","/collections/all","/cart","/search","/blogs/news","/pages/about","/pages/contact","/pages/faqs","/account/login","/account/register","/products/say-it-plainly","/products/say-it-plainly-audiobook","/products/copy-templates-printable","/products/your-homepage-in-an-afternoon","/collections/gifts","/collections/new-in","/collections/best-sellers","/blogs/news/write-the-headline-last","/blogs/news/cut-the-first-paragraph","/blogs/news/use-your-customers-words","/policies/refund-policy","/policies/privacy-policy","/policies/terms-of-service","/pages/newsletter"];
 function siteOf(){return ROOT+SLUG+"/"}
 function pageFor(x){var p=x.pathname.replace(/\/+$/,"")||"/";if(p.indexOf(ROOT)===0)return p.indexOf(siteOf())===0?x.pathname+x.search+x.hash:null;p=p.replace(/^\/collections\/[^/]+(?=\/products\/)/,"");if(PAGES.indexOf(p)<0)return null;return siteOf()+(p==="/"?"index":p.slice(1))+".html"+x.search+x.hash}
 function goTo(how,u,from){var x;try{x=new URL(String(u),location.href)}catch(e){return}
@@ -180,7 +180,7 @@ var IT=0,ITH="";function intent(a){if(!a||a.hasAttribute("download"))return;var 
 D.addEventListener("pointerover",function(e){if(!HAND||e.pointerType==="touch")return;var a=e.target&&e.target.closest&&e.target.closest("a[href]");clearTimeout(IT);if(a)IT=setTimeout(function(){intent(a)},80)},{passive:true});
 D.addEventListener("touchstart",function(e){if(!HAND)return;intent(e.target&&e.target.closest&&e.target.closest("a[href]"))},{passive:true});
 
-})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#ffffff}</style><script>
+})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#fdfcf9}</style><script>
       (function () {
         function show(img) {
           if (!img || img.tagName !== 'IMG' || !img.classList.contains('bls-loading-image')) return;
@@ -199,15 +199,15 @@ D.addEventListener("touchstart",function(e){if(!HAND)return;intent(e.target&&e.t
 <script src="/theme-previews/author-book/a/i.59a2755e14fa.js"></script><meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content=""><script src="/theme-previews/author-book/a/i.5802c928e030.js"></script><title>About | Known For It</title>
-<meta property="og:site_name" content="Known For It">
-<meta property="og:title" content="About | Known For It">
+<meta name="theme-color" content=""><script src="/theme-previews/author-book/a/i.5802c928e030.js"></script><title>About | Say It Plainly</title>
+<meta property="og:site_name" content="Say It Plainly">
+<meta property="og:title" content="About | Say It Plainly">
 <meta property="og:type" content="website">
-<meta property="og:description" content="Known For It">
-<meta property="og:image:width" content="878">
-<meta property="og:image:height" content="135"><meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="About | Known For It">
-<meta name="twitter:description" content="Known For It">
+<meta property="og:description" content="Say It Plainly">
+<meta property="og:image:width" content="739">
+<meta property="og:image:height" content="118"><meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="About | Say It Plainly">
+<meta name="twitter:description" content="Say It Plainly">
 <style id="speed-optimization-css">
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -236,7 +236,7 @@ D.addEventListener("touchstart",function(e){if(!HAND)return;intent(e.target&&e.t
           document.head.appendChild(l);
         } catch (e) {}
       })();
-    </script><link href="/theme-previews/_base/a/base-static.c7b74da5b1b4.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":16,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
+    </script><link href="/theme-previews/_base/a/base.227cf93255fb.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":16,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = false === true ? 'true' : 'false';</script>
 <script type="application/json" data-badge-style-settings>false</script>
@@ -246,11 +246,11 @@ D.addEventListener("touchstart",function(e){if(!HAND)return;intent(e.target&&e.t
     document.addEventListener('DOMContentLoaded',function(){setTimeout(go,4000)},{once:true})}
     ['pointerdown','click','keydown','scroll','touchstart'].forEach(function(n){addEventListener(n,go,{once:true,passive:true,capture:true})})})(["/theme-previews/_base/a/popup.537a49cfcb3e.css","/theme-previews/_base/a/tingle-min.ed947d9dd1c7.css"]);</script><link rel="stylesheet" href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" media="print" onload="this.media='all'">
 <noscript><link href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" rel="stylesheet" type="text/css" media="all"></noscript>
-<link rel="stylesheet" href="/theme-previews/_base/a/fonts.5fc986777be6.css" data-materia-fonts>
-<style data-materia-font-fallbacks>@font-face{font-family:"Mulish Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:104.3%;ascent-override:96.4%;descent-override:24%;line-gap-override:0%}@font-face{font-family:"Mulish Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:104.3%;ascent-override:96.4%;descent-override:24%;line-gap-override:0%}@font-face{font-family:"Young Serif Fallback";src:local("Times New Roman"), local("TimesNewRomanPSMT"), local("Liberation Serif");font-weight:100 549;size-adjust:122.7%;ascent-override:85.2%;descent-override:29.8%;line-gap-override:0%}@font-face{font-family:"Young Serif Fallback";src:local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold");font-weight:550 1000;size-adjust:122.7%;ascent-override:85.2%;descent-override:29.8%;line-gap-override:0%}</style><style data-shopify>
+<link rel="stylesheet" href="/theme-previews/_base/a/fonts.64365d1c544d.css" data-materia-fonts>
+<style data-materia-font-fallbacks>@font-face{font-family:"Libre Baskerville Fallback";src:local("Times New Roman"), local("TimesNewRomanPSMT"), local("Liberation Serif");font-weight:100 549;size-adjust:126.5%;ascent-override:76.7%;descent-override:21.3%;line-gap-override:0%}@font-face{font-family:"Libre Baskerville Fallback";src:local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold");font-weight:550 1000;size-adjust:126.5%;ascent-override:76.7%;descent-override:21.3%;line-gap-override:0%}</style><style data-shopify>
   :root {
-    --body-font: "Mulish", "Mulish Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --heading-font: "Young Serif", "Young Serif Fallback", Georgia, "Times New Roman", serif, sans-serif;
+    --body-font: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --heading-font: "Libre Baskerville", "Libre Baskerville Fallback", Georgia, "Times New Roman", serif, sans-serif;
     --menu-font: var(--body-font);
     --btn-font: var(--body-font);
     --heading-font-style: normal;
@@ -258,19 +258,19 @@ D.addEventListener("touchstart",function(e){if(!HAND)return;intent(e.target&&e.t
     --font-heading-family: var(--heading-font);
   }
 </style>
-<link rel="stylesheet" href="/theme-previews/author-book/a/i.acefcd5625d2.css" data-shopify><noscript><link href="/theme-previews/_base/a/popup.537a49cfcb3e.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.e2eadba68934.css">
+<link rel="stylesheet" href="/theme-previews/author-book/a/i.94fc648b2005.css" data-shopify><noscript><link href="/theme-previews/_base/a/popup.537a49cfcb3e.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.e2eadba68934.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/minicart.679b4fb18845.css" fetchpriority="low">
 <link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.6a68b7e13653.css" fetchpriority="low">
-<link rel="stylesheet" href="/theme-previews/author-book/a/i.483628a26d8f.css"><link rel="stylesheet" href="/theme-previews/author-book/a/i.6656321d4269.css"><link rel="modulepreload" href="/theme-previews/_base/a/theme.b49152a98599.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/author-book/a/i.2dfcabf4f604.js"></script>
+<link rel="stylesheet" href="/theme-previews/author-book/a/i.58a15342aa1c.css"><link rel="stylesheet" href="/theme-previews/author-book/a/i.6656321d4269.css"><link rel="modulepreload" href="/theme-previews/_base/a/theme.b49152a98599.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/author-book/a/i.2dfcabf4f604.js"></script>
 <script src="/theme-previews/_base/a/swiper-bundle-min.31d164f7367d.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/motion-min.d1f8eb312b47.js" type="module" defer="defer" fetchpriority="low"></script>
 <script src="/theme-previews/_base/a/utils.3e8a73beb3e9.js" defer="defer" data-cart-count="0"></script>
 <script src="/theme-previews/_base/a/global.d6dc0d64340b.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-drawer-safety.b8d627a0381e.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/section-links.83dcb60cec8e.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/product-counters.9ef274d65c34.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/product-counters.548ccb31d8a0.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/product-block-runtime.6868605d527a.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/product-dialogs.f42edf25d068.js" defer="defer"></script><script src="/theme-previews/_base/a/hero-image-one.9accbabb78ac.js" defer="defer"></script><script src="/theme-previews/author-book/a/i.d8f808a259c8.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" rel="stylesheet" type="text/css" media="all"></noscript>
+<script src="/theme-previews/_base/a/product-dialogs.f42edf25d068.js" defer="defer"></script><script src="/theme-previews/_base/a/hero-image-one.f8841c022de6.js" defer="defer"></script><script src="/theme-previews/author-book/a/i.d8f808a259c8.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" rel="stylesheet" type="text/css" media="all"></noscript>
 <script src="/theme-previews/_base/a/drift.eaae124afa1e.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/photoswipe-init.7fe034915110.js" type="module"></script>
 <script src="/theme-previews/author-book/a/i.69f67d6283fa.js"></script><script>(function(){try{var d=document.createElement('div');d.style.cssText='position:absolute;top:-99px;width:60px;height:60px;overflow:scroll;visibility:hidden';document.documentElement.appendChild(d);if(d.offsetWidth-d.clientWidth>0)document.documentElement.classList.add('sl-sb-room');d.remove()}catch(e){}})();</script><style>
@@ -290,14 +290,14 @@ D.addEventListener("touchstart",function(e){if(!HAND)return;intent(e.target&&e.t
         body > #shopify-section-footer-group,
         body > #shopify-section-sections--footer-group,
         body > .shopify-section-group-footer-group { flex: 0 0 auto; }
-      </style><style data-sl-focus>[tabindex="-1"]:focus,dialog:focus,[role="dialog"]:focus,[aria-modal="true"]:focus,details-modal:focus,modal-dialog:focus{outline:none!important}</style><link rel="stylesheet" href="/theme-previews/author-book/a/i.7102a93928a0.css" data-sl-busy-buttons><style data-sl-missing-image>img[data-sl-missing]{background-color:#f3f4f6!important;background-image:none!important;object-fit:contain!important;object-position:50% 50%!important;color:transparent!important}html[data-sl-dark] img[data-sl-missing],[data-community-theme="dark"] img[data-sl-missing]{background-color:#26282c!important}</style><script data-sl-missing-image src="/theme-previews/author-book/a/i.d77d88883af7.js"></script><script data-sl-cover-trim src="/theme-previews/author-book/a/i.fc19b2383f33.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/fonts.bd14396acf32.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/_base/a/fonts.fb2ab27c2a4b.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/author-book/a/i.17f73b1756bd.css" data-storelib-bundle><link rel="stylesheet" href="/theme-previews/author-book/a/i.0016b90be953.css" data-storelib-overrides><link rel="icon" href="data:,"></head>
+      </style><style data-sl-focus>[tabindex="-1"]:focus,dialog:focus,[role="dialog"]:focus,[aria-modal="true"]:focus,details-modal:focus,modal-dialog:focus{outline:none!important}</style><link rel="stylesheet" href="/theme-previews/author-book/a/i.7102a93928a0.css" data-sl-busy-buttons><style data-sl-missing-image>img[data-sl-missing]{background-color:#f3f4f6!important;background-image:none!important;object-fit:contain!important;object-position:50% 50%!important;color:transparent!important}html[data-sl-dark] img[data-sl-missing],[data-community-theme="dark"] img[data-sl-missing]{background-color:#26282c!important}</style><script data-sl-missing-image src="/theme-previews/author-book/a/i.d77d88883af7.js"></script><script data-sl-cover-trim src="/theme-previews/author-book/a/i.0bae149ee094.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/fonts.bd14396acf32.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/_base/a/fonts.fb2ab27c2a4b.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/author-book/a/i.17f73b1756bd.css" data-storelib-bundle><link rel="stylesheet" href="/theme-previews/author-book/a/i.0016b90be953.css" data-storelib-overrides><link rel="icon" href="data:,"></head>
 <body
 class="gradient  page"
 data-btn-style="solid"
 data-btn-secondary-style="solid"
-data-scroll-animation="none"
+data-scroll-animation="split_text"
 data-zoom-image="false"
-data-btn-shape="pill"
+data-btn-shape="rounded"
 data-btn-hover="fade"
 data-sl-btn-hover="none"
 data-badge-shape="pill"
@@ -340,9 +340,9 @@ data-menu-hover="none"
     --count-bubble-animation: mt-count-pop;
   }
 </style><style data-shopify>#shopify-section-header {
-    --hs-mnav-bg: #18212f;
+    --hs-mnav-bg: #1a1817;
     --hs-mnav-heading: #ffffff;
-    --hs-mnav-text: #c8c8cc;
+    --hs-mnav-text: #cfcac2;
     --hs-hover-fill: #ffffff;
     --hs-logo-width: 200px;
     --hs-logo-width-mobile: 160px;
@@ -353,7 +353,7 @@ data-menu-hover="none"
       --hs-logo-max-height: 48px;
       --hs-logo-box-height: 64px;
     }
-  }:root { --hs-mnav-title-bg: #ffffff; --hs-mnav-title-color: #171b22; }</style><link href="/theme-previews/_base/a/header-layout.784e491443d1.css" rel="stylesheet" type="text/css" media="all">
+  }:root { --hs-mnav-title-bg: #ffffff; --hs-mnav-title-color: #1a1817; }</style><link href="/theme-previews/_base/a/header-layout.fc46be605c4a.css" rel="stylesheet" type="text/css" media="all">
 <style>
   #shopify-section-header {
     --header-height-desktop: 84px;
@@ -375,23 +375,23 @@ style="--section-pt: 0;--section-pb: 0;--transparent-color: #ffffff;--menu-hover
 <div class="header__logo text-center text-left-1025 inline-flex align-center"><a
 class="logo-img no-underline inline-flex align-center h1 my-0"
 href="/theme-previews/author-book/index.html"
-aria-label="Known For It"
+aria-label="Say It Plainly"
 >
 <span
 class="header__logo inline-flex align-center"
-style="--header-logo-width: 200px; --header-logo-width-mobile: 78px;"
+style="--header-logo-width: 210px; --header-logo-width-mobile: 78px;"
 ><img
-srcset="/theme-previews/author-book/a/authorbook-logo-400.174030a71f0b.webp 165w,/theme-previews/author-book/a/authorbook-logo-400.174030a71f0b.webp 330w,/theme-previews/author-book/a/authorbook-logo.46c67557f882.webp 535w,/theme-previews/author-book/a/authorbook-logo.46c67557f882.webp 750w,/theme-previews/author-book/a/authorbook-logo.46c67557f882.webp 878w
+srcset="/theme-previews/author-book/a/authorbook-logo-400.39272b809a97.webp 165w,/theme-previews/author-book/a/authorbook-logo-400.39272b809a97.webp 330w,/theme-previews/author-book/a/authorbook-logo.7f66373ffa18.webp 535w,/theme-previews/author-book/a/authorbook-logo.7f66373ffa18.webp 739w
 "
-src="/theme-previews/author-book/a/authorbook-logo-400.174030a71f0b.webp"
+src="/theme-previews/author-book/a/authorbook-logo-400.39272b809a97.webp"
 sizes="(max-width: 1024.98px) 160px, 200px"
 loading="eager"
 decoding="sync"
 fetchpriority="high"
 class="header__normal-logo"
-width="200"
-height="31"
-alt="Known For It"
+width="210"
+height="34"
+alt="Say It Plainly"
 ></span>
 </a>
 </div>
@@ -533,7 +533,7 @@ data-badge-case="style"
 data-badge-pos="above"
 data-badge-lift
 style="
---mm-title-bg: #ffffff; --mm-title-color: #171b22;
+--mm-title-bg: #ffffff; --mm-title-color: #1a1817;
 --mb-badge-size: 10px;--mb-badge-border: 1px;
 --hot-cl: ;--hot-bg-cl: ;
 --new-cl: ;--new-bg-cl: ;
@@ -550,7 +550,7 @@ height="13"
 viewBox="0 0 13 13"
 fill="none"
 class="heading-color"
-style="color: #171b22 !important; --color-heading: #171b22;"
+style="color: #1a1817 !important; --color-heading: #1a1817;"
 >
 <use href="#icon-close" />
 </svg>
@@ -558,11 +558,11 @@ style="color: #171b22 !important; --color-heading: #171b22;"
 <div class="navigation__menu-content navigation__menu-content-mobile word-break">
 <div
 class="menu-mobile-title min-h-55 min-h-1025-50 flex align-center px-30 py-5 hidden-1025 gap-30"
-style="background: #ffffff !important; color: #171b22 !important; --color-heading: #171b22; --mm-title-bg: #ffffff; --mm-title-color: #171b22;"
+style="background: #ffffff !important; color: #1a1817 !important; --color-heading: #1a1817; --mm-title-bg: #ffffff; --mm-title-color: #1a1817;"
 >
 <a
 class="active no-underline heading-style py-10 inline-flex align-center gap-10"
-style="color: #171b22 !important;"
+style="color: #1a1817 !important;"
 data-menu="horizontal-list"
 role="link"
 aria-disabled="true"
@@ -636,7 +636,7 @@ href="/theme-previews/author-book/pages/faqs.html"
 <symbol id="icon-bag">
 <path d="M12.7518 2.91374L11.6276 1.44835H3.37237L2.24824 2.91374H12.7518ZM14.8419 3.18637V3.20341C14.8419 3.20341 14.8478 3.20341 14.8595 3.20341C14.8946 3.27157 14.9239 3.33972 14.9473 3.40788C14.9824 3.47604 15 3.54988 15 3.62939V13.819C15 14.1143 14.9356 14.3983 14.8068 14.6709C14.6897 14.9322 14.5316 15.1594 14.3326 15.3525C14.1335 15.557 13.8934 15.716 13.6124 15.8296C13.3431 15.9432 13.0562 16 12.7518 16H2.24824C1.94379 16 1.65105 15.9375 1.37002 15.8126C1.1007 15.699 0.866511 15.5456 0.667447 15.3525C0.456674 15.1594 0.29274 14.9322 0.175644 14.6709C0.058548 14.3983 0 14.1143 0 13.819V3.62939C0 3.58395 0.0058548 3.53852 0.0175644 3.49308C0.029274 3.43628 0.0468384 3.37948 0.0702576 3.32268C0.0819672 3.29996 0.0936768 3.27725 0.105386 3.25453C0.128806 3.23181 0.14637 3.20909 0.15808 3.18637L2.40632 0.28967C2.47658 0.198793 2.5644 0.130635 2.66979 0.085197C2.77518 0.028399 2.88642 0 3.00351 0H11.9965C12.1136 0 12.2248 0.028399 12.3302 0.085197C12.4356 0.130635 12.5234 0.198793 12.5937 0.28967L14.8419 3.18637ZM1.51054 4.36209V13.819C1.51054 13.9098 1.5281 14.0007 1.56323 14.0916C1.59836 14.1825 1.65105 14.262 1.72131 14.3301C1.79157 14.3983 1.87354 14.4494 1.96721 14.4835C2.06089 14.5176 2.15457 14.5346 2.24824 14.5346H12.7518C12.8571 14.5346 12.9508 14.5176 13.0328 14.4835C13.1265 14.4494 13.2084 14.3983 13.2787 14.3301C13.3489 14.262 13.4016 14.1825 13.4368 14.0916C13.4719 14.0007 13.4895 13.9098 13.4895 13.819V4.36209H1.51054ZM9.74824 6.54313C9.74824 6.33866 9.8185 6.16826 9.95902 6.03195C10.1112 5.88427 10.2927 5.81044 10.5035 5.81044C10.7026 5.81044 10.8724 5.88427 11.0129 6.03195C11.1651 6.16826 11.2412 6.33866 11.2412 6.54313C11.2412 7.04295 11.1417 7.51438 10.9426 7.9574C10.7553 8.40043 10.4918 8.78665 10.1522 9.11608C9.81265 9.44551 9.41452 9.70678 8.95785 9.89989C8.50117 10.0816 8.01522 10.1725 7.5 10.1725C6.98478 10.1725 6.49883 10.0816 6.04215 9.89989C5.58548 9.70678 5.18735 9.44551 4.84777 9.11608C4.5082 8.78665 4.23888 8.40043 4.03981 7.9574C3.85246 7.51438 3.75878 7.04295 3.75878 6.54313C3.75878 6.33866 3.82904 6.16826 3.96956 6.03195C4.12178 5.88427 4.29742 5.81044 4.49649 5.81044C4.70726 5.81044 4.8829 5.88427 5.02342 6.03195C5.17564 6.16826 5.25176 6.33866 5.25176 6.54313C5.25176 6.84984 5.3103 7.13383 5.4274 7.3951C5.5445 7.65637 5.70843 7.88356 5.9192 8.07668C6.11827 8.28115 6.35246 8.44018 6.62178 8.55378C6.8911 8.66738 7.18384 8.72417 7.5 8.72417C7.81616 8.72417 8.1089 8.66738 8.37822 8.55378C8.64754 8.44018 8.88173 8.28115 9.0808 8.07668C9.29157 7.88356 9.4555 7.65637 9.5726 7.3951C9.6897 7.13383 9.74824 6.84984 9.74824 6.54313Z" fill="currentColor"/>
 </symbol>
-</svg><a class="hs-cta hs-cta--pos-after_icons hs-cta--m-in_row hs-cta--primary hs-cta--theme hs-cta--desktop hs-cta--ms-small hs-cta--font-body" href="/theme-previews/author-book/collections/all.html" data-theme-button="primary" data-sl-button style="--mb-bg: var(--btn-primary-bg-color); --mb-text: var(--btn-primary-color); --mb-hover-bg: var(--btn-primary-hover-bg-color); --mb-hover-text: var(--btn-primary-hover-color); --hs-cta-gap: 20px; --hs-cta-gap-mobile: 10px; --hs-cta-x: 0px; --hs-cta-y: 0px; --hs-cta-bg: #e09a4c; --hs-cta-fg: #171b22; --hs-cta-bd: #e09a4c; --hs-cta-bw: 0px; --hs-cta-radius: 999px; --hs-cta-fs: 16px; --hs-cta-fw: 700; --hs-cta-tt: none; --hs-cta-ls: 0px; --hs-cta-py: 14px; --hs-cta-px: 26px; --hs-cta-deco: none; --hs-cta-shadow: none; --hs-cta-dur: 225ms; --hs-cta-ease: cubic-bezier(0.2, 0.7, 0.2, 1); --hs-cta-hbg: #ffffff; --hs-cta-hfg: #171b22; --hs-cta-hbd: #ffffff; --hs-cta-htransform: none; --hs-cta-hshadow: none; --hs-cta-hfilter: none; --hs-cta-hdeco: none;" data-lh-block="header_button_1" data-block-id="header_button_1">Buy the ebook</a></div>
+</svg><a class="hs-cta hs-cta--pos-after_icons hs-cta--m-in_row hs-cta--primary hs-cta--theme hs-cta--desktop hs-cta--ms-small hs-cta--font-body" href="/theme-previews/author-book/collections/all.html" data-theme-button="primary" data-sl-button style="--mb-bg: var(--btn-primary-bg-color); --mb-text: var(--btn-primary-color); --mb-hover-bg: var(--btn-primary-hover-bg-color); --mb-hover-text: var(--btn-primary-hover-color); --hs-cta-gap: 20px; --hs-cta-gap-mobile: 10px; --hs-cta-x: 0px; --hs-cta-y: 0px; --hs-cta-bg: #c8372d; --hs-cta-fg: #ffffff; --hs-cta-bd: #c8372d; --hs-cta-bw: 0px; --hs-cta-radius: 3px; --hs-cta-fs: 16px; --hs-cta-fw: 700; --hs-cta-tt: none; --hs-cta-ls: 0px; --hs-cta-py: 14px; --hs-cta-px: 26px; --hs-cta-deco: none; --hs-cta-shadow: none; --hs-cta-dur: 225ms; --hs-cta-ease: cubic-bezier(0.2, 0.7, 0.2, 1); --hs-cta-hbg: #f4f1ea; --hs-cta-hfg: #1a1817; --hs-cta-hbd: #f4f1ea; --hs-cta-htransform: none; --hs-cta-hshadow: none; --hs-cta-hfilter: none; --hs-cta-hdeco: none;" data-lh-block="header_button_1" data-block-id="header_button_1">Buy the ebook</a></div>
 </header-inner>
 </div>
 </div></header><script src="/theme-previews/author-book/a/i.b8ec2f2ea707.js"></script>
@@ -646,7 +646,19 @@ href="/theme-previews/author-book/pages/faqs.html"
   :where(html:not([data-font-priority='off'])) #shopify-section-story :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
-</style><style data-rs-bulletproof>/* reset_spacing: bulletproof override of ALL section spacing mechanisms */
+</style><style>
+  #shopify-section-story.scroll-trigger {
+    --animation-duration: 700ms;
+    --animation-delay: 0ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-story');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', "split_text");
+  })();
+</script><style data-rs-bulletproof>/* reset_spacing: bulletproof override of ALL section spacing mechanisms */
     #shopify-section-story,
     #shopify-section-story > .section,
     #shopify-section-story > section,
@@ -728,14 +740,26 @@ height="1200"
 loading="lazy"
 decoding="async"
 ></div>
-<div class="ivt__text mlb__text"><p class="ivt__eyebrow mlb__eyebrow" data-block-id="eyebrow_1" data-mlb-block="eyebrow_1" data-mlb-type="eyebrow" data-block-id="eyebrow_1" style="--b-c: var(--color-text);--b-fs: 12px;">About the author</p><h2 class="ivt__heading mlb__heading" data-block-id="heading_2" data-mlb-block="heading_2" data-mlb-type="heading" data-block-id="heading_2" style="--b-c: var(--color-heading);--b-fs-m: 32px;--b-fs-d: 44px;">Hanna Reyes</h2><div class="ivt__subheading mlb__sub" data-block-id="subheading_3" data-mlb-block="subheading_3" data-mlb-type="subheading" data-block-id="subheading_3" style="--b-c: var(--color-text);--b-fs-m: 15px;--b-fs-d: 17px;"><p>Hanna went freelance at twenty eight and spent a year posting long updates nobody read. Then she picked one thing, wrote about it three times a week and started getting messages from people she had never met.</p><p>She now runs workshops and writes a short note every other week. This is sample text. Replace it with your own story.</p></div><a href="/theme-previews/author-book/collections/all.html" class="ivt__btn mlb__btn" data-theme-button="primary" data-sl-button data-full="false" data-block-id="button_4" data-mlb-block="button_4" data-mlb-type="button" data-block-id="button_4" style="">Get the book</a></div>
+<div class="ivt__text mlb__text"><p class="ivt__eyebrow mlb__eyebrow" data-block-id="eyebrow_1" data-mlb-block="eyebrow_1" data-mlb-type="eyebrow" data-block-id="eyebrow_1" style="--b-c: var(--color-text);--b-fs: 12px;">About the author</p><h2 class="ivt__heading mlb__heading" data-block-id="heading_2" data-mlb-block="heading_2" data-mlb-type="heading" data-block-id="heading_2" style="--b-c: var(--color-heading);--b-fs-m: 32px;--b-fs-d: 44px;">Hanna Reyes</h2><div class="ivt__subheading mlb__sub" data-block-id="subheading_3" data-mlb-block="subheading_3" data-mlb-type="subheading" data-block-id="subheading_3" style="--b-c: var(--color-text);--b-fs-m: 15px;--b-fs-d: 17px;"><p>Hanna started out writing product descriptions for a furniture shop, three hundred of them in her first year. She learned that the plain ones sold and the clever ones did not.</p><p>She now writes for small businesses, runs a monthly workshop and sends a short edit every other week. This is sample text. Replace it with your own story.</p></div><a href="/theme-previews/author-book/collections/all.html" class="ivt__btn mlb__btn" data-theme-button="primary" data-sl-button data-full="false" data-block-id="button_4" data-mlb-block="button_4" data-mlb-type="button" data-block-id="button_4" style="">Get the book</a></div>
 </div>
 </div>
 </div></section><section id="shopify-section-why" class="shopify-section section sec__image-video-text s-tt" data-section-id="why" data-section-type="image-and-video-text"><script src="/theme-previews/_base/a/media-benefits-runtime.536397946d66.js" defer="defer"></script><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-why :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
-</style><style data-rs-bulletproof>/* reset_spacing: bulletproof override of ALL section spacing mechanisms */
+</style><style>
+  #shopify-section-why.scroll-trigger {
+    --animation-duration: 700ms;
+    --animation-delay: 0ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-why');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', "split_text");
+  })();
+</script><style data-rs-bulletproof>/* reset_spacing: bulletproof override of ALL section spacing mechanisms */
     #shopify-section-why,
     #shopify-section-why > .section,
     #shopify-section-why > section,
@@ -767,14 +791,26 @@ height="1200"
 loading="lazy"
 decoding="async"
 ></div>
-<div class="ivt__text mlb__text"><p class="ivt__eyebrow mlb__eyebrow" data-block-id="eyebrow_1" data-mlb-block="eyebrow_1" data-mlb-type="eyebrow" data-block-id="eyebrow_1" style="--b-c: var(--color-text);--b-fs: 12px;">Why she wrote it</p><h2 class="ivt__heading mlb__heading" data-block-id="heading_2" data-mlb-block="heading_2" data-mlb-type="heading" data-block-id="heading_2" style="--b-c: var(--color-heading);--b-fs-m: 32px;--b-fs-d: 44px;">The book she wanted in her first year</h2><div class="ivt__subheading mlb__sub" data-block-id="subheading_3" data-mlb-block="subheading_3" data-mlb-type="subheading" data-block-id="subheading_3" style="--b-c: var(--color-text);--b-fs-m: 15px;--b-fs-d: 17px;"><p>Most LinkedIn advice is a list of forty hacks and a different rule every month. Known For It picks the handful that matter, in the order to learn them, with what to do when a post gets no reply.</p></div></div>
+<div class="ivt__text mlb__text"><p class="ivt__eyebrow mlb__eyebrow" data-block-id="eyebrow_1" data-mlb-block="eyebrow_1" data-mlb-type="eyebrow" data-block-id="eyebrow_1" style="--b-c: var(--color-text);--b-fs: 12px;">Why she wrote it</p><h2 class="ivt__heading mlb__heading" data-block-id="heading_2" data-mlb-block="heading_2" data-mlb-type="heading" data-block-id="heading_2" style="--b-c: var(--color-heading);--b-fs-m: 32px;--b-fs-d: 44px;">The book she wanted on her first job</h2><div class="ivt__subheading mlb__sub" data-block-id="subheading_3" data-mlb-block="subheading_3" data-mlb-type="subheading" data-block-id="subheading_3" style="--b-c: var(--color-text);--b-fs-m: 15px;--b-fs-d: 17px;"><p>Most copywriting advice is a list of formulas and power words. Say It Plainly picks the handful of habits that matter, in the order to learn them, with real before and after examples from small businesses.</p></div></div>
 </div>
 </div>
 </div></section><section id="shopify-section-rules" class="shopify-section section-text-columns s-tt" data-section-id="rules" data-section-type="text-columns"><script src="/theme-previews/_base/a/r7-text-runtime.a3e607c36752.js" defer="defer"></script><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-rules :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
-</style><style data-rs-bulletproof>
+</style><style>
+  #shopify-section-rules.scroll-trigger {
+    --animation-duration: 700ms;
+    --animation-delay: 0ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-rules');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', "split_text");
+  })();
+</script><style data-rs-bulletproof>
   #shopify-section-rules + .shopify-section { margin-top: 0 !important; }
 </style><style>
   #shopify-section-rules {
@@ -1050,18 +1086,18 @@ style="--r7t-bg: var(--color-background); --r7t-link-ink: var(--color-link, var(
 >
 <div class="txc__inner"><div class="txc__header" data-r7t-header><h2 class="txc__heading" data-r7t-block="heading_1" data-r7t-type="heading" data-block-id="heading_1">Three ideas the book is built on</h2></div><div class="txc__grid" data-r7t-track><div class="txc__col" data-r7t-block="column_2" data-r7t-type="column" data-block-id="column_2">
 <p class="txc__label" data-r7t-label>01</p>
-<h3 class="txc__title" data-r7t-title>One thing first</h3>
-<div class="txc__text" data-r7t-text><p>People remember one thing about you. Choose it before you write.</p></div>
+<h3 class="txc__title" data-r7t-title>Plain beats clever</h3>
+<div class="txc__text" data-r7t-text><p>If a reader has to work out what you mean, they leave.</p></div>
 <a class="txc__link" data-r7t-link hidden></a>
 </div><div class="txc__col" data-r7t-block="column_3" data-r7t-type="column" data-block-id="column_3">
 <p class="txc__label" data-r7t-label>02</p>
-<h3 class="txc__title" data-r7t-title>Useful beats clever</h3>
-<div class="txc__text" data-r7t-text><p>A post that helps one reader beats one written to impress everyone.</p></div>
+<h3 class="txc__title" data-r7t-title>Their words, not yours</h3>
+<div class="txc__text" data-r7t-text><p>The best lines are already in your customers' emails and reviews.</p></div>
 <a class="txc__link" data-r7t-link hidden></a>
 </div><div class="txc__col" data-r7t-block="column_4" data-r7t-type="column" data-block-id="column_4">
 <p class="txc__label" data-r7t-label>03</p>
-<h3 class="txc__title" data-r7t-title>Three a week wins</h3>
-<div class="txc__text" data-r7t-text><p>Three posts you can keep beat seven you cannot, every time.</p></div>
+<h3 class="txc__title" data-r7t-title>Shorter is kinder</h3>
+<div class="txc__text" data-r7t-text><p>Cut a third of every draft. Nobody misses it.</p></div>
 <a class="txc__link" data-r7t-link hidden></a>
 </div></div><div class="txc__nav" data-r7t-nav>
 <button type="button" class="txc__arrow" data-r7t-prev aria-label="Previous" disabled>
@@ -1075,7 +1111,19 @@ style="--r7t-bg: var(--color-background); --r7t-link-ink: var(--color-link, var(
   :where(html:not([data-font-priority='off'])) #shopify-section-reviews :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
-</style><link rel="stylesheet" href="/theme-previews/author-book/a/i.fb24e91cb7f9.css">
+</style><style>
+  #shopify-section-reviews.scroll-trigger {
+    --animation-duration: 700ms;
+    --animation-delay: 0ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-reviews');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', "split_text");
+  })();
+</script><link rel="stylesheet" href="/theme-previews/author-book/a/i.fb24e91cb7f9.css">
 <link rel="stylesheet" href="/theme-previews/author-book/a/i.2b45134514d5.css">
 <div class="r7t r7w color-default gradient" data-r7t-root="testimonial-wall" data-section-id="reviews" data-card="plain" data-align="left" data-collapse="none" data-few="false" data-open="false" data-less="true" data-reset="true" style="--r7t-bg: var(--color-background);--r7t-text: var(--color-text);--r7t-card-bg: color-mix(in srgb, var(--color-text) 6%, var(--color-background));--r7t-card-border: var(--color-border);--r7t-quote-c: var(--color-heading);--r7t-name-c: var(--color-heading);--r7t-star-on: var(--color-primary);--r7t-star-off: color-mix(in srgb, var(--color-text) 22%, transparent);--r7t-radius: var(--rounded-radius, 0px);--r7t-hf: var(--heading-font);--r7t-bf: var(--body-font);--r7t-gap: 20px;--r7t-q-d: 16px;--r7t-q-m: 15px;--r7t-pt: 60px;--r7t-pb: 60px;--r7t-pt-m: 40px;--r7t-pb-m: 40px;--r7t-mt: 0px;--r7t-mb: 0px;--r7t-mt-m: 0px;--r7t-mb-m: 0px;--r7w-cols: 3;--r7w-cols-l: 3;--r7w-cols-t: 2;--r7w-part: 0.4fr;">
 <div class="r7t__frame" data-width="container">
@@ -1085,12 +1133,12 @@ style="--r7t-bg: var(--color-background); --r7t-link-ink: var(--color-link, var(
 <div class="r7t-card r7w__card" data-r7t-block="testimonial_4" data-r7t-type="testimonial" data-block-id="testimonial_4">
 <div class="r7w__photo" data-r7t-photo hidden></div>
 <span class="r7t-stars" role="img" aria-label="5 / 5" data-r7t-stars><span class="r7t-star" style="--r7t-fill: 100%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 100%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 100%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 100%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 100%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span></span>
-<p class="r7t-card__quote" data-r7t-text>I rewrote my headline with the fifteen word test. The next client quoted it back to me.</p>
+<p class="r7t-card__quote" data-r7t-text>I rewrote my homepage headline with the friend test. The next customer quoted it back to me.</p>
 <div class="r7t-card__by" data-r7t-by>
 <span class="r7t-card__avatar" data-r7t-avatar hidden></span>
 <div class="r7t-card__who">
 <h3 class="r7t-card__name" data-r7t-name>Priya N.</h3>
-<p class="r7t-card__role" data-r7t-role>Freelance designer</p>
+<p class="r7t-card__role" data-r7t-role>Runs a candle shop</p>
 </div>
 </div>
 </div>
@@ -1098,12 +1146,12 @@ style="--r7t-bg: var(--color-background); --r7t-link-ink: var(--color-link, var(
 <div class="r7t-card r7w__card" data-r7t-block="testimonial_5" data-r7t-type="testimonial" data-block-id="testimonial_5">
 <div class="r7w__photo" data-r7t-photo hidden></div>
 <span class="r7t-stars" role="img" aria-label="5 / 5" data-r7t-stars><span class="r7t-star" style="--r7t-fill: 100%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 100%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 100%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 100%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 100%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span></span>
-<p class="r7t-card__quote" data-r7t-text>The twenty minute post chapter alone was worth it. I stopped rewriting drafts for days.</p>
+<p class="r7t-card__quote" data-r7t-text>The ten minute edit alone was worth it. Every product page in my shop got a third shorter.</p>
 <div class="r7t-card__by" data-r7t-by>
 <span class="r7t-card__avatar" data-r7t-avatar hidden></span>
 <div class="r7t-card__who">
 <h3 class="r7t-card__name" data-r7t-name>Daniel A.</h3>
-<p class="r7t-card__role" data-r7t-role>Accountant, small practice</p>
+<p class="r7t-card__role" data-r7t-role>Bookkeeper, small practice</p>
 </div>
 </div>
 </div>
@@ -1111,12 +1159,12 @@ style="--r7t-bg: var(--color-background); --r7t-link-ink: var(--color-link, var(
 <div class="r7t-card r7w__card" data-r7t-block="testimonial_6" data-r7t-type="testimonial" data-block-id="testimonial_6">
 <div class="r7w__photo" data-r7t-photo hidden></div>
 <span class="r7t-stars" role="img" aria-label="5 / 5" data-r7t-stars><span class="r7t-star" style="--r7t-fill: 100%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 100%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 100%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 100%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 100%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span></span>
-<p class="r7t-card__quote" data-r7t-text>I hated selling myself. Chapter three showed me how to write about the work instead.</p>
+<p class="r7t-card__quote" data-r7t-text>I hated writing anything that sounded like selling. Chapter three showed me how to just describe the thing.</p>
 <div class="r7t-card__by" data-r7t-by>
 <span class="r7t-card__avatar" data-r7t-avatar hidden></span>
 <div class="r7t-card__who">
 <h3 class="r7t-card__name" data-r7t-name>Lena M.</h3>
-<p class="r7t-card__role" data-r7t-role>Looking for a new role</p>
+<p class="r7t-card__role" data-r7t-role>Freelance photographer</p>
 </div>
 </div>
 </div>
@@ -1129,6 +1177,18 @@ style="--r7t-bg: var(--color-background); --r7t-link-ink: var(--color-link, var(
     font-weight: var(--subheading-weight, 500);
   }
 </style><style>
+  #shopify-section-chapter.scroll-trigger {
+    --animation-duration: 700ms;
+    --animation-delay: 0ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-chapter');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', "split_text");
+  })();
+</script><style>
   #shopify-section-chapter,#shopify-section-chapter>.section,#shopify-section-chapter>section,#shopify-section-chapter>div,#shopify-section-chapter>div>.section{margin-top:0!important;margin-bottom:0!important}
   #shopify-section-chapter+.shopify-section,#shopify-section-chapter+section,.shopify-section+#shopify-section-chapter{margin-top:0!important}
   #shopify-section-chapter{isolation:isolate;position:relative;margin-top:0px;margin-bottom:0px}
@@ -1137,8 +1197,8 @@ style="--r7t-bg: var(--color-background); --r7t-link-ink: var(--color-link, var(
 <link href="/theme-previews/_base/a/r7-connect.f8d0ee0e6da3.css" rel="stylesheet" type="text/css" media="all"><div class="r7n r7n--split color-scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9 gradient" data-r7n="newsletter-split" data-r7n-section="chapter" data-r7n-width="fluid_container" data-r7n-show="all" data-r7n-align="left" data-r7n-side="left" data-r7n-ratio="landscape" data-r7n-mimg="true" data-r7n-form-layout="horizontal" style="--r7n-bg:var(--color-background);--r7n-pt-m:40px;--r7n-pb-m:40px;--r7n-pt-d:60px;--r7n-pb-d:60px;--r7n-media-w:50%;--r7n-gap:64px;--r7n-done:5s;--r7n-text:var(--color-text);">
 <div class="r7n__inner">
 <div class="r7n__split">
-<div class="r7n__media" data-r7n-media><img class="r7n__img" data-r7n-img src="/theme-previews/author-book/a/authorbook-spread-week.effd92bc039f.webp" srcset="/theme-previews/author-book/a/authorbook-spread-week-800.a9fcb20c2ab7.webp 600w, /theme-previews/author-book/a/authorbook-spread-week.effd92bc039f.webp 900w, /theme-previews/author-book/a/authorbook-spread-week.effd92bc039f.webp 1200w, /theme-previews/author-book/a/authorbook-spread-week.effd92bc039f.webp 1800w" sizes="(min-width: 768px) 50vw, 100vw" width="1100" height="756" alt="Two open pages from chapter two of Known For It" loading="lazy" decoding="async" style="object-position: 50.0% 50.0%"></div>
-<div class="r7n__body"><div class="r7n__header"><h2 class="r7n__heading" data-r7n-block="heading_1" data-r7n-type="heading" data-block-id="heading_1">Read chapter two free</h2><div class="r7n__subheading" data-r7n-block="subheading_2" data-r7n-type="subheading" data-block-id="subheading_2"><p>Pick what you want to be known for, as a PDF: the one line headline, a week of posts and the fifteen word test.</p></div></div><div class="r7n__signup" data-r7n-signup><form id="NewsletterSplitForm-chapter" accept-charset="UTF-8" class="r7n__form" data-nl-form="" data-mt-inline-subscribe="true" data-storelib-form="subscribe" data-storelib-form="subscribe" data-preview-form><input type="hidden" name="form_type" value="customer"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="storelib_placement" value="newsletter"><input type="hidden" name="contact[tags]" value="newsletter">
+<div class="r7n__media" data-r7n-media><img class="r7n__img" data-r7n-img src="/theme-previews/author-book/a/authorbook-spread-week.c722ba1b1507.webp" srcset="/theme-previews/author-book/a/authorbook-spread-week-800.ef2d9b6f8e7e.webp 600w, /theme-previews/author-book/a/authorbook-spread-week.c722ba1b1507.webp 900w, /theme-previews/author-book/a/authorbook-spread-week.c722ba1b1507.webp 1200w, /theme-previews/author-book/a/authorbook-spread-week.c722ba1b1507.webp 1800w" sizes="(min-width: 768px) 50vw, 100vw" width="1100" height="756" alt="Two open pages from chapter two of Say It Plainly" loading="lazy" decoding="async" style="object-position: 50.0% 50.0%"></div>
+<div class="r7n__body"><div class="r7n__header"><h2 class="r7n__heading" data-r7n-block="heading_1" data-r7n-type="heading" data-block-id="heading_1">Read chapter two free</h2><div class="r7n__subheading" data-r7n-block="subheading_2" data-r7n-type="subheading" data-block-id="subheading_2"><p>Write the headline last, as a PDF: the ten headline exercise, five before and after rewrites and the friend test.</p></div></div><div class="r7n__signup" data-r7n-signup><form id="NewsletterSplitForm-chapter" accept-charset="UTF-8" class="r7n__form" data-nl-form="" data-mt-inline-subscribe="true" data-storelib-form="subscribe" data-storelib-form="subscribe" data-preview-form><input type="hidden" name="form_type" value="customer"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="storelib_placement" value="newsletter"><input type="hidden" name="contact[tags]" value="newsletter">
 <input type="hidden" name="contact[accepts_marketing]" value="true">
 <span hidden data-mt-words data-r7n-words data-success-message="Done. Chapter two is in your inbox." data-already-message="You&#39;re already on the list." data-invalid-message="Enter a valid email address." data-error-message="That did not go through. Check your connection and try again." data-success-ms="5000"></span>
 <div class="r7n__hp" aria-hidden="true" data-mt-trap>
@@ -1159,7 +1219,7 @@ style="--r7t-bg: var(--color-background); --r7t-link-ink: var(--color-link, var(
 <p class="r7n__msg r7n__hint" id="NewsletterSplitHint-chapter" data-nl-hint data-r7n-hint>Enter a valid email address.</p>
 <div class="r7n__result" data-nl-result role="status" aria-live="polite">
 <p class="r7n__msg r7n__msg--error" data-nl-msg="error" data-r7n-msg="error">That did not go through. Check your connection and try again.</p>
-<p class="r7n__msg r7n__msg--done" data-nl-msg="done" data-r7n-msg="done">Done. Chapter two is in your inbox.</p></div></form><div class="r7n__note" data-r7n-note>You also get the Friday note every other week. Leave whenever you like.</div>
+<p class="r7n__msg r7n__msg--done" data-nl-msg="done" data-r7n-msg="done">Done. Chapter two is in your inbox.</p></div></form><div class="r7n__note" data-r7n-note>You also get the Friday edit every other week. Leave whenever you like.</div>
 </div>
 </div>
 </div>
@@ -1171,6 +1231,18 @@ style="--r7t-bg: var(--color-background); --r7t-link-ink: var(--color-link, var(
     font-weight: var(--subheading-weight, 500);
   }
 </style><style>
+  #shopify-section-footer.scroll-trigger {
+    --animation-duration: 700ms;
+    --animation-delay: 0ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-footer');
+    if (!el || el.classList.contains('scroll-trigger') || document.documentElement.classList.contains('shopify-design-mode') || (window.SlTheme && window.SlTheme.designMode)) return;
+    el.classList.add('scroll-trigger', "split_text");
+  })();
+</script><style>
   #shopify-section-footer,#shopify-section-footer>.section,#shopify-section-footer>section,#shopify-section-footer>div,#shopify-section-footer>div>.section{margin-top:0!important;margin-bottom:0!important}
   #shopify-section-footer+.shopify-section,#shopify-section-footer+section,.shopify-section+#shopify-section-footer{margin-top:0!important}
   #shopify-section-footer{font-weight:var(--body-weight,inherit);isolation:isolate;position:relative}
@@ -1196,12 +1268,12 @@ data-block-id="store_info_1"
 class="footer__block-heading fs-custom my-0 py-20 mb-md-5"
 style="--font-size: 15"
 >
-<span data-ft-heading>Known For It</span>
+<span data-ft-heading>Say It Plainly</span>
 </h3>
 <div
 class="store-info-content"
 ><div class="footer__block-info rich__text-mt-0 mb-20" data-ft-desc>
-<p>Known For It, a LinkedIn playbook for building a personal brand by Hanna Reyes. Ebook in PDF and EPUB, with an audiobook and printable post prompts.</p>
+<p>Say It Plainly, a copywriting handbook by Hanna Reyes. Ebook in PDF and EPUB, with an audiobook and printable copy templates.</p>
 </div>
 </div>
 </div><div
@@ -1316,7 +1388,7 @@ class="footer__block-heading collapsible-heading relative heading-letter-spacing
 style="--font-size: 15"
 >
 <button type="button" class="footer-acc__toggle" data-footer-acc-toggle aria-expanded="false" aria-controls="FooterAcc-newsletter_1">
-<span data-ft-heading>The Friday note</span>
+<span data-ft-heading>The Friday edit</span>
 <span class="open-children-toggle hidden-md absolute inset-0 flex flex-end">
 <span class="arrow-toggle" aria-hidden="true">
 <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1328,7 +1400,7 @@ style="--font-size: 15"
 </h3>
 <div class="footer-acc__panel" id="FooterAcc-newsletter_1"><div class="footer-acc__inner">
 <div class="collapsible-content mb-30"><div class="footer__block-description mb-23" data-ft-desc>
-One short email every other week with one post idea to try. Free.
+One short email every other week with one page, before and after. Free.
 </div>
 <form id="ContactFooter" accept-charset="UTF-8" class="footer__newsletter newsletter-form" data-storelib-form="subscribe" data-ft-form="newsletter_1" data-success-message="Thanks for subscribing." data-error-message="" data-storelib-form="subscribe" data-preview-form><input type="hidden" name="form_type" value="customer"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="storelib_placement" value="footer"><input type="hidden" name="contact[tags]" value="newsletter">
 <input type="hidden" name="contact[accepts_marketing]" value="true">
@@ -1530,7 +1602,7 @@ viewBox="0 0 165.521 105.965">
 </div>
 <div class="footer-bottom__row footer-bottom__row--legal">
 <div class="footer-bottom__legal">
-<div class="footer__copyright" data-ft-copyright>© 2026 Known For It</div>
+<div class="footer__copyright" data-ft-copyright>© 2026 Say It Plainly</div>
 <ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/author-book/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/author-book/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/author-book/policies/terms-of-service.html">Terms of service</a></li></ul><div class="footer__powered" data-ft-powered><a href="#" data-preview-inert data-storelib-badge="" style="display:inline-flex;align-items:center;gap:.45em;white-space:nowrap;vertical-align:middle"><svg data-storelib-badge-mark="" aria-hidden="true" focusable="false" viewBox="0 0 200 200" width="14" height="14" style="display:block;flex:none;width:1.2em;height:1.2em;overflow:visible"><mask id="sl-pb-s" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="200"><rect width="200" height="200" fill="#fff"/><path transform="translate(48.97 38.44) scale(1.08) translate(-54 -43) translate(134.125,52.875)" d="M0 0 C0.99749268 0.36665771 0.99749268 0.36665771 2.01513672 0.74072266 C6.62777473 2.59663113 6.62777473 2.59663113 7.68823242 4.86303711 C7.94652165 7.99120666 7.02705902 10.04467511 5.85546875 12.94921875 C5.41009766 14.05974609 4.96472656 15.17027344 4.50585938 16.31445312 C4.02955078 17.46880859 3.55324219 18.62316406 3.0625 19.8125 C2.59779297 20.97845703 2.13308594 22.14441406 1.65429688 23.34570312 C-1.85471661 31.98985831 -1.85471661 31.98985831 -4.125 33.125 C-6.02961204 32.43054915 -7.90085447 31.64344514 -9.75 30.8125 C-19.66422998 26.58368153 -27.26609106 25.85047702 -38.125 26.125 C-38.455 27.115 -38.785 28.105 -39.125 29.125 C-38.14402344 29.36734375 -37.16304687 29.6096875 -36.15234375 29.859375 C-33.31305776 30.56236873 -30.47635159 31.27497918 -27.640625 31.9921875 C-24.80213536 32.70970135 -21.95989766 33.40235421 -19.109375 34.0703125 C-6.69949938 37.1089446 3.02755655 40.84926977 9.875 52.125 C13.29151905 58.95803811 12.61307566 67.23479967 10.625 74.4375 C7.53029491 83.45189328 1.37513276 90.18616729 -7.02734375 94.67578125 C-26.20884362 103.04454374 -49.04415352 101.90170642 -68.5 94.625 C-72.25964144 93.07749587 -75.67848864 91.2806362 -79.125 89.125 C-78.55593823 84.90468545 -77.56543969 81.39586411 -75.83984375 77.5078125 C-75.39189453 76.48945313 -74.94394531 75.47109375 -74.48242188 74.421875 C-73.77956055 72.85179688 -73.77956055 72.85179688 -73.0625 71.25 C-72.59005859 70.18007812 -72.11761719 69.11015625 -71.63085938 68.0078125 C-70.46832699 65.3774362 -69.29955398 62.75002483 -68.125 60.125 C-63.80181734 61.13483216 -60.07150265 62.96083682 -56.07421875 64.87109375 C-49.32009515 67.74271451 -43.48344492 68.41757298 -36.25 68.3125 C-35.38375 68.31185547 -34.5175 68.31121094 -33.625 68.31054688 C-29.55080641 68.64235092 -29.55080641 68.64235092 -26.125 67.125 C-32.43853708 64.84703882 -38.66045093 62.93279428 -45.25 61.625 C-56.73505022 59.25968679 -67.31315991 55.21661495 -74.125 45.125 C-77.1608836 40.09281577 -77.67121961 36.10082917 -77.625 30.375 C-77.62072998 29.57876221 -77.61645996 28.78252441 -77.61206055 27.9621582 C-77.37730644 19.82208022 -74.95520496 14.3797357 -69.625 8.25 C-68.8 7.54875 -67.975 6.8475 -67.125 6.125 C-66.403125 5.465 -65.68125 4.805 -64.9375 4.125 C-46.69751714 -8.84565448 -20.22397968 -7.61423584 0 0 Z" fill="#000"/></mask><rect width="200" height="200" rx="48" fill="currentColor" mask="url(#sl-pb-s)"/></svg><span>Powered by Storelib</span></a></div></div>
 </div></div>
 </div>
@@ -1564,11 +1636,11 @@ aria-modal="true"
 aria-label="Search"
 data-search-mode="popup"
 class="search-overlay search-overlay--popup search__type-popup search__popup-anim--fade color-default"
-style="--color-background: #ffffff;          --color-text: #474c55;          --color-heading: #171b22;          --color-primary: #a65f1c;          --color-border: #e6e4df;          --gradient-background: #ffffff;          background-color: #ffffff;          color: #474c55;"
+style="--color-background: #fdfcf9;          --color-text: #45423d;          --color-heading: #1a1817;          --color-primary: #b8322a;          --color-border: #e7e3da;          --gradient-background: #fdfcf9;          background-color: #fdfcf9;          color: #45423d;"
 ><div
 class="search__type-popup search__popup-anim--fade color-default h-full overflow-auto px-15 custom-scrollbar"
 data-search-popup-anim="fade"
-style="--color-background: #ffffff;    --color-text: #474c55;    --color-heading: #171b22;    --color-primary: #a65f1c;    --color-border: #e6e4df;    --gradient-background: #ffffff;    background-color: #ffffff;    color: #474c55;"
+style="--color-background: #fdfcf9;    --color-text: #45423d;    --color-heading: #1a1817;    --color-primary: #b8322a;    --color-border: #e7e3da;    --gradient-background: #fdfcf9;    background-color: #fdfcf9;    color: #45423d;"
 >
 <div class="fluid_container">
 <h3 class="search-title search-title--animated text-center h4 m-0 hidden block-sm" aria-label="Search"><span class="search-title__char" style="--char-i: 0;" aria-hidden="true">S</span><span class="search-title__char" style="--char-i: 1;" aria-hidden="true">e</span><span class="search-title__char" style="--char-i: 2;" aria-hidden="true">a</span><span class="search-title__char" style="--char-i: 3;" aria-hidden="true">r</span><span class="search-title__char" style="--char-i: 4;" aria-hidden="true">c</span><span class="search-title__char" style="--char-i: 5;" aria-hidden="true">h</span></h3>
@@ -1699,13 +1771,13 @@ style=" ;--col-number: 1;--col-tablet: 1;--col-desktop-small:3;--col-desktop: 5;
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><link rel="stylesheet" href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"></noscript><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/author-book/a/i.2fd1268d63bf.css" data-cart-drawer-style="paint">
+</style><link rel="stylesheet" href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"></noscript><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/author-book/a/i.839348488473.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #ffffff;    --color-text: #474c55;    --color-heading: #171b22;    --color-primary: #a65f1c;    --color-border: #e6e4df;    --gradient-background: #ffffff;    --btn-primary-color: #171b22;    --btn-primary-bg-color: #e09a4c;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #171b22;    --btn-secondary-color: #171b22;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfcdc8;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #171b22;    --btn-outline-color: #171b22;    --btn-outline-border-color: #cfcdc8;    background-color: #ffffff !important;    color: #474c55 !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #ffffff;    --color-text: #474c55;    --color-heading: #171b22;    --color-primary: #a65f1c;    --color-border: #e6e4df;    --gradient-background: #ffffff;    --btn-primary-color: #171b22;    --btn-primary-bg-color: #e09a4c;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #171b22;    --btn-secondary-color: #171b22;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfcdc8;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #171b22;    --btn-outline-color: #171b22;    --btn-outline-border-color: #cfcdc8;    background-color: #ffffff !important;    color: #474c55 !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #fdfcf9;    --color-text: #45423d;    --color-heading: #1a1817;    --color-primary: #b8322a;    --color-border: #e7e3da;    --gradient-background: #fdfcf9;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #c8372d;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #1a1817;    --btn-secondary-color: #1a1817;    --btn-secondary-bg-color: #fdfcf9;    --btn-secondary-border-color: #d3cec4;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #1a1817;    --btn-outline-color: #1a1817;    --btn-outline-border-color: #d3cec4;    background-color: #fdfcf9 !important;    color: #45423d !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #fdfcf9;    --color-text: #45423d;    --color-heading: #1a1817;    --color-primary: #b8322a;    --color-border: #e7e3da;    --gradient-background: #fdfcf9;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #c8372d;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #1a1817;    --btn-secondary-color: #1a1817;    --btn-secondary-bg-color: #fdfcf9;    --btn-secondary-border-color: #d3cec4;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #1a1817;    --btn-outline-color: #1a1817;    --btn-outline-border-color: #d3cec4;    background-color: #fdfcf9 !important;    color: #45423d !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">
@@ -1755,6 +1827,7 @@ Continue Shopping
   #shopify-section-custom-colors { isolation: isolate; position: relative; }
 </style>
 </div><script src="/theme-previews/author-book/a/i.7878e9c8a781.js"></script>
+<script src="/theme-previews/_base/a/animation.197cc38a1ae3.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/tingle-min.2433104e28fc.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-discount.31276c74b980.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/theme.b49152a98599.js"  defer="defer" type="module"></script>
@@ -1823,7 +1896,21 @@ window.__mtFormsUrl=u;if(/[?&](customer_posted|contact_posted|form_type)=/.test(
   html.mt-img-reveal img.media-fade-hold { opacity: 0 !important; }
 </style>
 <script src="/theme-previews/author-book/a/i.aa500cf99adf.js"></script>
-<link rel="stylesheet" href="/theme-previews/author-book/a/i.7c52d5318a5a.css">
+<style>
+        :root {
+          /* Wire the user's Animations & motion settings to the keyframe vars used by animation.css */
+          --duration-long: 490ms;
+          --duration-extra-long: 700ms;
+          --duration-extra-longer: 700ms;
+          --animation-duration: 700ms;
+          --animation-delay-base: 0ms;
+          --reveal-stagger: 60ms;
+        }
+        /* Every reveal type, its timing, the first screen, the builder and
+           reduced motion are drawn by animation.css for every .scroll-trigger
+           (theme-wide sections below and cards inside sections alike). */
+      </style>
+<script src="/theme-previews/author-book/a/i.d1a9861b1d5b.js"></script><link rel="stylesheet" href="/theme-previews/author-book/a/i.7c52d5318a5a.css">
 <script src="/theme-previews/author-book/a/i.c9b8b9c1028c.js"></script><script id="materia-shipping-data" type="application/json">
   {
     "country": "US",
@@ -1839,13 +1926,13 @@ window.__mtFormsUrl=u;if(/[?&](customer_posted|contact_posted|form_type)=/.test(
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/author-book/a/i.2fd1268d63bf.css" data-cart-drawer-style="paint">
+</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/author-book/a/i.839348488473.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #ffffff;    --color-text: #474c55;    --color-heading: #171b22;    --color-primary: #a65f1c;    --color-border: #e6e4df;    --gradient-background: #ffffff;    --btn-primary-color: #171b22;    --btn-primary-bg-color: #e09a4c;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #171b22;    --btn-secondary-color: #171b22;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfcdc8;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #171b22;    --btn-outline-color: #171b22;    --btn-outline-border-color: #cfcdc8;    background-color: #ffffff !important;    color: #474c55 !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #ffffff;    --color-text: #474c55;    --color-heading: #171b22;    --color-primary: #a65f1c;    --color-border: #e6e4df;    --gradient-background: #ffffff;    --btn-primary-color: #171b22;    --btn-primary-bg-color: #e09a4c;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #171b22;    --btn-secondary-color: #171b22;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfcdc8;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #171b22;    --btn-outline-color: #171b22;    --btn-outline-border-color: #cfcdc8;    background-color: #ffffff !important;    color: #474c55 !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #fdfcf9;    --color-text: #45423d;    --color-heading: #1a1817;    --color-primary: #b8322a;    --color-border: #e7e3da;    --gradient-background: #fdfcf9;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #c8372d;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #1a1817;    --btn-secondary-color: #1a1817;    --btn-secondary-bg-color: #fdfcf9;    --btn-secondary-border-color: #d3cec4;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #1a1817;    --btn-outline-color: #1a1817;    --btn-outline-border-color: #d3cec4;    background-color: #fdfcf9 !important;    color: #45423d !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #fdfcf9;    --color-text: #45423d;    --color-heading: #1a1817;    --color-primary: #b8322a;    --color-border: #e7e3da;    --gradient-background: #fdfcf9;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #c8372d;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #1a1817;    --btn-secondary-color: #1a1817;    --btn-secondary-bg-color: #fdfcf9;    --btn-secondary-border-color: #d3cec4;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #1a1817;    --btn-outline-color: #1a1817;    --btn-outline-border-color: #d3cec4;    background-color: #fdfcf9 !important;    color: #45423d !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">

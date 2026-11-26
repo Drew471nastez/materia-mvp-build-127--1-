@@ -6,7 +6,7 @@ const SCROLL_ANIMATION_OFFSCREEN_CLASSNAME = 'scroll-trigger--offscreen';
 const SCROLL_ANIMATION_DONE_ATTR = 'data-animation-done';
 const REVEAL_MAX_STAGGER = 6;
 // Types whose section stays put while its parts arrive one after another.
-const PART_TYPES = ['stagger_up', 'mask_reveal', 'split_text'];
+const PART_TYPES = ['stagger_up', 'mask_reveal', 'split_text', 'editorial'];
 const MAX_PARTS = 14;
 // Sections whose own settings pick a reveal style play it themselves
 // (collection tabs, FAQ 4, countdown, scrolling text, marquee, logos).
@@ -149,14 +149,14 @@ function markParts(section, type) {
   if (picked.length < 2) return false;
   picked.forEach((el, i) => {
     let kind = 'text';
-    if (type === 'mask_reveal' && el.matches(MEDIA_PART)) kind = 'media';
+    if ((type === 'mask_reveal' || type === 'editorial') && el.matches(MEDIA_PART)) kind = 'media';
     else if (type === 'split_text' && el.matches(HEADING_PART) && splittable(el)) { kind = 'words'; splitWords(el); }
     el.setAttribute('data-reveal-part', kind);
     el.style.setProperty('--part', String(i));
   });
   section.classList.add('reveal-parts');
   section.__mtParts = picked;
-  markZoom(section, img => type === 'mask_reveal' && !!img.closest('[data-reveal-part="media"]'));
+  markZoom(section, img => (type === 'mask_reveal' || type === 'editorial') && !!img.closest('[data-reveal-part="media"]'));
   return true;
 }
 function clearParts(el) {

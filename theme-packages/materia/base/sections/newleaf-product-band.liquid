@@ -1,5 +1,5 @@
 {%- comment -%}
-  New Leaf (templates round 29): the top of a template's page, above the
+  Octavo (templates round 29; named New Leaf until round 30): the top of a template's page, above the
   product information. A strip of the product's own cover art runs across
   the top and fades into the section's colour, then the way back (Templates
   / the product's category) and the template's icon.
@@ -7,7 +7,7 @@
   Everything comes from the product: the strip is the top of its first
   picture (where a template's cover art is), the category is the one it is
   filed under, and the icon is cut from the first picture at the place the
-  settings give (where New Leaf's pictures have it). With the icon set to
+  settings give (where the template's own pictures had it). With the icon set to
   None, no icon is shown. Put the product information right under it in
   the same colour scheme, with its top padding at zero.
 {%- endcomment -%}
@@ -31,6 +31,9 @@
 -%}
 <style>
   #shopify-section-{{ sid }} .nlb { --strip: {{ s.strip_height_mobile }}px; position: relative; overflow: hidden; padding-top: calc(var(--strip) * .62); }
+  {%- comment -%} Without the strip (round 30): just the way back, a little air above it. {%- endcomment -%}
+  #shopify-section-{{ sid }} .nlb--plain { padding-top: 20px; padding-bottom: 4px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .nlb--plain { padding-top: 36px; padding-bottom: 10px; } }
   #shopify-section-{{ sid }} .nlb__strip { position: absolute; left: 0; right: 0; top: 0; height: var(--strip); overflow: hidden; pointer-events: none; }
   #shopify-section-{{ sid }} .nlb__strip img { position: absolute; left: 50%; top: 0; height: calc(var(--strip) * 3.2); width: auto; min-width: 100%; max-width: none; object-fit: cover; object-position: top center; transform: translateX(-50%); display: block; }
   #shopify-section-{{ sid }} .nlb__strip::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 10%, var(--color-background) 100%); }
@@ -46,7 +49,7 @@
     #shopify-section-{{ sid }} .nlb { --strip: {{ s.strip_height }}px; }
   }
 </style>
-<div class="nlb color-{{ color_scheme }} gradient">
+<div class="nlb color-{{ color_scheme }} gradient{% unless s.show_strip and pic != blank %} nlb--plain{% endunless %}">
   {%- if s.show_strip and pic != blank -%}
     <div class="nlb__strip" aria-hidden="true">{{ pic | image_url: width: 1800 | image_tag: loading: 'eager', fetchpriority: 'high', widths: '800, 1200, 1800', sizes: '100vw', alt: '' }}</div>
   {%- endif -%}
@@ -83,7 +86,7 @@
     { "type": "range", "id": "icon_tile", "label": "Icon size", "min": 40, "max": 96, "step": 2, "unit": "px", "default": 64 },
     { "type": "number", "id": "icon_x", "label": "Icon's left edge, % of the picture's width", "default": 7.35 },
     { "type": "number", "id": "icon_y", "label": "Icon's top edge, % of the picture's width", "default": 19.9 },
-    { "type": "number", "id": "icon_size", "label": "Icon's width, % of the picture's width", "default": 7.5, "info": "Where the icon sits in your pictures, all measured against the picture's width. New Leaf's own pictures have it at 7.35, 19.9 and 7.5." },
+    { "type": "number", "id": "icon_size", "label": "Icon's width, % of the picture's width", "default": 7.5, "info": "Where the icon sits in your pictures, all measured against the picture's width. The round 29 pictures had it at 7.35, 19.9 and 7.5." },
     { "type": "header", "content": "General" },
     { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default" },
     { "type": "select", "id": "section_width", "label": "Section width", "default": "container", "options": [{ "value": "container", "label": "Default" }, { "value": "fluid_container", "label": "Fluid container" }, { "value": "stretch_width", "label": "Stretched" }] }

@@ -306,6 +306,8 @@ They are not part of a template and are never added to a creator's website.
 | samples (cover only) | scripts/theme-templates/products/samples/samples-pack-bass-collection.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Bass Collection (Tech House Bass Collection Vol I) on a plain dark background | Loudlib (the owner) |
 | samples (sample products) | scripts/theme-templates/products/samples/samples-pack-*.webp, assets/samples-box-*.webp | Round 26: each box moved so it sits in the middle of its picture (they sat 5 to 10 percent right of centre). The hero picture samples-hero-console.webp has the maker name on the mixing desk painted out. The two logos drawn in round 26 (fitness-logo.webp, creator-logo.webp) set their wordmarks in Bebas Neue and Lora, both SIL Open Font License | as above |
 | workspace | assets/workspace-hero.webp | Drawn for this template | Storelib |
+| workspace | assets/workspace-logo.webp | Drawn for this template | Storelib |
+| workspace | assets/workspace-*.webp (drawn) | Round 30: the Notion screens, windows and grounds redrawn in the new petrol and coral palette instead of yellow; the logo is a list mark and the Wellkept wordmark set in Rubik, SIL Open Font License | Storelib |
 | workspace | assets/workspace-feature-projects.webp | Drawn for this template | Storelib |
 | workspace | assets/workspace-feature-invoices.webp | Drawn for this template | Storelib |
 | workspace | assets/workspace-cta.webp | Drawn for this template | Storelib |
@@ -388,13 +390,13 @@ Video sales letter (round 22): a short video course (Hookline). The poster is sh
 | vsl (cover only) | scripts/theme-templates/products/vsl/vsl-templates.webp | https://images.unsplash.com/photo-1771642430984-182bd68a6eda | Unsplash License |
 | vsl (cover only) | scripts/theme-templates/products/vsl/vsl-review-call.webp | https://images.unsplash.com/photo-1627244714766-94dab62ed964 | Unsplash License |
 
-Online course (round 21, remade in round 26 and round 28): Gridwork, a Canva design course for small business owners and creators, taught by Clara Lind, a sample teacher. Every photograph of the teacher, on the pages and on the products, is one Unsplash session of the same woman in her studio (Vitaly Gariev). The carousel template pack and the workbook are drawn for the template, the pack around one photograph from the same session. The logo is drawn for the template. The student faces on the sample reviews are Unsplash portraits, cropped round and marked as samples on the page.
+Online course (round 21, remade in round 26 and round 28): Gridwork, a Canva design course for small business owners and creators, taught by Clara Lind, a sample teacher. Every photograph of the teacher, on the pages and on the products, is one Unsplash session of the same woman drawing in her studio (Jonathan Borba; round 30, replacing an earlier session). The carousel template pack and the workbook are drawn for the template, the pack around one photograph from the same session. The logo is drawn for the template. The student faces on the sample reviews are Unsplash portraits, cropped round and marked as samples on the page.
 
-| course2 | assets/course2-hero.webp | https://images.unsplash.com/photo-1758876017826-8a0097bc5aac | Unsplash License |
-| course2 | assets/course2-teacher.webp | https://images.unsplash.com/photo-1758876017845-39187338e752 | Unsplash License |
-| course2 | assets/course2-call.webp | https://images.unsplash.com/photo-1758876020207-67890de8aa73 | Unsplash License |
-| course2 | assets/course2-desk.webp | https://images.unsplash.com/photo-1758876017749-d1bd378e2577 | Unsplash License |
-| course2 | assets/course2-studio.webp | https://images.unsplash.com/photo-1758876019338-c190822f6ca0 | Unsplash License |
+| course2 | assets/course2-hero.webp | https://images.unsplash.com/photo-1613483811511-72729fa16112 | Unsplash License |
+| course2 | assets/course2-teacher.webp | https://images.unsplash.com/photo-1614107070261-2aa1304618f6 | Unsplash License |
+| course2 | assets/course2-call.webp | https://images.unsplash.com/photo-1613483812364-896455b2b309 | Unsplash License |
+| course2 | assets/course2-desk.webp | https://images.unsplash.com/photo-1614107069775-236a67980e12 | Unsplash License |
+| course2 | assets/course2-studio.webp | https://images.unsplash.com/photo-1613483812100-a473b639b423 | Unsplash License |
 | course2 | assets/course2-logo.webp | Drawn for this template | Storelib |
 | course2 | assets/course2-student-1.webp | https://images.unsplash.com/photo-1583264277168-58ceba4b84e7 | Unsplash License |
 | course2 | assets/course2-student-2.webp | https://images.unsplash.com/photo-1625241152315-4a698f74ceb7 | Unsplash License |
@@ -402,14 +404,14 @@ Online course (round 21, remade in round 26 and round 28): Gridwork, a Canva des
 | course2 | assets/course2-student-4.webp | https://images.unsplash.com/photo-1779212508632-673f06f27210 | Unsplash License |
 | course2 | assets/course2-student-5.webp | https://images.unsplash.com/photo-1780322195200-64e71db074c2 | Unsplash License |
 | course2 | assets/course2-student-6.webp | https://images.unsplash.com/photo-1714750977930-e7a7f4611257 | Unsplash License |
-| course2 (cover only) | scripts/theme-templates/products/course2/course2-design-it-yourself.webp | https://images.unsplash.com/photo-1758876018914-f45a74618d37 | Unsplash License |
-| course2 (cover only) | scripts/theme-templates/products/course2/course2-carousel-pack.webp | Drawn for this template around https://images.unsplash.com/photo-1758876019673-704b039d405c | Storelib |
+| course2 (cover only) | scripts/theme-templates/products/course2/course2-design-it-yourself.webp | https://images.unsplash.com/photo-1613483811459-1c4bb7a234f6 | Unsplash License |
+| course2 (cover only) | scripts/theme-templates/products/course2/course2-carousel-pack.webp | Drawn for this template around https://images.unsplash.com/photo-1613483812100-a473b639b423 | Storelib |
 | course2 (cover only) | scripts/theme-templates/products/course2/course2-workbook.webp | Drawn for this template | Storelib |
-| course2 (cover only) | scripts/theme-templates/products/course2/course2-feedback.webp | https://images.unsplash.com/photo-1758876019427-e2e5bf9a92c5 | Unsplash License |
-| course2 (cover only) | scripts/theme-templates/products/course2/course2-private-lesson.webp | https://images.unsplash.com/photo-1758876020337-2501eeb1ede5 | Unsplash License |
-| course2 (cover only) | scripts/theme-templates/products/course2/course2-post-fonts.webp | https://images.unsplash.com/photo-1758876019211-e713dc156eb0 | Unsplash License |
-| course2 (cover only) | scripts/theme-templates/products/course2/course2-post-photos.webp | https://images.unsplash.com/photo-1758876019084-cb8f8556d8db | Unsplash License |
-| course2 (cover only) | scripts/theme-templates/products/course2/course2-post-first-slide.webp | https://images.unsplash.com/photo-1758876019673-704b039d405c | Unsplash License |
+| course2 (cover only) | scripts/theme-templates/products/course2/course2-feedback.webp | https://images.unsplash.com/photo-1614107069293-7d5bd9aba22e | Unsplash License |
+| course2 (cover only) | scripts/theme-templates/products/course2/course2-private-lesson.webp | https://images.unsplash.com/photo-1613483811450-01309af4902d | Unsplash License |
+| course2 (cover only) | scripts/theme-templates/products/course2/course2-post-fonts.webp | https://images.unsplash.com/photo-1613483812100-a473b639b423 | Unsplash License |
+| course2 (cover only) | scripts/theme-templates/products/course2/course2-post-photos.webp | https://images.unsplash.com/photo-1613483812364-896455b2b309 | Unsplash License |
+| course2 (cover only) | scripts/theme-templates/products/course2/course2-post-first-slide.webp | https://images.unsplash.com/photo-1613483811511-72729fa16112 | Unsplash License |
 
 Course landing (round 20, remade in round 25, round 26 additions): Arch Pilates, every studio picture from one Unsplash session. Round 26 adds the arch mark and wordmark, drawn for the template, and four Unsplash portraits, cropped round, beside the sample review in the hero.
 
@@ -448,7 +450,7 @@ Retro desktop (round 20): the garments are Unsplash photographs cut out, recolou
 | retro (sample products, second picture) | scripts/theme-templates/products/retro/retro-sticker-pack-loose.webp | Drawn for this template: the sheet's stickers laid loose | Storelib |
 | retro (sample products) | scripts/theme-templates/products/retro/retro-error-hoodie.webp | Round 25: one picture; no honest second shot of a plain hoodie could be printed cleanly | as above |
 
-Ebook (round 23, remade in round 25, round 26 and round 28): Known For It, a LinkedIn personal brand playbook by Hanna Reyes, a sample author. The two photographs of the author, and the photograph inside the second spread (https://images.unsplash.com/photo-1616587226830-e493599b0c15), are one Unsplash session of the same woman (LinkedIn Sales Solutions); the desk and notebook pictures, including the one inside the third spread (https://images.unsplash.com/photo-1789724919872-00dc3c222e3d), are separate Unsplash photographs. The cover is typographic and, with the book, spreads, prompt cards, devices, logo and reader initials, drawn for the template.
+Ebook (round 23, remade in round 25, round 26 and round 28; round 30 changed the book to a copywriting handbook): Say It Plainly, a copywriting handbook by Hanna Reyes, a sample author. The two photographs of the author, and the photograph inside the second spread (https://images.unsplash.com/photo-1616587226830-e493599b0c15), are one Unsplash session of the same woman (LinkedIn Sales Solutions); the desk and notebook pictures, including the one inside the third spread (https://images.unsplash.com/photo-1789724919872-00dc3c222e3d), are separate Unsplash photographs. The cover is typographic and, with the book, spreads, template cards, devices, logo and reader initials, drawn for the template; the type on them is Libre Baskerville (SIL Open Font License) and Liberation Sans (SIL Open Font License).
 
 | authorbook | assets/authorbook-author.webp | https://images.unsplash.com/photo-1616587224717-f502f5b0c4dd | Unsplash License |
 | authorbook | assets/authorbook-home.webp | https://images.unsplash.com/photo-1616587226157-48e49175ee20 | Unsplash License |
@@ -512,11 +514,11 @@ Coach creator (round 21, remade in round 26): the coach, Marcus Hale, is a sampl
 | coachpro | assets/coachpro-client-5.webp | Drawn for this template | Storelib |
 | coachpro | assets/coachpro-client-6.webp | Drawn for this template | Storelib |
 
-Digital Renaissance (round 22): the instructor, Karim Nassar, is two photographs from one session by one photographer (Khaled Elshamy). The hero (round 28, back to the round 23 photograph at the owner's request) is a shop owner typing on a laptop in his studio, cropped. The other photographs are separate Unsplash photographs, cropped; the skill cards sit under a dark overlay set in the section. The logo and its compass mark are drawn for the template.
+Digital Renaissance (round 22): the instructor, Karim Nassar, is two photographs from one session by one photographer (Khaled Elshamy). The hero (round 30, replacing the earlier one at the owner's request) is a shop owner in a white work coat packing orders at the bench in her studio, cropped. The other photographs are separate Unsplash photographs, cropped; the skill cards sit under a dark overlay set in the section. The logo and its compass mark are drawn for the template.
 
 | renaissance | assets/renaissance-instructor.webp | https://images.unsplash.com/photo-1764545973653-94c40d993495 | Unsplash License |
 | renaissance | assets/renaissance-instructor-about.webp | https://images.unsplash.com/photo-1764546373114-2d7a87221733 | Unsplash License |
-| renaissance | assets/renaissance-hero.webp | https://images.unsplash.com/photo-1764096534686-68091ce5ab45 | Unsplash License |
+| renaissance | assets/renaissance-hero.webp | https://images.unsplash.com/photo-1773146916231-e6aeae932080 | Unsplash License |
 | renaissance | assets/renaissance-calls.webp | https://images.unsplash.com/photo-1616587226960-4a03badbe8bf | Unsplash License |
 | renaissance | assets/renaissance-workshop.webp | https://images.unsplash.com/photo-1591115765373-5207764f72e7 | Unsplash License |
 | renaissance | assets/renaissance-shop.webp | https://images.unsplash.com/photo-1753161618037-e6a8f740fd47 | Unsplash License |
@@ -788,6 +790,8 @@ Templates round 24, renamed and remade in round 25 as Streetwear drop by Sixth W
 
 Round 28: every sample product's first picture is now a real photograph of someone wearing that kind of piece in that colour (the photographs are of other people's clothes, chosen for the cut and colour), and its second is the garment alone: the hanger cut-out the rail hangs, the same transparent file as the rail's front view, so the focus view shows it once. The "Made heavy" banner, lookbook split, category tiles, @kurbclub grid and countdown were added to the home page; the brick, garage, sky, hills and tile pictures were removed. The two bomber fronts are one photograph of a rust bomber on a hanger, cut out (rembg, IS-Net), the hand and arm holding it removed, the plastic hanger toned to wood and steel, the label text painted out, then tinted black and olive; they are not photographs of those colours. The slate long sleeve is the charcoal long sleeve cut-out tinted. The shorts photograph has the printed logos on the tee and the shorts painted out and is cropped above the shoes.
 
+Round 30: the "Made heavy" banner is a new photograph, a man in a brown hoodie and wide grey jeans on an empty parking deck, cropped once for wide screens and once, closer, for phones.
+
 | Template | File | Source | Licence |
 | --- | --- | --- | --- |
 | rail | assets/rail-look-hoodie.webp | https://images.unsplash.com/photo-1614699369594-3b9f06b085d3 | Unsplash License |
@@ -849,8 +853,8 @@ Round 28: every sample product's first picture is now a real photograph of someo
 | rail | assets/rail-bomber-olive-side.webp | Drawn for this template | Storelib |
 | rail | assets/rail-longsleeve-slate-side.webp | Drawn for this template | Storelib |
 | rail | assets/rail-longsleeve-slate-front.webp | https://images.unsplash.com/photo-1610502778270-c5c6f4c7d575 | Unsplash License |
-| rail | assets/rail-made-garage.webp | https://images.unsplash.com/photo-1677538537484-324385aff147 | Unsplash License |
-| rail | assets/rail-made-garage-m.webp | https://images.unsplash.com/photo-1677538537484-324385aff147 | Unsplash License |
+| rail | assets/rail-made-deck.webp | https://images.unsplash.com/photo-1765916093860-28dc1bdd2de9 | Unsplash License |
+| rail | assets/rail-made-deck-m.webp | https://images.unsplash.com/photo-1765916093860-28dc1bdd2de9 | Unsplash License |
 | rail | assets/rail-lookbook-mural.webp | https://images.unsplash.com/photo-1773236237773-be5baa7945c8 | Unsplash License |
 | rail | assets/rail-cat-hoodies.webp | https://images.unsplash.com/photo-1580079906050-84bb132e4c4f | Unsplash License |
 | rail | assets/rail-cat-jackets.webp | https://images.unsplash.com/photo-1629353689974-af4d5c70440f | Unsplash License |
@@ -1009,24 +1013,64 @@ Sound packs (round 25, redrawn in rounds 26 and 28): Lowmoth, a sample label mad
 | digistudio (sample products) | scripts/theme-templates/products/digistudio/digistudio-post-notion.webp | https://images.unsplash.com/photo-1499951360447-b19be8fe80f5 | Unsplash License |
 | digistudio (sample products) | scripts/theme-templates/products/digistudio/digistudio-post-presets.webp | https://images.unsplash.com/photo-1470770841072-f978cf4d019e, colour graded | Unsplash License |
 
-## New Leaf (newleaf, New Leaf)
+## Octavo (newleaf, Octavo)
 
-<!-- newleaf (templates round 29): New Leaf, its maker Maya and every template are made up. Every picture is drawn for this template by a script: flat geometric cover art in a palette per template (shapes, dots, waves and small icons), the four quarter app icons, and Notion style pages rendered from HTML at 2x (a cover band, an icon, properties, a callout, a table, a board and a chart, a desktop window and a phone). The pages are drawn to look like Notion and carry no logo. The player scenes are collages of the same shapes on a dark ground. No photographs. -->
+<!-- newleaf (templates round 29, rebranded in round 30): Octavo, its maker Maya and every template are made up. Round 30 replaced the round 29 geometric cover art and chalkboard opening: every picture is now a Notion page drawn in HTML and photographed at 2x by a script (the sidebar, a page cover photo, an emoji page icon, properties and database views: table, board, calendar, week, gallery, chart and timeline), in a desktop window and on a phone. The pages are drawn to look like Notion and carry no Notion logo. Cover and gallery photos are Unsplash photographs (Unsplash License), looked at before use; emoji are Noto Color Emoji (SIL Open Font License); the logo is the word Octavo set in Libre Baskerville (SIL Open Font License); the book covers in Reading Journal are plain drawn covers, not the publishers'. -->
 
 | Template | File | Source | Licence |
 | --- | --- | --- | --- |
+| newleaf | assets/newleaf-logo.webp | Drawn for this template | Storelib |
 | newleaf | assets/newleaf-card-exam-planner.webp | Drawn for this template | Storelib |
 | newleaf | assets/newleaf-card-lecture-notes.webp | Drawn for this template | Storelib |
 | newleaf | assets/newleaf-card-recall-cards.webp | Drawn for this template | Storelib |
 | newleaf | assets/newleaf-card-second-brain.webp | Drawn for this template | Storelib |
-| newleaf | assets/newleaf-card-thesis-planner.webp | Drawn for this template | Storelib |
 | newleaf | assets/newleaf-card-time-blocking.webp | Drawn for this template | Storelib |
-| newleaf | assets/newleaf-icon-exam-planner.webp | Drawn for this template | Storelib |
 | newleaf | assets/newleaf-icon-lecture-notes.webp | Drawn for this template | Storelib |
 | newleaf | assets/newleaf-icon-recall-cards.webp | Drawn for this template | Storelib |
+| newleaf | assets/newleaf-icon-exam-planner.webp | Drawn for this template | Storelib |
 | newleaf | assets/newleaf-icon-thesis-planner.webp | Drawn for this template | Storelib |
-| newleaf | assets/newleaf-scene-exam-planner.webp | Drawn for this template | Storelib |
+| newleaf | assets/newleaf-phone-lecture-notes.webp | Drawn for this template | Storelib |
+| newleaf | assets/newleaf-phone-recall-cards.webp | Drawn for this template | Storelib |
+| newleaf | assets/newleaf-phone-exam-planner.webp | Drawn for this template | Storelib |
+| newleaf | assets/newleaf-phone-thesis-planner.webp | Drawn for this template | Storelib |
 | newleaf | assets/newleaf-scene-lecture-notes.webp | Drawn for this template | Storelib |
 | newleaf | assets/newleaf-scene-recall-cards.webp | Drawn for this template | Storelib |
+| newleaf | assets/newleaf-scene-exam-planner.webp | Drawn for this template | Storelib |
 | newleaf | assets/newleaf-scene-thesis-planner.webp | Drawn for this template | Storelib |
-| newleaf (sample products) | scripts/theme-templates/products/newleaf/newleaf-*.webp (each template's card picture, desktop and phone, page, table and board views) | Drawn for this template | Storelib |
+| newleaf (sample products) | scripts/theme-templates/products/newleaf/newleaf-lecture-notes*.webp (Lecture Notes: card, desktop and phone, three views) | Drawn for this template | Storelib |
+| newleaf (sample products) | scripts/theme-templates/products/newleaf/newleaf-recall-cards*.webp (Recall Cards: card, desktop and phone, three views) | Drawn for this template | Storelib |
+| newleaf (sample products) | scripts/theme-templates/products/newleaf/newleaf-exam-planner*.webp (Exam Planner: card, desktop and phone, three views) | Drawn for this template | Storelib |
+| newleaf (sample products) | scripts/theme-templates/products/newleaf/newleaf-thesis-planner*.webp (Thesis Planner: card, desktop and phone, three views) | Drawn for this template | Storelib |
+| newleaf (sample products) | scripts/theme-templates/products/newleaf/newleaf-second-brain*.webp (Second Brain: card, desktop and phone, three views) | Drawn for this template | Storelib |
+| newleaf (sample products) | scripts/theme-templates/products/newleaf/newleaf-weekly-reset*.webp (Weekly Reset: card, desktop and phone, three views) | Drawn for this template | Storelib |
+| newleaf (sample products) | scripts/theme-templates/products/newleaf/newleaf-time-blocking*.webp (Time Blocking: card, desktop and phone, three views) | Drawn for this template | Storelib |
+| newleaf (sample products) | scripts/theme-templates/products/newleaf/newleaf-habit-tracker*.webp (Habit Tracker: card, desktop and phone, three views) | Drawn for this template | Storelib |
+| newleaf (sample products) | scripts/theme-templates/products/newleaf/newleaf-project-board*.webp (Project Board: card, desktop and phone, three views) | Drawn for this template | Storelib |
+| newleaf (sample products) | scripts/theme-templates/products/newleaf/newleaf-home-admin*.webp (Home Admin: card, desktop and phone, three views) | Drawn for this template | Storelib |
+| newleaf (sample products) | scripts/theme-templates/products/newleaf/newleaf-meal-planner*.webp (Meal Planner: card, desktop and phone, three views) | Drawn for this template | Storelib |
+| newleaf (sample products) | scripts/theme-templates/products/newleaf/newleaf-budget-tracker*.webp (Budget Tracker: card, desktop and phone, three views) | Drawn for this template | Storelib |
+| newleaf (sample products) | scripts/theme-templates/products/newleaf/newleaf-reading-journal*.webp (Reading Journal: card, desktop and phone, three views) | Drawn for this template | Storelib |
+| newleaf (photos inside the drawn Notion pages) | Lecture Notes cover | https://images.unsplash.com/photo-1524995997946-a1c2e315a42f | Unsplash License |
+| newleaf (photos inside the drawn Notion pages) | Recall Cards cover | https://images.unsplash.com/photo-1455390582262-044cdead277a | Unsplash License |
+| newleaf (photos inside the drawn Notion pages) | Exam Planner cover | https://images.unsplash.com/photo-1506784983877-45594efa4cbe | Unsplash License |
+| newleaf (photos inside the drawn Notion pages) | Thesis Planner cover | https://images.unsplash.com/photo-1507842217343-583bb7270b66 | Unsplash License |
+| newleaf (photos inside the drawn Notion pages) | Second Brain cover | https://images.unsplash.com/photo-1506905925346-21bda4d32df4 | Unsplash License |
+| newleaf (photos inside the drawn Notion pages) | Second Brain gallery | https://images.unsplash.com/photo-1488190211105-8b0e65b80b4e | Unsplash License |
+| newleaf (photos inside the drawn Notion pages) | Second Brain gallery | https://images.unsplash.com/photo-1447752875215-b2761acb3c5d | Unsplash License |
+| newleaf (photos inside the drawn Notion pages) | Second Brain gallery | https://images.unsplash.com/photo-1586023492125-27b2c045efd7 | Unsplash License |
+| newleaf (photos inside the drawn Notion pages) | Second Brain gallery | https://images.unsplash.com/photo-1456324504439-367cee3b3c32 | Unsplash License |
+| newleaf (photos inside the drawn Notion pages) | Second Brain gallery | https://images.unsplash.com/photo-1501785888041-af3ef285b470 | Unsplash License |
+| newleaf (photos inside the drawn Notion pages) | Weekly Reset cover | https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c | Unsplash License |
+| newleaf (photos inside the drawn Notion pages) | Time Blocking cover | https://images.unsplash.com/photo-1497032628192-86f99bcd76bc | Unsplash License |
+| newleaf (photos inside the drawn Notion pages) | Habit Tracker cover | https://images.unsplash.com/photo-1493246507139-91e8fad9978e | Unsplash License |
+| newleaf (photos inside the drawn Notion pages) | Project Board cover | https://images.unsplash.com/photo-1499750310107-5fef28a66643 | Unsplash License |
+| newleaf (photos inside the drawn Notion pages) | Home Admin cover | https://images.unsplash.com/photo-1502672260266-1c1ef2d93688 | Unsplash License |
+| newleaf (photos inside the drawn Notion pages) | Meal Planner cover | https://images.unsplash.com/photo-1490645935967-10de6ba17061 | Unsplash License |
+| newleaf (photos inside the drawn Notion pages) | Meal Planner gallery | https://images.unsplash.com/photo-1473093295043-cdd812d0e601 | Unsplash License |
+| newleaf (photos inside the drawn Notion pages) | Meal Planner gallery | https://images.unsplash.com/photo-1512058564366-18510be2db19 | Unsplash License |
+| newleaf (photos inside the drawn Notion pages) | Meal Planner gallery | https://images.unsplash.com/photo-1529042410759-befb1204b468 | Unsplash License |
+| newleaf (photos inside the drawn Notion pages) | Meal Planner gallery | https://images.unsplash.com/photo-1546069901-ba9599a7e63c | Unsplash License |
+| newleaf (photos inside the drawn Notion pages) | Meal Planner gallery | https://images.unsplash.com/photo-1547592180-85f173990554 | Unsplash License |
+| newleaf (photos inside the drawn Notion pages) | Meal Planner gallery | https://images.unsplash.com/photo-1565299624946-b28f40a0ae38 | Unsplash License |
+| newleaf (photos inside the drawn Notion pages) | Budget Tracker cover | https://images.unsplash.com/photo-1554224155-6726b3ff858f | Unsplash License |
+| newleaf (photos inside the drawn Notion pages) | Reading Journal cover | https://images.unsplash.com/photo-1495446815901-a7297e633e8d | Unsplash License |

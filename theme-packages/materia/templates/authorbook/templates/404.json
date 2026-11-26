@@ -65,14 +65,14 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Known For It",
+            "text": "Say It Plainly",
             "transform": "uppercase"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "You can start posting this week",
+            "text": "You can fix your homepage this week",
             "transform": "none",
             "lineheight": "1.25"
           }
@@ -80,7 +80,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "Fourteen short chapters and ninety post prompts, PDF and EPUB, in your inbox in a minute."
+            "text": "Twelve short chapters and sixty copy templates, PDF and EPUB, in your inbox in a minute."
           }
         },
         "button_4": {

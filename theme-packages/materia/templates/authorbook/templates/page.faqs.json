@@ -33,21 +33,21 @@
           "type": "faq_item",
           "settings": {
             "question": "What is the difference between the editions?",
-            "answer": "<p>The ebook is the book. Ebook and audiobook adds the full audio, read by Hanna. The complete set adds ninety printable post prompts as well.</p>"
+            "answer": "<p>The ebook is the book. Ebook and audiobook adds the full audio, read by Hanna. The complete set adds sixty printable copy templates as well.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "I have not posted in a year. Where do I start?",
-            "answer": "<p>Start with chapter two and rewrite your headline, then use one prompt from the back of the book this week. Most people only need to post once to get going again.</p>"
+            "question": "I have never written copy. Where do I start?",
+            "answer": "<p>Start with chapter two and rewrite the headline on your homepage, then use one template from the back of the book this week. You do not need to read it all before you change something.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
-            "question": "Do I need a big network to start?",
-            "answer": "<p>No. Most of the book is written for people with a few hundred connections, and chapter six covers growing them with people you would like to work with.</p>"
+            "question": "Does it work for my kind of business?",
+            "answer": "<p>The examples come from shops, studios, services and software, and the habits are the same for all of them: say what it is, who it is for and what to do next.</p>"
           }
         },
         "faq_item_7": {
@@ -81,7 +81,7 @@
       "settings": {
         "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
         "heading": "Get the book",
-        "text": "<p>The ebook, the audiobook, the post prompts and the profile guide.</p>",
+        "text": "<p>The ebook, the audiobook, the copy templates and the homepage guide.</p>",
         "items_to_show": 4,
         "items_per_row": 4,
         "show_add_to_cart": true,
@@ -103,14 +103,14 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Known For It",
+            "text": "Say It Plainly",
             "transform": "uppercase"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "You can start posting this week",
+            "text": "You can fix your homepage this week",
             "transform": "none",
             "lineheight": "1.25"
           }
@@ -118,7 +118,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "Fourteen short chapters and ninety post prompts, PDF and EPUB, in your inbox in a minute."
+            "text": "Twelve short chapters and sixty copy templates, PDF and EPUB, in your inbox in a minute."
           }
         },
         "button_4": {

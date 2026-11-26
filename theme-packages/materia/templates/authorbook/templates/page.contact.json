@@ -105,21 +105,21 @@
           "type": "faq_item",
           "settings": {
             "question": "What is the difference between the editions?",
-            "answer": "<p>The ebook is the book. Ebook and audiobook adds the full audio, read by Hanna. The complete set adds ninety printable post prompts as well.</p>"
+            "answer": "<p>The ebook is the book. Ebook and audiobook adds the full audio, read by Hanna. The complete set adds sixty printable copy templates as well.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "I have not posted in a year. Where do I start?",
-            "answer": "<p>Start with chapter two and rewrite your headline, then use one prompt from the back of the book this week. Most people only need to post once to get going again.</p>"
+            "question": "I have never written copy. Where do I start?",
+            "answer": "<p>Start with chapter two and rewrite the headline on your homepage, then use one template from the back of the book this week. You do not need to read it all before you change something.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
-            "question": "Do I need a big network to start?",
-            "answer": "<p>No. Most of the book is written for people with a few hundred connections, and chapter six covers growing them with people you would like to work with.</p>"
+            "question": "Does it work for my kind of business?",
+            "answer": "<p>The examples come from shops, studios, services and software, and the habits are the same for all of them: say what it is, who it is for and what to do next.</p>"
           }
         }
       },

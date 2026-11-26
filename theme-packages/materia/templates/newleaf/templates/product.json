@@ -1,10 +1,10 @@
-/* Templates round 29: New Leaf's product page, after the owner's reference, drawn from the product itself: a dark band with a strip of the product's cover art, the way back to its category and its icon; the theme's own product information (title, the description's first paragraphs, price, a Get it button that goes to checkout and three ticks) beside the product's second picture; What's inside, one row per Heading 3 in the description with the product's next pictures; three columns of what every template has; a band to buy it; and more templates from the same category. */
+/* Templates round 29, made cleaner in round 30 (Octavo): a template's page, built from the product itself. The way back (Templates / category) over the product information on paper: title, tagline (the description's first bold line), description, price, Get it and three checks, beside the product's desktop and phone picture on a tinted panel. Then What's inside, written from the description's Heading 3s with the product's own Notion pictures, three checks, a dark buy band and more templates from the same category. */
 {
   "sections": {
     "band": {
       "type": "newleaf-product-band",
       "settings": {
-        "show_strip": true,
+        "show_strip": false,
         "strip_height": 150,
         "strip_height_mobile": 96,
         "strip_dim": 0,
@@ -12,19 +12,19 @@
         "root_label": "Templates",
         "root_link": "/collections/all",
         "crumbs_label": "Breadcrumb",
-        "icon": "crop",
+        "icon": "none",
         "icon_tile": 64,
         "icon_x": 7.35,
         "icon_y": 19.9,
         "icon_size": 7.5,
-        "color_scheme": "scheme-nl-ink",
+        "color_scheme": "default",
         "section_width": "container"
       }
     },
     "main": {
       "type": "main-product",
       "settings": {
-        "color_scheme": "scheme-nl-ink",
+        "color_scheme": "default",
         "section_width": "container",
         "section_width_mobile": "container",
         "reset_spacing": true,
@@ -36,7 +36,7 @@
         "enable_on_desktop": false,
         "enable_on_mobile": false,
         "padding_top": 0,
-        "padding_bottom": 72,
+        "padding_bottom": 64,
         "mobile_options": "hidden_thumbnail",
         "mobile_slides_per_view": "1"
       },
@@ -130,7 +130,7 @@
         "first_picture": 3,
         "reveal": true,
         "accent": "",
-        "panel_color": "#eceee9",
+        "panel_color": "#eceef4",
         "radius": 18,
         "heading_size": 46,
         "heading_size_mobile": 32,
@@ -141,7 +141,8 @@
         "padding_top": 96,
         "padding_bottom": 104,
         "padding_top_mobile": 56,
-        "padding_bottom_mobile": 72
+        "padding_bottom_mobile": 72,
+        "panel_fit": "fit"
       }
     },
     "checks": {
@@ -211,8 +212,8 @@
         "free_word": "free",
         "text": "Pay once here, then duplicate it into your Notion from the link in your email.",
         "button_label": "Get it",
-        "accent": "#f0b54a",
-        "accent_text": "#1b1a16",
+        "accent": "#f5f5f2",
+        "accent_text": "#151a2c",
         "heading_size": 40,
         "heading_size_mobile": 30,
         "color_scheme": "scheme-nl-ink",

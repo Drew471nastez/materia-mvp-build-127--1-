@@ -4962,7 +4962,7 @@ body[data-badge-position='top_end'] .product-item__inner > .pc-corner:has(> .pro
 .product-item .product__media.show_secondary > .first-image {
   transition: opacity 0s, transform .6s var(--pc-ease), filter .35s ease;
 }
-.product-item .product__media.show_secondary > .secondary-image { z-index: 1; }
+.product-item .product__media.show_secondary > .secondary-image { z-index: 1; background-color: var(--color-background); }
 @media (hover: hover) {
   .product-item .product-item__inner:hover .product__media.show_secondary > .secondary-image { opacity: 1 !important; }
   .product-item .product-item__inner:hover .product__media.show_secondary > .first-image {

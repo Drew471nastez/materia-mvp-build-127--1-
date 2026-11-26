@@ -1661,7 +1661,12 @@ html:has(.facets-panel:popover-open) body { overscroll-behavior: none; }
     .facets-panel--vertical { position: static; }
   }
   .facets-panel--vertical .facets-group:first-child .facets-group__summary { padding-top: 0; min-height: 0; }
-  .facets-panel--horizontal { margin-bottom: 16px; }
+  /* The row of dropdowns opens over the product grid (round 30). The results
+     column is its own stacking context (container-type) drawn after the row,
+     and the drawer's will-change made the row one too, so every open list sat
+     under the cards. The row is lifted above the results instead, and drops
+     the drawer's layer hint it never uses here. */
+  .facets-panel--horizontal { margin-bottom: 16px; position: relative; z-index: 6; will-change: auto; }
   .facets-panel--horizontal .facets-panel__body { display: flex; flex-wrap: wrap; gap: 10px; }
   .facets-panel--horizontal .facets-group { position: relative; border: 0; }
   .facets-panel--horizontal .facets-group__summary {

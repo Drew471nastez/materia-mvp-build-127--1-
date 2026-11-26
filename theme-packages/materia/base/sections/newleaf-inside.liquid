@@ -1,5 +1,5 @@
 {%- comment -%}
-  New Leaf (templates round 29): "What's inside" on a template's page,
+  Octavo (templates round 29; named New Leaf until round 30): "What's inside" on a template's page,
   written from the product itself. A heading and a line, then one row per
   feature: a small label, a heading and its text beside a large tinted
   panel with a picture of that part of the template, the sides swapping
@@ -33,6 +33,9 @@
   #shopify-section-{{ sid }} .nli__words .rte > * { margin: 0 0 10px; }
   #shopify-section-{{ sid }} .nli__panel { position: relative; border-radius: {{ s.radius }}px; background: var(--nli-panel); padding: 7% 6% 0; aspect-ratio: 4 / 3; overflow: visible; }
   #shopify-section-{{ sid }} .nli__panel img { position: relative; display: block; width: 104%; max-width: none; height: auto; margin: 0 -2% -9%; }
+  {%- comment -%} Fitted (round 30): the picture sits whole inside the panel, for pictures that carry their own window and shadow. {%- endcomment -%}
+  #shopify-section-{{ sid }} .nli--fit .nli__panel { aspect-ratio: auto; padding: 4% 3.5%; }
+  #shopify-section-{{ sid }} .nli--fit .nli__panel img { width: 100%; max-width: 100%; margin: 0; }
   @media (min-width: 990px) {
     #shopify-section-{{ sid }} .nli { padding-block: {{ s.padding_top }}px {{ s.padding_bottom }}px; }
     #shopify-section-{{ sid }} .nli__head { margin-bottom: 56px; }
@@ -46,7 +49,7 @@
   #shopify-section-{{ sid }} .nli--go .nli__row.is-in > * { opacity: 1; transform: none; transition: opacity .7s ease, transform .9s cubic-bezier(.2, .8, .2, 1); }
   #shopify-section-{{ sid }} .nli--go .nli__row.is-in > :last-child { transition-delay: .12s; }
 </style>
-<div class="nli color-{{ color_scheme }} gradient" data-nli>
+<div class="nli color-{{ color_scheme }} gradient{% if s.panel_fit == 'fit' %} nli--fit{% endif %}" data-nli>
   <div class="{{ s.section_width | default: 'container' }}">
     {%- if s.heading != blank or s.text != blank -%}
       <div class="nli__head">
@@ -127,6 +130,7 @@
     { "type": "header", "content": "Look" },
     { "type": "color", "id": "accent", "label": "Label colour", "info": "Left empty, the scheme's button colour." },
     { "type": "color", "id": "panel_color", "label": "Panel colour", "info": "Left empty, a light tint of the heading colour." },
+    { "type": "select", "id": "panel_fit", "label": "Pictures in the panels", "default": "bleed", "options": [{ "value": "bleed", "label": "Larger, running off the bottom" }, { "value": "fit", "label": "Whole, inside the panel" }], "info": "Whole suits pictures that already have their own window and shadow." },
     { "type": "range", "id": "radius", "label": "Panel corners", "min": 0, "max": 32, "step": 1, "unit": "px", "default": 18 },
     { "type": "range", "id": "heading_size", "label": "Heading size", "min": 28, "max": 72, "step": 2, "unit": "px", "default": 44 },
     { "type": "range", "id": "heading_size_mobile", "label": "Heading size on phones", "min": 24, "max": 48, "step": 2, "unit": "px", "default": 32 },

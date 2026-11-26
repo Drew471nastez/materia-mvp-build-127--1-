@@ -1,20 +1,6 @@
-/* Templates round 29: New Leaf, a Notion template shop by Maya after the owner's cleanslatetemplates.com reference: an opening chalkboard that an eraser wipes away, a ruled paper hero with a fan of template pages, three counts, the study templates playing in a dark player, the templates on shelves by category (Study, Planning, Home and life), how buying works in three small working scenes, the maker, a newsletter and a huge wordmark in the footer. Custom sections only where the theme has nothing like it (newleaf-*); the counts, the maker and the newsletter are the theme's own. */
+/* Templates round 29, rebranded in round 30 as Octavo: a Notion template shop by Maya after the owner's cleanslatetemplates.com reference: a ruled paper hero with a fan of real looking Notion pages, three counts, the study templates playing in a dark player, the templates on shelves by category (Study, Planning, Home and life), how buying works in three small working scenes, the maker, a newsletter and a huge wordmark in the footer. The round 29 opening chalkboard was removed at the owner's request (its section stays in base for installs that have it). Custom sections only where the theme has nothing like it (newleaf-*); the counts, the maker and the newsletter are the theme's own. */
 {
   "sections": {
-    "chalkboard_popup": {
-      "type": "newleaf-intro",
-      "settings": {
-        "enabled": true,
-        "board_color": "#262b30",
-        "word_todo": "To do",
-        "word_note": "quiz on Fri",
-        "word_days": "Mon Tue Wed Thu",
-        "word_formula": "a² + b² = c²",
-        "skip_label": "Skip",
-        "draw_ms": 1150,
-        "erase_ms": 1100
-      }
-    },
     "hero": {
       "type": "newleaf-hero",
       "settings": {
@@ -31,8 +17,8 @@
         "rule_width": 220,
         "page_radius": 10,
         "animate": true,
-        "heading_size": 60,
-        "heading_size_mobile": 36,
+        "heading_size": 56,
+        "heading_size_mobile": 34,
         "stage_height": 440,
         "stage_height_mobile": 240,
         "color_scheme": "default",
@@ -156,7 +142,7 @@
         "sound_off_label": "Sound off",
         "autoplay": true,
         "seconds": 8,
-        "accent": "#d9b44a",
+        "accent": "#9aa9ec",
         "radius": 14,
         "heading_size": 46,
         "heading_size_mobile": 32,
@@ -165,7 +151,8 @@
         "padding_top": 88,
         "padding_bottom": 88,
         "padding_top_mobile": 56,
-        "padding_bottom_mobile": 56
+        "padding_bottom_mobile": 56,
+        "page_style": "phone"
       },
       "blocks": {
         "t1": {
@@ -176,7 +163,7 @@
             "caption": "One page per lecture, filed by module and week.",
             "icon": "shopify://shop_images/newleaf-icon-lecture-notes.webp",
             "backdrop": "shopify://shop_images/newleaf-scene-lecture-notes.webp",
-            "page": "shopify://shop_images/newleaf-card-lecture-notes.webp",
+            "page": "shopify://shop_images/newleaf-phone-lecture-notes.webp",
             "product": "Lecture Notes",
             "has_sound": false
           }
@@ -189,7 +176,7 @@
             "caption": "Rate each answer and it comes back at the right time.",
             "icon": "shopify://shop_images/newleaf-icon-recall-cards.webp",
             "backdrop": "shopify://shop_images/newleaf-scene-recall-cards.webp",
-            "page": "shopify://shop_images/newleaf-card-recall-cards.webp",
+            "page": "shopify://shop_images/newleaf-phone-recall-cards.webp",
             "product": "Recall Cards",
             "has_sound": false
           }
@@ -202,7 +189,7 @@
             "caption": "A countdown per exam with the weakest topics first.",
             "icon": "shopify://shop_images/newleaf-icon-exam-planner.webp",
             "backdrop": "shopify://shop_images/newleaf-scene-exam-planner.webp",
-            "page": "shopify://shop_images/newleaf-card-exam-planner.webp",
+            "page": "shopify://shop_images/newleaf-phone-exam-planner.webp",
             "product": "Exam Planner",
             "has_sound": false
           }
@@ -215,7 +202,7 @@
             "caption": "Word counts that add up, with every source linked to its chapter.",
             "icon": "shopify://shop_images/newleaf-icon-thesis-planner.webp",
             "backdrop": "shopify://shop_images/newleaf-scene-thesis-planner.webp",
-            "page": "shopify://shop_images/newleaf-card-thesis-planner.webp",
+            "page": "shopify://shop_images/newleaf-phone-thesis-planner.webp",
             "product": "Thesis Planner",
             "has_sound": false
           }
@@ -334,7 +321,7 @@
         "text": "New to Notion templates? It takes about a minute.",
         "accent": "",
         "card_color": "#ffffff",
-        "panel_color": "#eef0ec",
+        "panel_color": "#eceef4",
         "radius": 14,
         "heading_size": 36,
         "heading_size_mobile": 28,
@@ -435,7 +422,7 @@
           "type": "text",
           "settings": {
             "heading": "",
-            "text": "<p>If a template does not work the way you expected, email me at <a href=\"mailto:hello@newleaf.example\">hello@newleaf.example</a> and I will help you sort it out.</p><p><strong>Maya</strong></p>"
+            "text": "<p>If a template does not work the way you expected, email me at <a href=\"mailto:hello@octavo.example\">hello@octavo.example</a> and I will help you sort it out.</p><p><strong>Maya</strong></p>"
           }
         }
       },
@@ -495,7 +482,6 @@
     }
   },
   "order": [
-    "chalkboard_popup",
     "hero",
     "stats",
     "action",

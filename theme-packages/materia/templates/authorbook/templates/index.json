@@ -1,4 +1,4 @@
-/* Templates round 25: an ebook site (Windowsill) with the book on its own dark hero. Round 26: Sit, Stay, Settle, a puppy training ebook by Tess Moran (a sample author) on the Good Dog Press site, in navy, cream and ochre: the book on a dark hero, a promise, who it is for, why now and who it is not for beside three open spreads, early reader quotes, what is inside, who it is for, the author, the numbers and questions. The cover is a real Unsplash photograph with type set for the template. Round 28: Known For It, a LinkedIn personal brand playbook by Hanna Reyes (a sample author), with a typographic cover and one Unsplash session of the author. */
+/* Templates round 25: an ebook site (Windowsill) with the book on its own dark hero. Round 26: Sit, Stay, Settle, a puppy training ebook. Round 28: Known For It, a LinkedIn playbook. Round 30: Say It Plainly, a copywriting handbook by Hanna Reyes (a sample author), in ink, paper and editor's red, set in Libre Baskerville and Helvetica, with a typographic cover drawn for the template (a struck out word) and one Unsplash session of the author: the book on a dark hero, a promise, who it is for, why now and who it is not for beside three open spreads, early reader quotes, what is inside, who it is for, the author, the numbers and questions. */
 {
   "sections": {
     "hero": {
@@ -13,7 +13,7 @@
         "media_radius": 0,
         "media_radius_mobile": 0,
         "body_bg_image": "shopify://shop_images/authorbook-book.webp",
-        "image_alt": "Known For It by Hanna Reyes, the book, with a cream typographic cover",
+        "image_alt": "Say It Plainly by Hanna Reyes, the book, with a cream typographic cover",
         "content_align_desktop": "left",
         "content_align_mobile": "left",
         "content_gap": 26,
@@ -33,7 +33,7 @@
         "section_heading_1": {
           "type": "section_heading",
           "settings": {
-            "heading_text": "Be known for one thing on LinkedIn",
+            "heading_text": "Write words that sell without sounding like an ad",
             "enable_custom_style": true,
             "heading_font_size": 58,
             "heading_font_size_mobile": 38,
@@ -46,7 +46,7 @@
         "section_para_2": {
           "type": "section_para",
           "settings": {
-            "p_text": "A plain guide to your headline, your profile, writing posts people read and comments that start conversations, in twenty minutes a day. Read a chapter, write a post, publish it tonight.",
+            "p_text": "A copywriting handbook for people who write their own website, product pages and emails. Twelve short chapters and sixty templates. Read one tonight and fix one page tomorrow.",
             "enable_custom_style": true,
             "p_font_size": 19,
             "p_font_size_mobile": 17,
@@ -79,7 +79,7 @@
         "wave_height": 90,
         "wave_height_mobile": 40,
         "enable_custom_style": true,
-        "wave_color": "#18212f",
+        "wave_color": "#1a1817",
         "background_color": "#ffffff",
         "full_width": true
       }
@@ -91,14 +91,14 @@
         "section_width": "container",
         "content_alignment": "center",
         "text_max_width": 860,
-        "subheading_text": "<p>People whose names come up when a client asks around are not lucky. They picked one thing, posted about it every week and answered every comment. This book is those habits, in the order to learn them.</p>",
+        "subheading_text": "<p>The pages that sell are not written by geniuses. They say what the thing is, who it is for and what to do next, in words the reader already uses. This book is those habits, in the order to learn them.</p>",
         "title_font_size_desktop": 46,
         "subtitle_font_size_desktop": 46,
         "subheading_font_size_desktop": 18,
         "title_font_weight": "700",
         "subtitle_font_weight": "700",
         "enable_custom_style": true,
-        "subtitle_text_color": "#b8643c",
+        "subtitle_text_color": "#c8372d",
         "title_subheading_gap_desktop": 24,
         "title_subtitle_gap_desktop": 2,
         "padding_top_desktop": 56,
@@ -112,13 +112,13 @@
         "title_1": {
           "type": "title",
           "settings": {
-            "text": "A known name is not luck."
+            "text": "Good copy is not a gift."
           }
         },
         "subtitle_2": {
           "type": "subtitle",
           "settings": {
-            "text": "It is three posts a week, and you can learn it."
+            "text": "It is a handful of habits, and you can learn them."
           }
         }
       },
@@ -137,7 +137,7 @@
         "content_align": "left",
         "content_gap": 18,
         "image": "shopify://shop_images/authorbook-spread-week.webp",
-        "image_alt": "Two open pages from chapter two, Pick what you want to be known for",
+        "image_alt": "Two open pages from chapter two, Write the headline last",
         "aspect_w": 16,
         "aspect_h": 11,
         "image_fit": "cover",
@@ -163,7 +163,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Freelancers, consultants, coaches and people looking for their next role who know their work is good and want the right people to hear about it. First posts or a profile that went quiet. The steps are the same for a designer or an accountant.</p>",
+            "text": "<p>Shop owners, freelancers, founders and anyone who writes their own website because there is nobody else to do it. Your product is good and the page does not say so. The steps are the same for a bakery or a software tool.</p>",
             "enable_custom_style": true,
             "size_desktop": 18,
             "size_mobile": 16
@@ -185,7 +185,7 @@
         "content_align": "left",
         "content_gap": 18,
         "image": "shopify://shop_images/authorbook-spread-sit.webp",
-        "image_alt": "Two open pages from chapter five, Write a post in twenty minutes",
+        "image_alt": "Two open pages from chapter five, Write like you talk",
         "aspect_w": 16,
         "aspect_h": 11,
         "image_fit": "cover",
@@ -211,7 +211,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>People check your profile before they reply to you, hire you or recommend you. <strong>Known For It</strong> shows you how to say what you do in one line, write posts in twenty minutes, keep going for months and turn comments into real conversations.</p>",
+            "text": "<p>People decide in a few seconds whether a page is for them. <strong>Say It Plainly</strong> shows you how to say what you sell in one line, write product pages that answer the buyer's questions, send emails people open and edit any page in ten minutes.</p>",
             "enable_custom_style": true,
             "size_desktop": 18,
             "size_mobile": 16
@@ -233,7 +233,7 @@
         "content_align": "left",
         "content_gap": 18,
         "image": "shopify://shop_images/authorbook-spread-lead.webp",
-        "image_alt": "Two open pages from chapter nine, Three posts a week without burning out",
+        "image_alt": "Two open pages from chapter nine, An email people open",
         "aspect_w": 16,
         "aspect_h": 11,
         "image_fit": "cover",
@@ -259,7 +259,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Anyone looking for growth hacks, engagement groups or a promise of followers by Friday. This book is about saying useful things, regularly, to the people you want to work with.</p>",
+            "text": "<p>Anyone looking for magic words, pressure tactics or a promise of sales by Friday. This book is about saying true, useful things clearly to the people who need them.</p>",
             "enable_custom_style": true,
             "size_desktop": 18,
             "size_mobile": 16
@@ -281,7 +281,7 @@
         "wave_height": 80,
         "wave_height_mobile": 36,
         "enable_custom_style": true,
-        "wave_color": "#e8ebf0",
+        "wave_color": "#ece8df",
         "background_color": "#ffffff",
         "full_width": true
       }
@@ -349,37 +349,37 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I rewrote my headline with the fifteen word test. The next client who messaged me quoted it back to me.</p>",
+            "quote": "<p>I rewrote my homepage headline with the friend test. The next customer who emailed me quoted it back to me.</p>",
             "rating": 0,
             "name": "Priya N.",
-            "role": "Freelance designer",
+            "role": "Runs a candle shop",
             "avatar": "shopify://shop_images/authorbook-reader-1.webp"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Short, practical and honest. The twenty minute post chapter alone was worth it. I stopped rewriting drafts for days.</p>",
+            "quote": "<p>Short, practical and honest. The ten minute edit alone was worth it. Every product page in my shop got a third shorter.</p>",
             "rating": 0,
             "name": "Daniel A.",
-            "role": "Accountant, small practice",
+            "role": "Bookkeeper, small practice",
             "avatar": "shopify://shop_images/authorbook-reader-2.webp"
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I hated the idea of selling myself. Chapter three showed me how to write about the work instead.</p>",
+            "quote": "<p>I hated writing anything that sounded like selling. Chapter three showed me how to just describe the thing properly.</p>",
             "rating": 0,
             "name": "Lena M.",
-            "role": "Looking for a new role",
+            "role": "Freelance photographer",
             "avatar": "shopify://shop_images/authorbook-reader-3.webp"
           }
         },
         "testimonial_7": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The comments chapter changed how I spend my twenty minutes. More conversations, fewer posts into silence.</p>",
+            "quote": "<p>The email chapter changed my Friday newsletter. Shorter, one link, and people actually reply now.</p>",
             "rating": 0,
             "name": "Sam K.",
             "role": "Teacher",
@@ -389,10 +389,10 @@
         "testimonial_8": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Finally a LinkedIn book that does not hand me forty hacks. One thing, three posts a week, answer every comment.</p>",
+            "quote": "<p>Finally a copywriting book that does not hand me forty formulas. Say what it is, who it is for and what to do next.</p>",
             "rating": 0,
             "name": "Jo R.",
-            "role": "Career coach",
+            "role": "Founder, small software tool",
             "avatar": "shopify://shop_images/authorbook-reader-5.webp"
           }
         }
@@ -432,7 +432,7 @@
         "icon_size": 40,
         "icon_padding": 0,
         "enable_custom_style": true,
-        "icon_color": "#b8643c",
+        "icon_color": "#c8372d",
         "icon_bg": "rgba(0,0,0,0)",
         "benefit_bg": "#ffffff",
         "benefit_border_color": "rgba(0,0,0,0)",
@@ -459,7 +459,7 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "In Known For It, Hanna Reyes shares the plan she gives every client in her workshops",
+            "text": "In Say It Plainly, Hanna Reyes shares the checklist she uses on every client's website",
             "tag": "h2",
             "enable_custom_style": true,
             "uppercase": false,
@@ -470,7 +470,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p><strong>Plain answers for the six parts of a personal brand:</strong></p>",
+            "text": "<p><strong>Plain answers for the six things you write most:</strong></p>",
             "enable_custom_style": true,
             "size_desktop": 17,
             "size_mobile": 15
@@ -483,8 +483,8 @@
         "benefit_5": {
           "type": "benefit",
           "settings": {
-            "heading": "Positioning",
-            "text": "<p>One thing you want to be known for, in fifteen words.</p>",
+            "heading": "Headlines",
+            "text": "<p>One promise a stranger understands in five seconds.</p>",
             "icon_source": "svg",
             "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8.5\"/><path d=\"M12 7.5V12l3 2\"/></svg>"
           }
@@ -492,8 +492,8 @@
         "benefit_6": {
           "type": "benefit",
           "settings": {
-            "heading": "Profile",
-            "text": "<p>A headline, an about section and a photo that say it.</p>",
+            "heading": "Product pages",
+            "text": "<p>Pages that answer the questions a buyer would ask you.</p>",
             "icon_source": "svg",
             "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 11 12 4l8 7\"/><path d=\"M6 10v9.5h12V10\"/><path d=\"M10 19.5v-5h4v5\"/></svg>"
           }
@@ -501,8 +501,8 @@
         "benefit_7": {
           "type": "benefit",
           "settings": {
-            "heading": "Writing",
-            "text": "<p>Posts people read to the end, written in twenty minutes.</p>",
+            "heading": "Your voice",
+            "text": "<p>Sentences that sound like you talking, not like an ad.</p>",
             "icon_source": "svg",
             "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 13V6.5a1.5 1.5 0 0 1 3 0V12\"/><path d=\"M11 11.5V5a1.5 1.5 0 0 1 3 0v6.5\"/><path d=\"M14 11.5V7a1.5 1.5 0 0 1 3 0v6c0 4-2.5 7-6.5 7S5 17 4.5 14l-.3-1.5a1.4 1.4 0 0 1 2.6-.9L8 14\"/></svg>"
           }
@@ -510,8 +510,8 @@
         "benefit_8": {
           "type": "benefit",
           "settings": {
-            "heading": "Comments",
-            "text": "<p>Comments that start conversations, not just likes.</p>",
+            "heading": "Emails",
+            "text": "<p>Subject lines people open and emails they finish.</p>",
             "icon_source": "svg",
             "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M9 7 4 12l5 5\"/><path d=\"M4 12h10a5 5 0 0 1 5 5\"/></svg>"
           }
@@ -519,8 +519,8 @@
         "benefit_9": {
           "type": "benefit",
           "settings": {
-            "heading": "Consistency",
-            "text": "<p>Three posts a week you can keep up for a year.</p>",
+            "heading": "Editing",
+            "text": "<p>Cut the warm up, the vague words and a third of the rest.</p>",
             "icon_source": "svg",
             "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8.5\"/><path d=\"M9.6 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.4\"/><circle cx=\"12\" cy=\"16.8\" r=\".9\" fill=\"currentColor\" stroke=\"none\"/></svg>"
           }
@@ -528,8 +528,8 @@
         "benefit_10": {
           "type": "benefit",
           "settings": {
-            "heading": "Conversations",
-            "text": "<p>From a comment to a call, without a pitch.</p>",
+            "heading": "Buttons",
+            "text": "<p>Buttons that say what happens when you press them.</p>",
             "icon_source": "svg",
             "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 18v-6.5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2V18\"/><path d=\"M3 15h18M5 18v2M19 18v2\"/><path d=\"M7 9.5V7a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2.5\"/></svg>"
           }
@@ -567,7 +567,7 @@
         "wave_height": 80,
         "wave_height_mobile": 36,
         "enable_custom_style": true,
-        "wave_color": "#f3efe6",
+        "wave_color": "#f4f1ea",
         "background_color": "#ffffff",
         "full_width": true
       }
@@ -581,8 +581,8 @@
         "icons_per_row_desktop": 3,
         "space_between_icons": 40,
         "enable_custom_style": true,
-        "icon_color": "#b8643c",
-        "icon_description_color": "#171b22",
+        "icon_color": "#c8372d",
+        "icon_description_color": "#1a1817",
         "make_icons_circle": false,
         "icon_size": 44,
         "icon_title_size": 18,
@@ -613,7 +613,7 @@
             "icon_type": "icon",
             "icon": "check_circle",
             "icon_title": "",
-            "icon_description": "You do good work, and the people who should know about it do not."
+            "icon_description": "Your product is good, and your website does not say so."
           }
         },
         "icon_3": {
@@ -622,7 +622,7 @@
             "icon_type": "icon",
             "icon": "check_circle",
             "icon_title": "",
-            "icon_description": "You have posted before, heard nothing back and stopped."
+            "icon_description": "You have rewritten your homepage three times and still do not like it."
           }
         },
         "icon_4": {
@@ -631,7 +631,7 @@
             "icon_type": "icon",
             "icon": "check_circle",
             "icon_title": "",
-            "icon_description": "You open LinkedIn, scroll for ten minutes and close it again."
+            "icon_description": "You stare at an empty product description and write something vague."
           }
         }
       },
@@ -651,9 +651,9 @@
         "wave_type": "type5",
         "enable_wave_animation": false,
         "enable_custom_style": true,
-        "section_bg": "#f3efe6",
-        "wave_color": "#f3efe6",
-        "outer_background": "#f3efe6",
+        "section_bg": "#f4f1ea",
+        "wave_color": "#f4f1ea",
+        "outer_background": "#f4f1ea",
         "top_padding_desktop": 0,
         "bottom_padding_desktop": 56,
         "top_padding_mobile": 0,
@@ -716,14 +716,14 @@
           "settings": {
             "text": "About the author",
             "enable_custom_style": true,
-            "color": "#e09a4c",
+            "color": "#e0483c",
             "size": 13
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Hanna Reyes posted into silence for a year. Now she teaches it.",
+            "text": "Hanna Reyes has written copy for small shops for eleven years. This is how.",
             "tag": "h2",
             "enable_custom_style": true,
             "size_desktop": 34,
@@ -733,7 +733,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>She has run workshops on writing for LinkedIn for six years, answering the same questions for freelancers, founders and teams, and writes a short note about it every other week. <strong>Known For It</strong> is those answers, written down.</p><p>This is sample text. Replace it with your own story.</p>",
+            "text": "<p>She has written websites, product pages and emails for bakeries, studios and small software teams, and runs a short workshop on it every month. <strong>Say It Plainly</strong> is the checklist she uses, written down.</p><p>This is sample text. Replace it with your own story.</p>",
             "enable_custom_style": true,
             "size_desktop": 17,
             "size_mobile": 16
@@ -764,7 +764,7 @@
         "container_max_width": 1000,
         "headline_spacing": 30,
         "enable_custom_style": true,
-        "count_color": "#e09a4c",
+        "count_color": "#e0483c",
         "description_text_color": "#c8c8cc",
         "count_size": 56,
         "count_font_weight": "bold",
@@ -790,22 +790,22 @@
         "count_box_2": {
           "type": "count_box",
           "settings": {
-            "number": 14,
+            "number": 12,
             "text": "short chapters"
           }
         },
         "count_box_3": {
           "type": "count_box",
           "settings": {
-            "number": 196,
+            "number": 184,
             "text": "pages, PDF and EPUB"
           }
         },
         "count_box_4": {
           "type": "count_box",
           "settings": {
-            "number": 90,
-            "text": "post prompts to start from"
+            "number": 60,
+            "text": "copy templates to start from"
           }
         }
       },
@@ -848,14 +848,14 @@
           "type": "faq_item",
           "settings": {
             "question": "What is the difference between the editions?",
-            "answer": "<p>The ebook is the book. Ebook and audiobook adds the full audio, read by Hanna. The complete set adds ninety printable post prompts as well.</p>"
+            "answer": "<p>The ebook is the book. Ebook and audiobook adds the full audio, read by Hanna. The complete set adds sixty printable copy templates as well.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "I have not posted in a year. Where do I start?",
-            "answer": "<p>Start with chapter two and rewrite your headline, then use one prompt from the back of the book this week. Most people only need to post once to get going again.</p>"
+            "question": "I have never written copy. Where do I start?",
+            "answer": "<p>Start with chapter two and rewrite the headline on your homepage, then use one template from the back of the book this week. You do not need to read it all before you change something.</p>"
           }
         },
         "faq_item_6": {

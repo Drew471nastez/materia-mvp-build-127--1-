@@ -64,7 +64,16 @@
   #shopify-section-{{ sid }} .spc__panel ul { list-style: none; margin: 0; padding: 0; }
   #shopify-section-{{ sid }} .spc__panel li { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0; border-bottom: 1px solid rgba(var(--color-heading-rgb), .07); font-size: 15px; color: var(--color-heading); }
   #shopify-section-{{ sid }} .spc__panel li:last-child { border-bottom: 0; }
-  #shopify-section-{{ sid }} .spc__panel li::before { content: ""; flex: none; width: 18px; height: 14px; border-radius: 3px; border: 1.5px solid currentColor; opacity: .45; }
+  {%- comment -%} Round 30: each folder's rows and tab carry the folder's icon (one shots, loops, MIDI, presets, stems, licence, audio), drawn as a mask in the text colour. They were an empty outlined box. {%- endcomment -%}
+  #shopify-section-{{ sid }} .spc__panel li::before, #shopify-section-{{ sid }} .spc__tab::before { content: ""; flex: none; width: 18px; height: 18px; background-color: currentColor; -webkit-mask: var(--spc-i) center / contain no-repeat; mask: var(--spc-i) center / contain no-repeat; opacity: .6; }
+  #shopify-section-{{ sid }} .spc__tab::before { width: 16px; height: 16px; }
+  #shopify-section-{{ sid }} [data-spc-icon="one_shot"] { --spc-i: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 12h4l2-6 3 12 2.5-9 1.5 5 1-2h6'/%3E%3C/svg%3E"); }
+  #shopify-section-{{ sid }} [data-spc-icon="loop"] { --spc-i: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m17 2 4 4-4 4'/%3E%3Cpath d='M3 11V9a3 3 0 0 1 3-3h15'/%3E%3Cpath d='m7 22-4-4 4-4'/%3E%3Cpath d='M21 13v2a3 3 0 0 1-3 3H3'/%3E%3C/svg%3E"); }
+  #shopify-section-{{ sid }} [data-spc-icon="midi"] { --spc-i: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='16' rx='2'/%3E%3Cpath d='M8 4v9M16 4v9M12 13v7M8 13v7M16 13v7M7 13h2M15 13h2'/%3E%3C/svg%3E"); }
+  #shopify-section-{{ sid }} [data-spc-icon="preset"] { --spc-i: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6'/%3E%3C/svg%3E"); }
+  #shopify-section-{{ sid }} [data-spc-icon="stems"] { --spc-i: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 3 9 4.5-9 4.5-9-4.5z'/%3E%3Cpath d='m3 12 9 4.5 9-4.5'/%3E%3Cpath d='m3 16.5 9 4.5 9-4.5'/%3E%3C/svg%3E"); }
+  #shopify-section-{{ sid }} [data-spc-icon="licence"] { --spc-i: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z'/%3E%3Cpath d='M14 3v6h6M8 13h8M8 17h5'/%3E%3C/svg%3E"); }
+  #shopify-section-{{ sid }} [data-spc-icon="file"] { --spc-i: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18V5l11-2v13'/%3E%3Ccircle cx='6' cy='18' r='3'/%3E%3Ccircle cx='17' cy='16' r='3'/%3E%3C/svg%3E"); }
   #shopify-section-{{ sid }} .spc__panel p { margin: 12px 0; color: var(--color-text); }
   #shopify-section-{{ sid }} .spc__empty { text-align: center; font-size: 15px; color: var(--color-text); }
   @media (min-width: 750px) {
@@ -128,7 +137,27 @@
                 endif
                 assign n = n | plus: 1
               -%}
-              <button class="spc__tab" type="button" role="tab" id="spc-{{ sid }}-t-{{ block.id }}" aria-controls="spc-{{ sid }}-p-{{ block.id }}" aria-selected="{% if n == 1 %}true{% else %}false{% endif %}" tabindex="{% if n == 1 %}0{% else %}-1{% endif %}" {{ block.shopify_attributes }}>
+              {%- liquid
+                assign spc_icon = block.settings.icon | default: 'auto'
+                if spc_icon == 'auto'
+                  assign spc_t = block.settings.title | downcase
+                  assign spc_icon = 'file'
+                  if spc_t contains 'licen'
+                    assign spc_icon = 'licence'
+                  elsif spc_t contains 'midi'
+                    assign spc_icon = 'midi'
+                  elsif spc_t contains 'loop'
+                    assign spc_icon = 'loop'
+                  elsif spc_t contains 'stem'
+                    assign spc_icon = 'stems'
+                  elsif spc_t contains 'preset' or spc_t contains 'patch'
+                    assign spc_icon = 'preset'
+                  elsif spc_t contains 'shot' or spc_t contains 'stab' or spc_t contains 'hit'
+                    assign spc_icon = 'one_shot'
+                  endif
+                endif
+              -%}
+              <button class="spc__tab" type="button" role="tab" data-spc-icon="{{ spc_icon }}" id="spc-{{ sid }}-t-{{ block.id }}" aria-controls="spc-{{ sid }}-p-{{ block.id }}" aria-selected="{% if n == 1 %}true{% else %}false{% endif %}" tabindex="{% if n == 1 %}0{% else %}-1{% endif %}" {{ block.shopify_attributes }}>
                 <span>{{ block.settings.title | escape }}</span>
                 {%- if block.settings.count != blank -%}<span class="spc__count">{{ block.settings.count | escape }}</span>{%- endif -%}
               </button>
@@ -152,7 +181,27 @@
               endif
               assign n = n | plus: 1
             -%}
-            <div class="spc__panel rte" role="tabpanel" id="spc-{{ sid }}-p-{{ block.id }}" aria-labelledby="spc-{{ sid }}-t-{{ block.id }}"{% if n != 1 %} hidden{% endif %}>{{ block.settings.list }}</div>
+            {%- liquid
+                assign spc_icon = block.settings.icon | default: 'auto'
+                if spc_icon == 'auto'
+                  assign spc_t = block.settings.title | downcase
+                  assign spc_icon = 'file'
+                  if spc_t contains 'licen'
+                    assign spc_icon = 'licence'
+                  elsif spc_t contains 'midi'
+                    assign spc_icon = 'midi'
+                  elsif spc_t contains 'loop'
+                    assign spc_icon = 'loop'
+                  elsif spc_t contains 'stem'
+                    assign spc_icon = 'stems'
+                  elsif spc_t contains 'preset' or spc_t contains 'patch'
+                    assign spc_icon = 'preset'
+                  elsif spc_t contains 'shot' or spc_t contains 'stab' or spc_t contains 'hit'
+                    assign spc_icon = 'one_shot'
+                  endif
+                endif
+              -%}
+            <div class="spc__panel rte" role="tabpanel" data-spc-icon="{{ spc_icon }}" id="spc-{{ sid }}-p-{{ block.id }}" aria-labelledby="spc-{{ sid }}-t-{{ block.id }}"{% if n != 1 %} hidden{% endif %}>{{ block.settings.list }}</div>
           {%- endfor -%}
         </div>
       {%- endif -%}
@@ -221,6 +270,7 @@
         { "type": "text", "id": "title", "label": "Folder", "default": "Drum loops" },
         { "type": "text", "id": "count", "label": "Count", "default": "64" },
         { "type": "richtext", "id": "list", "label": "What is in it", "default": "<ul><li>Full grooves</li><li>Tops</li><li>Percussion</li></ul>" },
+        { "type": "select", "id": "icon", "label": "Icon", "default": "auto", "options": [{ "value": "auto", "label": "From the folder's name" }, { "value": "one_shot", "label": "One shots" }, { "value": "loop", "label": "Loops" }, { "value": "midi", "label": "MIDI" }, { "value": "preset", "label": "Presets" }, { "value": "stems", "label": "Stems" }, { "value": "licence", "label": "Licence" }, { "value": "file", "label": "Audio files" }] },
         { "type": "product", "id": "for_product", "label": "Product", "info": "Show this folder on this product's page only. Left empty, it shows on every product." },
         { "type": "text", "id": "for_name", "label": "Or the product's name" }
       ]

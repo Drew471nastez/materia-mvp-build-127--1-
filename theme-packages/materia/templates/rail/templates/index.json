@@ -479,7 +479,7 @@
         "vertical_align": "bottom",
         "content_max_width": 540,
         "content_gap": 14,
-        "image": "shopify://shop_images/rail-made-garage.webp",
+        "image": "shopify://shop_images/rail-made-deck.webp",
         "image_fit": "cover",
         "image_position_y": 50,
         "enable_overlay": false,
@@ -488,14 +488,14 @@
         "min_height_desktop": 640,
         "padding_top_desktop": 72,
         "padding_bottom_desktop": 64,
-        "min_height_mobile": 520,
+        "min_height_mobile": 640,
         "padding_top_mobile": 56,
-        "padding_bottom_mobile": 56,
+        "padding_bottom_mobile": 32,
         "section_margin_top_desktop": 88,
         "section_margin_top_mobile": 40,
         "side_padding_desktop": 56,
-        "image_mobile": "shopify://shop_images/rail-made-garage-m.webp",
-        "image_alt": "A navy hoodie in an empty car park"
+        "image_mobile": "shopify://shop_images/rail-made-deck-m.webp",
+        "image_alt": "A man in a brown hoodie and wide grey jeans on an empty parking deck"
       },
       "blocks": {
         "eyebrow": {

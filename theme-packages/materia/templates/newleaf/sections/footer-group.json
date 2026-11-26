@@ -24,7 +24,7 @@
         "padding_top": 24,
         "padding_bottom": 36,
         "reset_spacing": true,
-        "copyright_text": "© {{ 'now' | date: '%Y' }} New Leaf Templates",
+        "copyright_text": "© {{ 'now' | date: '%Y' }} Octavo",
         "show_social": false,
         "show_policy_links": true,
         "show_payment_icons": true,

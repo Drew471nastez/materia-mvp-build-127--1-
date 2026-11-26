@@ -81,7 +81,7 @@
           "type": "text",
           "settings": {
             "heading": "",
-            "content": "<p>A plain guide to building a personal brand on LinkedIn: positioning, your profile, writing posts and comments that start conversations, by Hanna Reyes.</p>"
+            "content": "<p>A copywriting handbook for headlines, product pages, emails and editing, for people who write their own website, by Hanna Reyes.</p>"
           }
         },
         "price_4": {
@@ -180,7 +180,7 @@
           "type": "whats_included",
           "settings": {
             "heading": "What you get",
-            "items": "Fourteen chapters, 196 pages, PDF and EPUB\nA plan for your first twelve weeks of posting\nNinety post prompts to start from\nTwenty minute habits that fit a working day",
+            "items": "Twelve chapters, 184 pages, PDF and EPUB\nFive before and after rewrites in every chapter\nSixty copy templates to start from\nA ten minute edit for any page",
             "two_columns": false,
             "boxed": true
           }
@@ -198,7 +198,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "Editions",
-            "content": "<p><strong>Ebook:</strong> PDF and EPUB. <strong>Ebook and audiobook:</strong> adds five hours of MP3 files read by Hanna. <strong>Complete set:</strong> adds ninety printable post prompts.</p>",
+            "content": "<p><strong>Ebook:</strong> PDF and EPUB. <strong>Ebook and audiobook:</strong> adds five hours of MP3 files read by Hanna. <strong>Complete set:</strong> adds sixty printable copy templates.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -211,10 +211,10 @@
             "first_open": false,
             "q_1": "Is this an ebook or a printed book?",
             "a_1": "<p>An ebook. You get a PDF and an EPUB file by email straight after you pay, and you can read them on any phone, tablet, computer or e-reader.</p>",
-            "q_2": "I have not posted in a year. Where do I start?",
-            "a_2": "<p>Start with chapter two and rewrite your headline, then use one prompt from the back of the book this week. Most people only need to post once to get going again.</p>",
-            "q_3": "Do I need a big network to start?",
-            "a_3": "<p>No. Most of the book is written for people with a few hundred connections, and chapter six covers growing them with people you would like to work with.</p>",
+            "q_2": "I have never written copy. Where do I start?",
+            "a_2": "<p>Start with chapter two and rewrite the headline on your homepage, then use one template from the back of the book this week. You do not need to read it all before you change something.</p>",
+            "q_3": "Does it work for my kind of business?",
+            "a_3": "<p>The examples come from shops, studios, services and software, and the habits are the same for all of them: say what it is, who it is for and what to do next.</p>",
             "q_4": "What if it is not for me?",
             "a_4": "<p>Email within 30 days and you get your money back. No questions asked.</p>",
             "spacing_top": 12,
@@ -291,7 +291,7 @@
         "image_position": "left",
         "text_column_width": 46,
         "image": "shopify://shop_images/authorbook-spread-sit.webp",
-        "image_alt": "Two open pages from chapter five, Write a post in twenty minutes",
+        "image_alt": "Two open pages from chapter five, Write like you talk",
         "aspect_w": 16,
         "aspect_h": 11,
         "image_fit": "cover",
@@ -316,7 +316,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Every chapter is one thing to practise this week, with a short check at the end. Read it in a weekend, then keep the prompts open on your phone.</p>"
+            "text": "<p>Every chapter is one habit to practise on a page you already have, with before and after examples. Read it in a weekend, then keep the templates open while you write.</p>"
           }
         },
         "button_4": {
@@ -341,7 +341,7 @@
         "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
         "enable_custom_colors": true,
         "card_bg": "#ffffff",
-        "card_border_color": "#e3ddd0",
+        "card_border_color": "#e2ddd2",
         "section_width": "container",
         "display_mode": "grid",
         "show_quote_mark": false,
@@ -387,30 +387,30 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I rewrote my headline with the fifteen word test. The next client who messaged me quoted it back to me.</p>",
+            "quote": "<p>I rewrote my homepage headline with the friend test. The next customer who emailed me quoted it back to me.</p>",
             "rating": 5,
             "name": "Priya N.",
-            "role": "Freelance designer",
+            "role": "Runs a candle shop",
             "avatar": "shopify://shop_images/authorbook-reader-1.webp"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Short, practical and honest. The twenty minute post chapter alone was worth it. I stopped rewriting drafts for days.</p>",
+            "quote": "<p>Short, practical and honest. The ten minute edit alone was worth it. Every product page in my shop got a third shorter.</p>",
             "rating": 5,
             "name": "Daniel A.",
-            "role": "Accountant, small practice",
+            "role": "Bookkeeper, small practice",
             "avatar": "shopify://shop_images/authorbook-reader-2.webp"
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I hated the idea of selling myself. Chapter three showed me how to write about the work instead.</p>",
+            "quote": "<p>I hated writing anything that sounded like selling. Chapter three showed me how to just describe the thing properly.</p>",
             "rating": 5,
             "name": "Lena M.",
-            "role": "Looking for a new role",
+            "role": "Freelance photographer",
             "avatar": "shopify://shop_images/authorbook-reader-3.webp"
           }
         }

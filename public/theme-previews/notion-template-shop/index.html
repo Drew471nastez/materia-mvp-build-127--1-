@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/notion-template-shop/a/cart.a589b1753b5e.json",WISH_DATA="",QV_DATA="/theme-previews/notion-template-shop/a/quickview.968bfb7d3ad6.json",RV_DATA="/theme-previews/notion-template-shop/a/recent.6b4a872a3802.json";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/notion-template-shop/a/cart.ba3494e07833.json",WISH_DATA="",QV_DATA="/theme-previews/notion-template-shop/a/quickview.997915f8d537.json",RV_DATA="/theme-previews/notion-template-shop/a/recent.a5da16249d5c.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -180,7 +180,7 @@ var IT=0,ITH="";function intent(a){if(!a||a.hasAttribute("download"))return;var 
 D.addEventListener("pointerover",function(e){if(!HAND||e.pointerType==="touch")return;var a=e.target&&e.target.closest&&e.target.closest("a[href]");clearTimeout(IT);if(a)IT=setTimeout(function(){intent(a)},80)},{passive:true});
 D.addEventListener("touchstart",function(e){if(!HAND)return;intent(e.target&&e.target.closest&&e.target.closest("a[href]"))},{passive:true});
 
-})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#f8f7f3}</style><script>
+})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#f7f7f4}</style><script>
       (function () {
         function show(img) {
           if (!img || img.tagName !== 'IMG' || !img.classList.contains('bls-loading-image')) return;
@@ -199,13 +199,15 @@ D.addEventListener("touchstart",function(e){if(!HAND)return;intent(e.target&&e.t
 <script src="/theme-previews/notion-template-shop/a/i.59a2755e14fa.js"></script><meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content=""><script src="/theme-previews/notion-template-shop/a/i.5802c928e030.js"></script><title>New Leaf</title>
-<meta property="og:site_name" content="New Leaf">
-<meta property="og:title" content="New Leaf">
+<meta name="theme-color" content=""><script src="/theme-previews/notion-template-shop/a/i.5802c928e030.js"></script><title>Octavo</title>
+<meta property="og:site_name" content="Octavo">
+<meta property="og:title" content="Octavo">
 <meta property="og:type" content="website">
-<meta property="og:description" content="New Leaf"><meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="New Leaf">
-<meta name="twitter:description" content="New Leaf">
+<meta property="og:description" content="Octavo">
+<meta property="og:image:width" content="345">
+<meta property="og:image:height" content="117"><meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Octavo">
+<meta name="twitter:description" content="Octavo">
 <style id="speed-optimization-css">
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -234,7 +236,7 @@ D.addEventListener("touchstart",function(e){if(!HAND)return;intent(e.target&&e.t
           document.head.appendChild(l);
         } catch (e) {}
       })();
-    </script><link href="/theme-previews/_base/a/base-static.c7b74da5b1b4.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":20,"price_size":17,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
+    </script><link href="/theme-previews/_base/a/base.227cf93255fb.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":20,"price_size":17,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = false === true ? 'true' : 'false';</script>
 <script type="application/json" data-badge-style-settings>true</script>
@@ -244,11 +246,11 @@ D.addEventListener("touchstart",function(e){if(!HAND)return;intent(e.target&&e.t
     document.addEventListener('DOMContentLoaded',function(){setTimeout(go,4000)},{once:true})}
     ['pointerdown','click','keydown','scroll','touchstart'].forEach(function(n){addEventListener(n,go,{once:true,passive:true,capture:true})})})(["/theme-previews/_base/a/popup.537a49cfcb3e.css","/theme-previews/_base/a/tingle-min.ed947d9dd1c7.css"]);</script><link rel="stylesheet" href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" media="print" onload="this.media='all'">
 <noscript><link href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" rel="stylesheet" type="text/css" media="all"></noscript>
-<link rel="stylesheet" href="/theme-previews/_base/a/fonts.20f7c8c43dc9.css" data-materia-fonts>
-<style data-materia-font-fallbacks>@font-face{font-family:"Work Sans Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:112.5%;ascent-override:82.7%;descent-override:21.6%;line-gap-override:0%}@font-face{font-family:"Work Sans Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:112.5%;ascent-override:82.7%;descent-override:21.6%;line-gap-override:0%}@font-face{font-family:"Young Serif Fallback";src:local("Times New Roman"), local("TimesNewRomanPSMT"), local("Liberation Serif");font-weight:100 549;size-adjust:122.7%;ascent-override:85.2%;descent-override:29.8%;line-gap-override:0%}@font-face{font-family:"Young Serif Fallback";src:local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold");font-weight:550 1000;size-adjust:122.7%;ascent-override:85.2%;descent-override:29.8%;line-gap-override:0%}</style><style data-shopify>
+<link rel="stylesheet" href="/theme-previews/_base/a/fonts.8681b8c44c94.css" data-materia-fonts>
+<style data-materia-font-fallbacks>@font-face{font-family:"Karla Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:102.7%;ascent-override:89.3%;descent-override:24.5%;line-gap-override:0%}@font-face{font-family:"Karla Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:102.7%;ascent-override:89.3%;descent-override:24.5%;line-gap-override:0%}@font-face{font-family:"Libre Baskerville Fallback";src:local("Times New Roman"), local("TimesNewRomanPSMT"), local("Liberation Serif");font-weight:100 549;size-adjust:126.5%;ascent-override:76.7%;descent-override:21.3%;line-gap-override:0%}@font-face{font-family:"Libre Baskerville Fallback";src:local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold");font-weight:550 1000;size-adjust:126.5%;ascent-override:76.7%;descent-override:21.3%;line-gap-override:0%}</style><style data-shopify>
   :root {
-    --body-font: "Work Sans", "Work Sans Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --heading-font: "Young Serif", "Young Serif Fallback", Georgia, "Times New Roman", serif, sans-serif;
+    --body-font: "Karla", "Karla Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --heading-font: "Libre Baskerville", "Libre Baskerville Fallback", Georgia, "Times New Roman", serif, sans-serif;
     --menu-font: var(--body-font);
     --btn-font: var(--body-font);
     --heading-font-style: normal;
@@ -256,7 +258,7 @@ D.addEventListener("touchstart",function(e){if(!HAND)return;intent(e.target&&e.t
     --font-heading-family: var(--heading-font);
   }
 </style>
-<link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.6e574b4b67d3.css" data-shopify><noscript><link href="/theme-previews/_base/a/popup.537a49cfcb3e.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.e2eadba68934.css">
+<link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.ce432bd440b0.css" data-shopify><noscript><link href="/theme-previews/_base/a/popup.537a49cfcb3e.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.e2eadba68934.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/minicart.679b4fb18845.css" fetchpriority="low">
 <link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.6a68b7e13653.css" fetchpriority="low">
 <link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.1085677a567b.css"><link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.5c93b97a449e.css"><link rel="modulepreload" href="/theme-previews/_base/a/theme.b49152a98599.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/notion-template-shop/a/i.2dfcabf4f604.js"></script>
@@ -293,7 +295,7 @@ D.addEventListener("touchstart",function(e){if(!HAND)return;intent(e.target&&e.t
 class="gradient rounded-style  index"
 data-btn-style="solid"
 data-btn-secondary-style="solid"
-data-scroll-animation="none"
+data-scroll-animation="editorial"
 data-zoom-image="false"
 data-btn-shape="rounded"
 data-btn-hover="fade"
@@ -345,7 +347,7 @@ data-pc-show="all"
 style="--section-pt: 0; --section-pb: 0;"
 >
 <div class="fluid_container" data-pc-width="fluid_container">
-<div class="sec__inner"><link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.41b15864c83f.css"></div>
+<div class="sec__inner"><link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.daa4b702cb28.css"></div>
 </div>
 </div></section><div id="shopify-section-header" class="shopify-section shopify-section-group-header-group section-header has-popup" data-section-id="header" data-section-type="theme-header"><link href="/theme-previews/_base/a/header-section.0b1f3e2d8175.css" rel="stylesheet" type="text/css" media="all">
 <script src="/theme-previews/_base/a/header-section.529bac1525b9.js" defer="defer"></script><style>
@@ -366,12 +368,12 @@ style="--section-pt: 0; --section-pb: 0;"
     --count-bubble-animation: mt-count-pop;
   }
 </style><style data-shopify>#shopify-section-header {
-    --hs-mnav-bg: #f8f7f3;
-    --hs-mnav-heading: #1c1c1a;
-    --hs-mnav-text: #55554f;
+    --hs-mnav-bg: #f7f7f4;
+    --hs-mnav-heading: #15182a;
+    --hs-mnav-text: #4a4d57;
     --hs-hover-fill: #ffffff;
-    --hs-logo-width: 150px;
-    --hs-logo-width-mobile: 124px;
+    --hs-logo-width: 112px;
+    --hs-logo-width-mobile: 98px;
     --hs-logo-max-height: 56px;
     --hs-logo-box-height: 72px;
   }#shopify-section-header { --hs-menu-gap: 28px; --hs-icon-gap: 10px; --hs-icon-gap-mobile: 6px; --hs-logo-x: 0px; --hs-logo-x-mobile: 0px; }@media (max-width: 1024.98px) {
@@ -379,7 +381,7 @@ style="--section-pt: 0; --section-pb: 0;"
       --hs-logo-max-height: 44px;
       --hs-logo-box-height: 60px;
     }
-  }:root { --hs-mnav-title-bg: #f8f7f3; --hs-mnav-title-color: #1c1c1a; }</style><link href="/theme-previews/_base/a/header-layout.784e491443d1.css" rel="stylesheet" type="text/css" media="all">
+  }:root { --hs-mnav-title-bg: #f8f7f3; --hs-mnav-title-color: #15182a; }</style><link href="/theme-previews/_base/a/header-layout.fc46be605c4a.css" rel="stylesheet" type="text/css" media="all">
 <style>
   #shopify-section-header {
     --header-height-desktop: 72px;
@@ -402,12 +404,24 @@ style="--section-pt: 0;--section-pb: 0;--transparent-color: #ffffff;--menu-hover
 <h1 class="my-0 inline-flex align-center"><a
 class="logo-img no-underline inline-flex align-center"
 href="/theme-previews/notion-template-shop/index.html"
-aria-label="New Leaf"
+aria-label="Octavo"
 >
 <span
 class="header__logo inline-flex align-center"
 style="--header-logo-width: 208px; --header-logo-width-mobile: 78px;"
-><span class="header__logo-text" style="font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 600); font-size: clamp(20px, 2.2vw, 28px); line-height: 1; letter-spacing: -0.01em; color: inherit; white-space: nowrap;">New Leaf</span></span>
+><img
+srcset="/theme-previews/notion-template-shop/a/newleaf-logo.e3a9504ab2bc.webp 165w,/theme-previews/notion-template-shop/a/newleaf-logo.e3a9504ab2bc.webp 330w,/theme-previews/notion-template-shop/a/newleaf-logo.e3a9504ab2bc.webp 345w
+"
+src="/theme-previews/notion-template-shop/a/newleaf-logo.e3a9504ab2bc.webp"
+sizes="(max-width: 1024.98px) 98px, 112px"
+loading="eager"
+decoding="sync"
+fetchpriority="high"
+class="header__normal-logo"
+width="208"
+height="71"
+alt="Octavo"
+></span>
 </a>
 </h1></div>
 <div class="header__menu"><button
@@ -524,7 +538,7 @@ data-badge-case="style"
 data-badge-pos="above"
 data-badge-lift
 style="
---mm-title-bg: #f8f7f3; --mm-title-color: #1c1c1a;
+--mm-title-bg: #f8f7f3; --mm-title-color: #15182a;
 --mb-badge-size: 10px;--mb-badge-border: 1px;
 --hot-cl: ;--hot-bg-cl: ;
 --new-cl: ;--new-bg-cl: ;
@@ -541,7 +555,7 @@ height="13"
 viewBox="0 0 13 13"
 fill="none"
 class="heading-color"
-style="color: #1c1c1a !important; --color-heading: #1c1c1a;"
+style="color: #15182a !important; --color-heading: #15182a;"
 >
 <use href="#icon-close" />
 </svg>
@@ -549,11 +563,11 @@ style="color: #1c1c1a !important; --color-heading: #1c1c1a;"
 <div class="navigation__menu-content navigation__menu-content-mobile word-break">
 <div
 class="menu-mobile-title min-h-55 min-h-1025-50 flex align-center px-30 py-5 hidden-1025 gap-30"
-style="background: #f8f7f3 !important; color: #1c1c1a !important; --color-heading: #1c1c1a; --mm-title-bg: #f8f7f3; --mm-title-color: #1c1c1a;"
+style="background: #f8f7f3 !important; color: #15182a !important; --color-heading: #15182a; --mm-title-bg: #f8f7f3; --mm-title-color: #15182a;"
 >
 <a
 class="active no-underline heading-style py-10 inline-flex align-center gap-10"
-style="color: #1c1c1a !important;"
+style="color: #15182a !important;"
 data-menu="horizontal-list"
 role="link"
 aria-disabled="true"
@@ -617,149 +631,11 @@ href="/theme-previews/notion-template-shop/index.html#newsletter"
 </div></header><script src="/theme-previews/notion-template-shop/a/i.b8ec2f2ea707.js"></script>
 <link href="/theme-previews/_base/a/header-sticky.3e10a26b0bdf.css" rel="stylesheet" type="text/css" media="all">
 <script src="/theme-previews/notion-template-shop/a/i.adb13e5cafa5.js"></script><script src="/theme-previews/_base/a/header-sticky-extras.08c1323ecff8.js" defer="defer"></script></div><script>(function(){var l=document.querySelectorAll('.shopify-section-group-header-group');for(var i=0;i < l.length && i < 6;i++)l[i].setAttribute('data-mt-hold',String(i))})();</script><script src="/theme-previews/notion-template-shop/a/i.0235c8b1fe44.js"></script>
-<main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1"><section id="shopify-section-chalkboard_popup" class="shopify-section section" data-section-id="chalkboard_popup" data-section-type="newleaf-intro"><style>
-  .nlx { position: fixed; inset: 0; z-index: 2147483000; pointer-events: auto; contain: strict; }
-  .nlx svg.nlx__svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-  .nlx__chalk { fill: none; stroke: rgba(246, 244, 236, .9); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
-  .nlx__dust { fill: none; stroke: #262b30; stroke-width: 1.4; stroke-dasharray: 1 3.5; stroke-linecap: round; }
-  .nlx__word { fill: rgba(246, 244, 236, .92); font-family: var(--font-heading-family, Georgia, serif); }
-  .nlx .d { stroke-dasharray: var(--l) var(--l); stroke-dashoffset: var(--l); animation: nlx-draw var(--t, .45s) cubic-bezier(.45, .1, .3, 1) var(--w, 0s) forwards; }
-  .nlx .w { transform: scaleX(0); transform-box: fill-box; transform-origin: left center; animation: nlx-wipe var(--t, .4s) ease-out var(--w, 0s) forwards; }
-  .nlx__eraser { position: absolute; left: 0; top: 0; width: 64px; border-radius: 9px; background: linear-gradient(90deg, #b98a4e, #d9b27a 45%, #c79a5d); box-shadow: 0 10px 24px rgba(0, 0, 0, .35), inset 0 0 0 1px rgba(0, 0, 0, .18); will-change: transform; visibility: hidden; }
-  .nlx__eraser::after { content: ""; position: absolute; left: 6px; right: 6px; top: 8px; bottom: 8px; border-radius: 5px; border: 2px solid rgba(80, 52, 22, .35); }
-  .nlx__skip { position: absolute; right: 20px; bottom: 20px; z-index: 2; padding: 8px 16px; border: 1px solid rgba(255, 255, 255, .28); border-radius: 999px; background: rgba(255, 255, 255, .06); color: rgba(255, 255, 255, .86); font: 500 13px/1 var(--font-body-family, sans-serif); cursor: pointer; transition: background-color .2s ease; }
-  .nlx__skip:hover { background: rgba(255, 255, 255, .16); }
-  .nlx__skip:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-  .nlx--out { opacity: 0; transition: opacity .28s ease; pointer-events: none; }
-  html.nl-intro-on { overflow: hidden; }
-  @keyframes nlx-draw { to { stroke-dashoffset: 0; } }
-  @keyframes nlx-wipe { to { transform: none; } }
-</style>
-<script>
-  (function () {
-    var KEY = 'nl-intro-seen';
-    var force = /[?&]intro=1\b/.test(location.search);
-    try {
-      if (!force && (sessionStorage.getItem(KEY) || navigator.webdriver)) return;
-      sessionStorage.setItem(KEY, '1');
-    } catch (e) { if (!force) return; }
-    if (!force && window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    if (window.SlTheme && SlTheme.designMode) return;
-    var html = document.documentElement;
-    var NS = 'http://www.w3.org/2000/svg';
-    var board = '#262b30';
-    var portrait = innerHeight > innerWidth * 1.1;var V = portrait ? [900, 1600] : [1600, 900];
-    var P = portrait
-      ? { todo: [90, 170], note: [470, 520], arrow: [300, 760], days: [520, 980], eq: [120, 1180], para: [90, 1330] }
-      : { todo: [150, 150], note: [960, 170], arrow: [600, 470], days: [1250, 380], eq: [980, 680], para: [150, 640] };
-    function wave(x, y, w, amp) { var d = 'M' + x + ' ' + y, n = Math.max(2, Math.round(w / 22)), st = w / n; for (var i = 0; i < n; i++) d += ' q' + (st / 2) + ' ' + (i % 2 ? amp : -amp) + ' ' + st + ' 0'; return d; }
-    var items = [];
-    function path(d, at, t) { items.push({ k: 'p', d: d, at: at, t: t }); }
-    function word(txt, x, y, size, at, t) { items.push({ k: 'w', txt: txt, x: x, y: y, size: size, at: at, t: t }); }
-    var a = P.todo;
-    word("To do", a[0], a[1], 44, 0, .3);
-    path(wave(a[0], a[1] + 14, 92, 3), .22, .22);
-    for (var i = 0; i < 4; i++) {
-      var y = a[1] + 56 + i * 46;
-      path('M' + a[0] + ' ' + (y - 13) + ' h24 v24 h-24 Z', .12 + i * .1, .2);
-      if (i < 2) path('M' + (a[0] + 4) + ' ' + (y) + ' l7 8 l14 -20', .3 + i * .1, .16);
-      path(wave(a[0] + 40, y, [170, 160, 150, 132][i], 4), .2 + i * .1, .32);
-    }
-    var n = P.note;
-    word("quiz on Fri", n[0] + 18, n[1] + 10, 30, .38, .35);
-    path('M' + (n[0] + 216) + ' ' + (n[1] - 6) + ' c0 -32 -110 -40 -186 -32 c-60 7 -62 36 -38 54 c30 22 160 20 210 0 c24 -10 26 -24 14 -36', .66, .38);
-    var r = P.arrow;
-    path('M' + r[0] + ' ' + r[1] + ' c70 -40 170 -36 230 50', .5, .4);
-    path('M' + (r[0] + 214) + ' ' + (r[1] + 22) + ' l17 28 l-32 -3', .86, .14);
-    var dy = P.days, names = "Mon Tue Wed Thu".split(/\s+/).slice(0, 4);
-    for (var j = 0; j < names.length; j++) { word(names[j], dy[0], dy[1] + j * 46, 28, .3 + j * .1, .25); path(wave(dy[0] + 74, dy[1] - 8 + j * 46, [96, 104, 86, 98][j], 3), .42 + j * .1, .26); }
-    var e = P.eq;
-    word("a² + b² = c²", e[0], e[1], 36, .62, .4);
-    var pa = P.para;
-    for (var k = 0; k < 4; k++) path(wave(pa[0], pa[1] + k * 42, [300, 360, 330, 420][k] * (portrait ? .9 : 1), 5), .5 + k * .1, .42);
-
-    var root = document.createElement('div');
-    root.className = 'nlx';
-    root.setAttribute('aria-hidden', 'true');
-    var w = innerWidth, h = innerHeight;
-    var svg = document.createElementNS(NS, 'svg');
-    svg.setAttribute('class', 'nlx__svg');
-    svg.setAttribute('width', w); svg.setAttribute('height', h);
-    var bw = Math.ceil(h / 3.4) + 8, passes = Math.ceil(h / (bw * .82));
-    var dpath = 'M' + (-bw) + ' ' + (bw * .45);
-    for (var q = 0; q < passes; q++) { var yy = bw * .45 + q * bw * .82; dpath += (q ? ' L' + (q % 2 ? w + bw : -bw) + ' ' + yy : '') + ' L' + (q % 2 ? -bw : w + bw) + ' ' + yy; }
-    svg.innerHTML =
-      '<defs><radialGradient id="nlx-g" cx="40%" cy="30%" r="85%"><stop offset="0" stop-color="' + board + '" stop-opacity=".82"/><stop offset="1" stop-color="' + board + '"/></radialGradient>' +
-      '<mask id="nlx-m" maskUnits="userSpaceOnUse" x="0" y="0" width="' + w + '" height="' + h + '"><rect width="' + w + '" height="' + h + '" fill="#fff"/><path id="nlx-wipe" d="' + dpath + '" fill="none" stroke="#000" stroke-width="' + bw + '" stroke-linecap="round" stroke-linejoin="round"/></mask></defs>' +
-      '<g mask="url(#nlx-m)"><rect width="' + w + '" height="' + h + '" fill="' + board + '"/><rect width="' + w + '" height="' + h + '" fill="url(#nlx-g)" opacity=".9"/>' +
-      '<svg class="nlx__notes" x="0" y="0" width="' + w + '" height="' + h + '" viewBox="0 0 ' + V[0] + ' ' + V[1] + '" preserveAspectRatio="xMidYMid ' + (portrait ? 'meet' : 'slice') + '"></svg></g>';
-    var notes = svg.querySelector('.nlx__notes');
-    root.appendChild(svg);
-    html.classList.add('nl-intro-on');
-    (document.body || html).appendChild(root);
-    items.forEach(function (it) {
-      var el;
-      if (it.k === 'p') {
-        el = document.createElementNS(NS, 'path');
-        el.setAttribute('d', it.d); el.setAttribute('class', 'nlx__chalk d');
-        notes.appendChild(el);
-        var len = Math.ceil(el.getTotalLength ? el.getTotalLength() : 400) + 2;
-        el.style.setProperty('--l', len); el.style.setProperty('--w', it.at + 's'); el.style.setProperty('--t', it.t + 's');
-        var dust = el.cloneNode(); dust.setAttribute('class', 'nlx__dust'); dust.removeAttribute('style'); notes.appendChild(dust);
-      } else {
-        el = document.createElementNS(NS, 'text');
-        el.textContent = it.txt; el.setAttribute('x', it.x); el.setAttribute('y', it.y); el.setAttribute('font-size', it.size);
-        el.setAttribute('class', 'nlx__word w'); el.style.setProperty('--w', it.at + 's'); el.style.setProperty('--t', it.t + 's');
-        notes.appendChild(el);
-      }
-    });
-    var eraser = document.createElement('div');
-    eraser.className = 'nlx__eraser';
-    eraser.style.height = Math.round(bw * .92) + 'px';
-    root.appendChild(eraser);
-    var skip = document.createElement('button');
-    skip.type = 'button'; skip.className = 'nlx__skip'; skip.textContent = "Skip";
-    root.appendChild(skip);
-    root.removeAttribute('aria-hidden');
-    root.setAttribute('role', 'presentation');
-
-    var done = false, raf = 0, told = false;function tell() { if (told) return; told = true; html.classList.remove('nl-intro-on'); document.dispatchEvent(new CustomEvent('nl:intro-done')); }
-    function finish(fast) {
-      if (done) return; done = true;
-      cancelAnimationFrame(raf);
-      tell();
-      root.classList.add('nlx--out');
-      setTimeout(function () { root.remove(); }, fast ? 200 : 300);
-      document.removeEventListener('keydown', onKey);
-    }
-    function onKey(ev) { if (ev.key === 'Escape') finish(true); }
-    skip.addEventListener('click', function () { finish(true); });
-    document.addEventListener('keydown', onKey);
-    var wipe = svg.querySelector('#nlx-wipe');
-    var L = wipe.getTotalLength();
-    wipe.style.strokeDasharray = L + ' ' + L;
-    wipe.style.strokeDashoffset = L;
-    var DRAW = 1150, ERASE = 1100;
-    var t0 = 0;
-    function step(now) {
-      if (!t0) t0 = now;
-      var t = Math.min(1, (now - t0) / ERASE);
-      var e2 = t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-      var at = L * (.03 + e2 * .97);
-      wipe.style.strokeDashoffset = L - at;
-      var pt = wipe.getPointAtLength(at), pt2 = wipe.getPointAtLength(Math.min(L, at + 4));
-      var dir = pt2.x >= pt.x ? 1 : -1;
-      eraser.style.transform = 'translate(' + (pt.x - 32) + 'px,' + (pt.y - bw * .46) + 'px) rotate(' + (dir * 7) + 'deg)';
-      if (t > .55) tell();
-      if (t < 1) raf = requestAnimationFrame(step); else finish(false);
-    }
-    setTimeout(function () { if (done) return; eraser.style.visibility = 'visible'; raf = requestAnimationFrame(step); }, DRAW);
-  })();
-</script></section><section id="shopify-section-hero" class="shopify-section section" data-section-id="hero" data-section-type="newleaf-hero"><style>
+<main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1"><section id="shopify-section-hero" class="shopify-section section" data-section-id="hero" data-section-type="newleaf-hero"><style>
   #shopify-section-hero .nlh { --nlh-accent: var(--btn-primary-bg-color); --nlh-rule: 32px; position: relative; overflow: hidden; isolation: isolate; padding-block: 40px 28px; }
   #shopify-section-hero .nlh--ruled::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--nlh-rule) - 1px), rgba(var(--color-heading-rgb), .075) calc(var(--nlh-rule) - 1px), rgba(var(--color-heading-rgb), .075) var(--nlh-rule)); }
   #shopify-section-hero .nlh__grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 40px; align-items: center; }
-  #shopify-section-hero .nlh__heading { margin: 0; font-size: 36px; line-height: 1.04; letter-spacing: -.02em; color: var(--color-heading); }
+  #shopify-section-hero .nlh__heading { margin: 0; font-size: 34px; line-height: 1.04; letter-spacing: -.02em; color: var(--color-heading); }
   #shopify-section-hero .nlh__line { display: block; overflow: hidden; padding-bottom: .08em; margin-bottom: -.08em; }
   #shopify-section-hero .nlh__line > span { display: block; }
   #shopify-section-hero .nlh__rule { display: block; width: 220px; max-width: 60%; height: 3px; margin: 26px 0 0; background: var(--nlh-accent); transform-origin: left center; }
@@ -777,7 +653,7 @@ href="/theme-previews/notion-template-shop/index.html#newsletter"
     #shopify-section-hero .nlh { padding-block: 72px 64px; }
     #shopify-section-hero .nlh__grid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 24px; }
     #shopify-section-hero .nlh__line > span { white-space: nowrap; }
-    #shopify-section-hero .nlh__heading { font-size: 60px; }
+    #shopify-section-hero .nlh__heading { font-size: 56px; }
     #shopify-section-hero .nlh__text { font-size: 17px; }
     #shopify-section-hero .nlh__stage { height: 440px; }
     #shopify-section-hero .nlh__fan .nlh__page { width: 60%; --x: var(--xd); --y: var(--yd); --r: var(--rd); }
@@ -801,7 +677,7 @@ href="/theme-previews/notion-template-shop/index.html#newsletter"
 <div class="container">
 <div class="nlh__grid">
 <div class="nlh__copy"><h1 class="nlh__heading h1"><span class="nlh__line"><span style="transition-delay: 0.0s">Notion templates</span></span><span class="nlh__line"><span style="transition-delay: 0.12s">for study, planning</span></span><span class="nlh__line"><span style="transition-delay: 0.24s">and the week ahead.</span></span></h1><span class="nlh__rule" aria-hidden="true"></span><div class="nlh__text rte"><p>Made by Maya, who built her first one for lecture notes at university. Every template opens in your own Notion with example pages that show how it works, so you can clear them and start fresh.</p></div><div class="nlh__actions"><a class="button inline-block btn-primary" data-theme-button="primary" href="#study">See the templates</a><a class="nlh__link" href="#in-action">or watch them in action</a></div></div>
-<div class="nlh__stage"><ul class="nlh__fan" role="list"><li class="nlh__page" style="--i: 0" data-block-id="page_1"><a href="/theme-previews/notion-template-shop/products/time-blocking.html" aria-label="Time Blocking"><img src="/theme-previews/notion-template-shop/a/newleaf-card-time-blocking.ed83df0159eb.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-card-time-blocking.ed83df0159eb.webp 450w, /theme-previews/notion-template-shop/a/newleaf-card-time-blocking.ed83df0159eb.webp 700w, /theme-previews/notion-template-shop/a/newleaf-card-time-blocking.ed83df0159eb.webp 900w" alt="Time Blocking" loading="eager" sizes="(min-width: 990px) 26vw, 60vw"></a></li><li class="nlh__page" style="--i: 1" data-block-id="page_2"><a href="/theme-previews/notion-template-shop/products/second-brain.html" aria-label="Second Brain"><img src="/theme-previews/notion-template-shop/a/newleaf-card-second-brain.4322648d2013.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-card-second-brain.4322648d2013.webp 450w, /theme-previews/notion-template-shop/a/newleaf-card-second-brain.4322648d2013.webp 700w, /theme-previews/notion-template-shop/a/newleaf-card-second-brain.4322648d2013.webp 900w" alt="Second Brain" loading="eager" sizes="(min-width: 990px) 26vw, 60vw"></a></li><li class="nlh__page" style="--i: 2" data-block-id="page_3"><a href="/theme-previews/notion-template-shop/products/exam-planner.html" aria-label="Exam Planner"><img src="/theme-previews/notion-template-shop/a/newleaf-card-exam-planner.d1ce7dc07674.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-card-exam-planner.d1ce7dc07674.webp 450w, /theme-previews/notion-template-shop/a/newleaf-card-exam-planner.d1ce7dc07674.webp 700w, /theme-previews/notion-template-shop/a/newleaf-card-exam-planner.d1ce7dc07674.webp 900w" alt="Exam Planner" loading="eager" sizes="(min-width: 990px) 26vw, 60vw"></a></li><li class="nlh__page" style="--i: 3" data-block-id="page_4"><a href="/theme-previews/notion-template-shop/products/recall-cards.html" aria-label="Recall Cards"><img src="/theme-previews/notion-template-shop/a/newleaf-card-recall-cards.7538171ad2c3.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-card-recall-cards.7538171ad2c3.webp 450w, /theme-previews/notion-template-shop/a/newleaf-card-recall-cards.7538171ad2c3.webp 700w, /theme-previews/notion-template-shop/a/newleaf-card-recall-cards.7538171ad2c3.webp 900w" alt="Recall Cards" loading="eager" sizes="(min-width: 990px) 26vw, 60vw"></a></li><li class="nlh__page" style="--i: 4" data-block-id="page_5"><a href="/theme-previews/notion-template-shop/products/lecture-notes.html" aria-label="Lecture Notes"><img src="/theme-previews/notion-template-shop/a/newleaf-card-lecture-notes.e7a47315e418.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-card-lecture-notes.e7a47315e418.webp 450w, /theme-previews/notion-template-shop/a/newleaf-card-lecture-notes.e7a47315e418.webp 700w, /theme-previews/notion-template-shop/a/newleaf-card-lecture-notes.e7a47315e418.webp 900w" alt="Lecture Notes" loading="eager" sizes="(min-width: 990px) 26vw, 60vw"></a></li></ul></div>
+<div class="nlh__stage"><ul class="nlh__fan" role="list"><li class="nlh__page" style="--i: 0" data-block-id="page_1"><a href="/theme-previews/notion-template-shop/products/time-blocking.html" aria-label="Time Blocking"><img src="/theme-previews/notion-template-shop/a/newleaf-card-time-blocking.67c3fa3af83e.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-card-time-blocking-800.8e3453706605.webp 450w, /theme-previews/notion-template-shop/a/newleaf-card-time-blocking-800.8e3453706605.webp 700w, /theme-previews/notion-template-shop/a/newleaf-card-time-blocking.67c3fa3af83e.webp 900w" alt="Time Blocking" loading="eager" sizes="(min-width: 990px) 26vw, 60vw"></a></li><li class="nlh__page" style="--i: 1" data-block-id="page_2"><a href="/theme-previews/notion-template-shop/products/second-brain.html" aria-label="Second Brain"><img src="/theme-previews/notion-template-shop/a/newleaf-card-second-brain.a2709297bf7a.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-card-second-brain-800.b8a234225770.webp 450w, /theme-previews/notion-template-shop/a/newleaf-card-second-brain-800.b8a234225770.webp 700w, /theme-previews/notion-template-shop/a/newleaf-card-second-brain.a2709297bf7a.webp 900w" alt="Second Brain" loading="eager" sizes="(min-width: 990px) 26vw, 60vw"></a></li><li class="nlh__page" style="--i: 2" data-block-id="page_3"><a href="/theme-previews/notion-template-shop/products/exam-planner.html" aria-label="Exam Planner"><img src="/theme-previews/notion-template-shop/a/newleaf-card-exam-planner.e3fdbf612c17.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-card-exam-planner-800.65b63b267091.webp 450w, /theme-previews/notion-template-shop/a/newleaf-card-exam-planner-800.65b63b267091.webp 700w, /theme-previews/notion-template-shop/a/newleaf-card-exam-planner.e3fdbf612c17.webp 900w" alt="Exam Planner" loading="eager" sizes="(min-width: 990px) 26vw, 60vw"></a></li><li class="nlh__page" style="--i: 3" data-block-id="page_4"><a href="/theme-previews/notion-template-shop/products/recall-cards.html" aria-label="Recall Cards"><img src="/theme-previews/notion-template-shop/a/newleaf-card-recall-cards.9b009decb45b.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-card-recall-cards-800.da3ecf233f69.webp 450w, /theme-previews/notion-template-shop/a/newleaf-card-recall-cards-800.da3ecf233f69.webp 700w, /theme-previews/notion-template-shop/a/newleaf-card-recall-cards.9b009decb45b.webp 900w" alt="Recall Cards" loading="eager" sizes="(min-width: 990px) 26vw, 60vw"></a></li><li class="nlh__page" style="--i: 4" data-block-id="page_5"><a href="/theme-previews/notion-template-shop/products/lecture-notes.html" aria-label="Lecture Notes"><img src="/theme-previews/notion-template-shop/a/newleaf-card-lecture-notes.5b6a175ded35.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-card-lecture-notes-800.4500698a59fd.webp 450w, /theme-previews/notion-template-shop/a/newleaf-card-lecture-notes-800.4500698a59fd.webp 700w, /theme-previews/notion-template-shop/a/newleaf-card-lecture-notes.5b6a175ded35.webp 900w" alt="Lecture Notes" loading="eager" sizes="(min-width: 990px) 26vw, 60vw"></a></li></ul></div>
 </div>
 </div>
 </div><script>
@@ -821,7 +697,19 @@ href="/theme-previews/notion-template-shop/index.html#newsletter"
   :where(html:not([data-font-priority='off'])) #shopify-section-stats :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
-</style><style data-rs-bulletproof>/* reset_spacing: the theme's own space between sections is removed; the margin sliders below still apply */
+</style><style>
+  #shopify-section-stats.scroll-trigger {
+    --animation-duration: 900ms;
+    --animation-delay: 0ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-stats');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', "editorial");
+  })();
+</script><style data-rs-bulletproof>/* reset_spacing: the theme's own space between sections is removed; the margin sliders below still apply */
     #shopify-section-stats { padding-top: 0 !important; padding-bottom: 0 !important; }
     #shopify-section-stats + .shopify-section { margin-top: 0 !important; padding-top: 0 !important; }
     .shopify-section:has(+ #shopify-section-stats) { margin-bottom: 0 !important; padding-bottom: 0 !important; }</style><style>#shopify-section-stats#shopify-section-stats {
@@ -922,7 +810,7 @@ href="/theme-previews/notion-template-shop/index.html#newsletter"
 </div>
 </div>
 </div></section><section id="shopify-section-action" class="shopify-section section" data-section-id="action" data-section-type="newleaf-action"><style>
-  #shopify-section-action .nla { --nla-accent: #d9b44a; --nla-dur: 8s; position: relative; padding-block: 56px 56px; scroll-margin-top: 60px; }
+  #shopify-section-action .nla { --nla-accent: #9aa9ec; --nla-dur: 8s; position: relative; padding-block: 56px 56px; scroll-margin-top: 60px; }
   #shopify-section-action .nla__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 10px 32px; margin-bottom: 28px; }
   #shopify-section-action .nla__head h2 { margin: 0; font-size: 32px; line-height: 1.08; letter-spacing: -.015em; }
   #shopify-section-action .nla__head p { margin: 0; font-size: 15px; color: var(--color-text); }
@@ -932,7 +820,11 @@ href="/theme-previews/notion-template-shop/index.html#newsletter"
   #shopify-section-action .nla__scene.is-on { opacity: 1; z-index: 1; }
   #shopify-section-action .nla__bg { position: absolute; inset: -4%; width: 108%; height: 108%; object-fit: cover; display: block; }
   #shopify-section-action .nla__page { position: absolute; right: 7%; bottom: -6%; width: 44%; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: #fff; box-shadow: 0 30px 60px -20px rgba(0, 0, 0, .7); }
-  #shopify-section-action .nla__page img { width: 100%; display: block; }
+  #shopify-section-action .nla__page img { width: 100%; display: block; }#shopify-section-action .nla--phone .nla__page { right: 4%; bottom: -10%; width: 21%; aspect-ratio: auto; border-radius: 0; background: none; box-shadow: none; overflow: visible; }
+  #shopify-section-action .nla--phone .nla__page img { animation: none !important; }
+  #shopify-section-action .nla--phone .nla__bg { inset: 0; width: 100%; height: 100%; object-position: left top; }
+  #shopify-section-action .nla--phone.nla--live .nla__scene.is-on .nla__bg { transform-origin: 0 0; animation-name: nla-zoom-action; }
+  @keyframes nla-zoom-action { from { transform: none; } to { transform: scale(1.05); } }
   #shopify-section-action .nla__video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   #shopify-section-action .nla__sound { position: absolute; right: 14px; bottom: 14px; z-index: 3; display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border: 1px solid rgba(255, 255, 255, .25); border-radius: 999px; background: rgba(20, 20, 20, .82); color: #fff; font: 600 13px/1 var(--font-body-family, sans-serif); cursor: pointer; }
   #shopify-section-action .nla__sound[hidden] { display: none; }
@@ -973,10 +865,10 @@ href="/theme-previews/notion-template-shop/index.html#newsletter"
     #shopify-section-action .nla--live .nla__scene.is-on * { animation: none !important; }
   }
 </style>
-<div class="nla color-scheme-nl-chalk gradient" id="in-action" data-nla data-auto>
+<div class="nla color-scheme-nl-chalk gradient nla--phone" id="in-action" data-nla data-auto>
 <div class="container"><div class="nla__head"><h2 class="h2">See them in action</h2><p>Each study template in a few seconds.</p></div><div class="nla__grid">
 <div class="nla__main">
-<div class="nla__player"><div class="nla__scene is-on" data-i="0"><img src="/theme-previews/notion-template-shop/a/newleaf-scene-lecture-notes.1381641a7f8c.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-scene-lecture-notes-800.748a4b6a125f.webp 700w, /theme-previews/notion-template-shop/a/newleaf-scene-lecture-notes.1381641a7f8c.webp 1000w, /theme-previews/notion-template-shop/a/newleaf-scene-lecture-notes.1381641a7f8c.webp 1400w" alt="" class="nla__bg" loading="eager" sizes="(min-width: 990px) 60vw, 100vw"><div class="nla__page"><img src="/theme-previews/notion-template-shop/a/newleaf-card-lecture-notes.e7a47315e418.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-card-lecture-notes.e7a47315e418.webp 450w, /theme-previews/notion-template-shop/a/newleaf-card-lecture-notes.e7a47315e418.webp 700w, /theme-previews/notion-template-shop/a/newleaf-card-lecture-notes.e7a47315e418.webp 900w" alt="Lecture Notes" loading="eager" sizes="(min-width: 990px) 28vw, 45vw"></div></div><div class="nla__scene" data-i="1"><img src="/theme-previews/notion-template-shop/a/newleaf-scene-recall-cards.85b09e53477e.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-scene-recall-cards-800.79197cb417ba.webp 700w, /theme-previews/notion-template-shop/a/newleaf-scene-recall-cards.85b09e53477e.webp 1000w, /theme-previews/notion-template-shop/a/newleaf-scene-recall-cards.85b09e53477e.webp 1400w" alt="" class="nla__bg" loading="lazy" sizes="(min-width: 990px) 60vw, 100vw"><div class="nla__page"><img src="/theme-previews/notion-template-shop/a/newleaf-card-recall-cards.7538171ad2c3.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-card-recall-cards.7538171ad2c3.webp 450w, /theme-previews/notion-template-shop/a/newleaf-card-recall-cards.7538171ad2c3.webp 700w, /theme-previews/notion-template-shop/a/newleaf-card-recall-cards.7538171ad2c3.webp 900w" alt="Recall Cards" loading="lazy" sizes="(min-width: 990px) 28vw, 45vw"></div></div><div class="nla__scene" data-i="2"><img src="/theme-previews/notion-template-shop/a/newleaf-scene-exam-planner.3567ad7938b2.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-scene-exam-planner-800.6b3122154bbe.webp 700w, /theme-previews/notion-template-shop/a/newleaf-scene-exam-planner.3567ad7938b2.webp 1000w, /theme-previews/notion-template-shop/a/newleaf-scene-exam-planner.3567ad7938b2.webp 1400w" alt="" class="nla__bg" loading="lazy" sizes="(min-width: 990px) 60vw, 100vw"><div class="nla__page"><img src="/theme-previews/notion-template-shop/a/newleaf-card-exam-planner.d1ce7dc07674.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-card-exam-planner.d1ce7dc07674.webp 450w, /theme-previews/notion-template-shop/a/newleaf-card-exam-planner.d1ce7dc07674.webp 700w, /theme-previews/notion-template-shop/a/newleaf-card-exam-planner.d1ce7dc07674.webp 900w" alt="Exam Planner" loading="lazy" sizes="(min-width: 990px) 28vw, 45vw"></div></div><div class="nla__scene" data-i="3"><img src="/theme-previews/notion-template-shop/a/newleaf-scene-thesis-planner.c43aa74cb87f.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-scene-thesis-planner-800.efb8e3340b87.webp 700w, /theme-previews/notion-template-shop/a/newleaf-scene-thesis-planner.c43aa74cb87f.webp 1000w, /theme-previews/notion-template-shop/a/newleaf-scene-thesis-planner.c43aa74cb87f.webp 1400w" alt="" class="nla__bg" loading="lazy" sizes="(min-width: 990px) 60vw, 100vw"><div class="nla__page"><img src="/theme-previews/notion-template-shop/a/newleaf-card-thesis-planner.78a02d4b4a3f.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-card-thesis-planner.78a02d4b4a3f.webp 450w, /theme-previews/notion-template-shop/a/newleaf-card-thesis-planner.78a02d4b4a3f.webp 700w, /theme-previews/notion-template-shop/a/newleaf-card-thesis-planner.78a02d4b4a3f.webp 900w" alt="Thesis Planner" loading="lazy" sizes="(min-width: 990px) 28vw, 45vw"></div></div><button type="button" class="nla__sound" hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="m22 9-6 6M16 9l6 6"/></svg><span>Sound on</span></button>
+<div class="nla__player"><div class="nla__scene is-on" data-i="0"><img src="/theme-previews/notion-template-shop/a/newleaf-scene-lecture-notes.f4dd0eb7c18b.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-scene-lecture-notes-800.dec034f0ff63.webp 700w, /theme-previews/notion-template-shop/a/newleaf-scene-lecture-notes-1200.cd82efc5f7d5.webp 1000w, /theme-previews/notion-template-shop/a/newleaf-scene-lecture-notes.f4dd0eb7c18b.webp 1400w" alt="" class="nla__bg" loading="eager" sizes="(min-width: 990px) 60vw, 100vw"><div class="nla__page"><img src="/theme-previews/notion-template-shop/a/newleaf-phone-lecture-notes.efcc282330a1.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-phone-lecture-notes.efcc282330a1.webp 450w, /theme-previews/notion-template-shop/a/newleaf-phone-lecture-notes.efcc282330a1.webp 700w, /theme-previews/notion-template-shop/a/newleaf-phone-lecture-notes.efcc282330a1.webp 900w" alt="Lecture Notes" loading="eager" sizes="(min-width: 990px) 28vw, 45vw"></div></div><div class="nla__scene" data-i="1"><img src="/theme-previews/notion-template-shop/a/newleaf-scene-recall-cards.56c4eaa67d33.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-scene-recall-cards-800.f76896910ac4.webp 700w, /theme-previews/notion-template-shop/a/newleaf-scene-recall-cards-1200.1bec42f07cee.webp 1000w, /theme-previews/notion-template-shop/a/newleaf-scene-recall-cards.56c4eaa67d33.webp 1400w" alt="" class="nla__bg" loading="lazy" sizes="(min-width: 990px) 60vw, 100vw"><div class="nla__page"><img src="/theme-previews/notion-template-shop/a/newleaf-phone-recall-cards.9470e0895604.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-phone-recall-cards.9470e0895604.webp 450w, /theme-previews/notion-template-shop/a/newleaf-phone-recall-cards.9470e0895604.webp 700w, /theme-previews/notion-template-shop/a/newleaf-phone-recall-cards.9470e0895604.webp 900w" alt="Recall Cards" loading="lazy" sizes="(min-width: 990px) 28vw, 45vw"></div></div><div class="nla__scene" data-i="2"><img src="/theme-previews/notion-template-shop/a/newleaf-scene-exam-planner.424578fd4b60.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-scene-exam-planner-800.fca6941762d5.webp 700w, /theme-previews/notion-template-shop/a/newleaf-scene-exam-planner-1200.2b573d8e4008.webp 1000w, /theme-previews/notion-template-shop/a/newleaf-scene-exam-planner.424578fd4b60.webp 1400w" alt="" class="nla__bg" loading="lazy" sizes="(min-width: 990px) 60vw, 100vw"><div class="nla__page"><img src="/theme-previews/notion-template-shop/a/newleaf-phone-exam-planner.ac77e5f5eb3d.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-phone-exam-planner.ac77e5f5eb3d.webp 450w, /theme-previews/notion-template-shop/a/newleaf-phone-exam-planner.ac77e5f5eb3d.webp 700w, /theme-previews/notion-template-shop/a/newleaf-phone-exam-planner.ac77e5f5eb3d.webp 900w" alt="Exam Planner" loading="lazy" sizes="(min-width: 990px) 28vw, 45vw"></div></div><div class="nla__scene" data-i="3"><img src="/theme-previews/notion-template-shop/a/newleaf-scene-thesis-planner.81f83797d6ff.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-scene-thesis-planner-800.5c5dfb66268e.webp 700w, /theme-previews/notion-template-shop/a/newleaf-scene-thesis-planner-1200.242b0ad90304.webp 1000w, /theme-previews/notion-template-shop/a/newleaf-scene-thesis-planner.81f83797d6ff.webp 1400w" alt="" class="nla__bg" loading="lazy" sizes="(min-width: 990px) 60vw, 100vw"><div class="nla__page"><img src="/theme-previews/notion-template-shop/a/newleaf-phone-thesis-planner.be9cd695ee94.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-phone-thesis-planner.be9cd695ee94.webp 450w, /theme-previews/notion-template-shop/a/newleaf-phone-thesis-planner.be9cd695ee94.webp 700w, /theme-previews/notion-template-shop/a/newleaf-phone-thesis-planner.be9cd695ee94.webp 900w" alt="Thesis Planner" loading="lazy" sizes="(min-width: 990px) 28vw, 45vw"></div></div><button type="button" class="nla__sound" hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="m22 9-6 6M16 9l6 6"/></svg><span>Sound on</span></button>
 <span class="nla__bar" aria-hidden="true"></span>
 </div>
 <div class="nla__foot"><div class="nla__cap" data-i="0">
@@ -987,22 +879,22 @@ href="/theme-previews/notion-template-shop/index.html#newsletter"
 </div>
 <ul class="nla__list" role="list"><li class="nla__item is-on" data-block-id="t1">
 <button type="button" data-i="0" aria-pressed="true">
-<span class="nla__icon"><img src="/theme-previews/notion-template-shop/a/newleaf-icon-lecture-notes.a7d73a119370.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-icon-lecture-notes.a7d73a119370.webp 352w, /theme-previews/notion-template-shop/a/newleaf-icon-lecture-notes.a7d73a119370.webp 832w, /theme-previews/notion-template-shop/a/newleaf-icon-lecture-notes.a7d73a119370.webp 1200w, /theme-previews/notion-template-shop/a/newleaf-icon-lecture-notes.a7d73a119370.webp 1600w, /theme-previews/notion-template-shop/a/newleaf-icon-lecture-notes.a7d73a119370.webp 2400w" alt="" loading="lazy"></span>
+<span class="nla__icon"><img src="/theme-previews/notion-template-shop/a/newleaf-icon-lecture-notes.e8f5c6fad528.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-icon-lecture-notes.e8f5c6fad528.webp 352w, /theme-previews/notion-template-shop/a/newleaf-icon-lecture-notes.e8f5c6fad528.webp 832w, /theme-previews/notion-template-shop/a/newleaf-icon-lecture-notes.e8f5c6fad528.webp 1200w, /theme-previews/notion-template-shop/a/newleaf-icon-lecture-notes.e8f5c6fad528.webp 1600w, /theme-previews/notion-template-shop/a/newleaf-icon-lecture-notes.e8f5c6fad528.webp 2400w" alt="" loading="lazy"></span>
 <span><span class="nla__name">Lecture Notes</span><span class="nla__line">Cues, notes and a summary on every page.</span></span>
 </button>
 </li><li class="nla__item" data-block-id="t2">
 <button type="button" data-i="1" aria-pressed="false">
-<span class="nla__icon"><img src="/theme-previews/notion-template-shop/a/newleaf-icon-recall-cards.834d421a9a98.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-icon-recall-cards.834d421a9a98.webp 352w, /theme-previews/notion-template-shop/a/newleaf-icon-recall-cards.834d421a9a98.webp 832w, /theme-previews/notion-template-shop/a/newleaf-icon-recall-cards.834d421a9a98.webp 1200w, /theme-previews/notion-template-shop/a/newleaf-icon-recall-cards.834d421a9a98.webp 1600w, /theme-previews/notion-template-shop/a/newleaf-icon-recall-cards.834d421a9a98.webp 2400w" alt="" loading="lazy"></span>
+<span class="nla__icon"><img src="/theme-previews/notion-template-shop/a/newleaf-icon-recall-cards.d88f38f29827.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-icon-recall-cards.d88f38f29827.webp 352w, /theme-previews/notion-template-shop/a/newleaf-icon-recall-cards.d88f38f29827.webp 832w, /theme-previews/notion-template-shop/a/newleaf-icon-recall-cards.d88f38f29827.webp 1200w, /theme-previews/notion-template-shop/a/newleaf-icon-recall-cards.d88f38f29827.webp 1600w, /theme-previews/notion-template-shop/a/newleaf-icon-recall-cards.d88f38f29827.webp 2400w" alt="" loading="lazy"></span>
 <span><span class="nla__name">Recall Cards</span><span class="nla__line">Flashcards that come back when they should.</span></span>
 </button>
 </li><li class="nla__item" data-block-id="t3">
 <button type="button" data-i="2" aria-pressed="false">
-<span class="nla__icon"><img src="/theme-previews/notion-template-shop/a/newleaf-icon-exam-planner.fb559ab4d3a0.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-icon-exam-planner.fb559ab4d3a0.webp 352w, /theme-previews/notion-template-shop/a/newleaf-icon-exam-planner.fb559ab4d3a0.webp 832w, /theme-previews/notion-template-shop/a/newleaf-icon-exam-planner.fb559ab4d3a0.webp 1200w, /theme-previews/notion-template-shop/a/newleaf-icon-exam-planner.fb559ab4d3a0.webp 1600w, /theme-previews/notion-template-shop/a/newleaf-icon-exam-planner.fb559ab4d3a0.webp 2400w" alt="" loading="lazy"></span>
+<span class="nla__icon"><img src="/theme-previews/notion-template-shop/a/newleaf-icon-exam-planner.fd86793f5c18.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-icon-exam-planner.fd86793f5c18.webp 352w, /theme-previews/notion-template-shop/a/newleaf-icon-exam-planner.fd86793f5c18.webp 832w, /theme-previews/notion-template-shop/a/newleaf-icon-exam-planner.fd86793f5c18.webp 1200w, /theme-previews/notion-template-shop/a/newleaf-icon-exam-planner.fd86793f5c18.webp 1600w, /theme-previews/notion-template-shop/a/newleaf-icon-exam-planner.fd86793f5c18.webp 2400w" alt="" loading="lazy"></span>
 <span><span class="nla__name">Exam Planner</span><span class="nla__line">Every exam, every topic, how ready you are.</span></span>
 </button>
 </li><li class="nla__item" data-block-id="t4">
 <button type="button" data-i="3" aria-pressed="false">
-<span class="nla__icon"><img src="/theme-previews/notion-template-shop/a/newleaf-icon-thesis-planner.023d72b91fb3.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-icon-thesis-planner.023d72b91fb3.webp 352w, /theme-previews/notion-template-shop/a/newleaf-icon-thesis-planner.023d72b91fb3.webp 832w, /theme-previews/notion-template-shop/a/newleaf-icon-thesis-planner.023d72b91fb3.webp 1200w, /theme-previews/notion-template-shop/a/newleaf-icon-thesis-planner.023d72b91fb3.webp 1600w, /theme-previews/notion-template-shop/a/newleaf-icon-thesis-planner.023d72b91fb3.webp 2400w" alt="" loading="lazy"></span>
+<span class="nla__icon"><img src="/theme-previews/notion-template-shop/a/newleaf-icon-thesis-planner.2235c829c1db.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-icon-thesis-planner.2235c829c1db.webp 352w, /theme-previews/notion-template-shop/a/newleaf-icon-thesis-planner.2235c829c1db.webp 832w, /theme-previews/notion-template-shop/a/newleaf-icon-thesis-planner.2235c829c1db.webp 1200w, /theme-previews/notion-template-shop/a/newleaf-icon-thesis-planner.2235c829c1db.webp 1600w, /theme-previews/notion-template-shop/a/newleaf-icon-thesis-planner.2235c829c1db.webp 2400w" alt="" loading="lazy"></span>
 <span><span class="nla__name">Thesis Planner</span><span class="nla__line">Chapters, sources and deadlines. Coming soon.</span></span>
 </button>
 </li></ul>
@@ -1087,22 +979,22 @@ href="/theme-previews/notion-template-shop/index.html#newsletter"
 <div class="nls color-default gradient" id="study" data-nls>
 <div class="container"><div class="nls__head"><h2 class="h2">Study</h2><p>Ways of studying that help things stick.</p></div><ul class="nls__grid" role="list"><li class="nls__card" style="--i: 0">
 <a href="/theme-previews/notion-template-shop/products/lecture-notes.html">
-<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-lecture-notes.4b0341128da8.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-lecture-notes-400.72385158a4e0.webp 360w, /theme-previews/notion-template-shop/a/newleaf-lecture-notes-800.a12b31e02c9d.webp 540w, /theme-previews/notion-template-shop/a/newleaf-lecture-notes-800.a12b31e02c9d.webp 720w, /theme-previews/notion-template-shop/a/newleaf-lecture-notes.4b0341128da8.webp 900w" alt="Lecture Notes" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
+<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-lecture-notes.5b6a175ded35.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-lecture-notes-400.fb703b30ba2a.webp 360w, /theme-previews/notion-template-shop/a/newleaf-lecture-notes-800.4500698a59fd.webp 540w, /theme-previews/notion-template-shop/a/newleaf-lecture-notes-800.4500698a59fd.webp 720w, /theme-previews/notion-template-shop/a/newleaf-lecture-notes.5b6a175ded35.webp 900w" alt="Lecture Notes" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
 <span class="nls__row">
 <p class="nls__name">Lecture Notes</p><span class="nls__price">$2.99</span></span><p class="nls__desc">The Cornell method as a Notion page.</p></a>
 </li><li class="nls__card" style="--i: 1">
 <a href="/theme-previews/notion-template-shop/products/recall-cards.html">
-<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-recall-cards.13c87fd96b37.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-recall-cards-400.1200a199a3ba.webp 360w, /theme-previews/notion-template-shop/a/newleaf-recall-cards-800.c6c6867f873f.webp 540w, /theme-previews/notion-template-shop/a/newleaf-recall-cards-800.c6c6867f873f.webp 720w, /theme-previews/notion-template-shop/a/newleaf-recall-cards.13c87fd96b37.webp 900w" alt="Recall Cards" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
+<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-recall-cards.9b009decb45b.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-recall-cards-400.807332b8c157.webp 360w, /theme-previews/notion-template-shop/a/newleaf-recall-cards-800.da3ecf233f69.webp 540w, /theme-previews/notion-template-shop/a/newleaf-recall-cards-800.da3ecf233f69.webp 720w, /theme-previews/notion-template-shop/a/newleaf-recall-cards.9b009decb45b.webp 900w" alt="Recall Cards" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
 <span class="nls__row">
 <p class="nls__name">Recall Cards</p><span class="nls__price">$2.99</span></span><p class="nls__desc">Write a question and an answer, then rate how well you knew it.</p></a>
 </li><li class="nls__card" style="--i: 2">
 <a href="/theme-previews/notion-template-shop/products/exam-planner.html">
-<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-exam-planner.9b2fc7853b17.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-exam-planner-400.2a062706ec72.webp 360w, /theme-previews/notion-template-shop/a/newleaf-exam-planner-800.6d06a010a301.webp 540w, /theme-previews/notion-template-shop/a/newleaf-exam-planner-800.6d06a010a301.webp 720w, /theme-previews/notion-template-shop/a/newleaf-exam-planner.9b2fc7853b17.webp 900w" alt="Exam Planner" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
+<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-exam-planner.e3fdbf612c17.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-exam-planner-400.2ff30dd68e4d.webp 360w, /theme-previews/notion-template-shop/a/newleaf-exam-planner-800.65b63b267091.webp 540w, /theme-previews/notion-template-shop/a/newleaf-exam-planner-800.65b63b267091.webp 720w, /theme-previews/notion-template-shop/a/newleaf-exam-planner.e3fdbf612c17.webp 900w" alt="Exam Planner" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
 <span class="nls__row">
 <p class="nls__name">Exam Planner</p><span class="nls__price">$3.49</span></span><p class="nls__desc">Add your exams and their dates, list the topics for each, and mark how confident you are.</p></a>
 </li><li class="nls__card" style="--i: 3">
 <a href="/theme-previews/notion-template-shop/products/thesis-planner.html">
-<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-thesis-planner.a92639e50a48.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-thesis-planner-400.92eaaa7b95b9.webp 360w, /theme-previews/notion-template-shop/a/newleaf-thesis-planner-800.e87408b1856c.webp 540w, /theme-previews/notion-template-shop/a/newleaf-thesis-planner-800.e87408b1856c.webp 720w, /theme-previews/notion-template-shop/a/newleaf-thesis-planner.a92639e50a48.webp 900w" alt="Thesis Planner" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
+<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-thesis-planner.ff404fcc7cdf.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-thesis-planner-400.75e7e7210346.webp 360w, /theme-previews/notion-template-shop/a/newleaf-thesis-planner-800.ffdf5601f891.webp 540w, /theme-previews/notion-template-shop/a/newleaf-thesis-planner-800.ffdf5601f891.webp 720w, /theme-previews/notion-template-shop/a/newleaf-thesis-planner.ff404fcc7cdf.webp 900w" alt="Thesis Planner" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
 <span class="nls__row">
 <p class="nls__name">Thesis Planner</p><span class="nls__price nls__price--soon">Coming soon</span></span><p class="nls__desc">A planner for a dissertation or thesis: chapters with word counts, a reading list linked to the chapter it belongs...</p></a>
 </li></ul></div>
@@ -1159,27 +1051,27 @@ href="/theme-previews/notion-template-shop/index.html#newsletter"
 <div class="nls color-default gradient" data-nls>
 <div class="container"><div class="nls__head"><h2 class="h2">Planning</h2><p>Priorities, projects and a weekly reset.</p></div><ul class="nls__grid" role="list"><li class="nls__card" style="--i: 0">
 <a href="/theme-previews/notion-template-shop/products/second-brain.html">
-<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-second-brain.eaded0d349bc.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-second-brain-400.88b4a40aa9d0.webp 360w, /theme-previews/notion-template-shop/a/newleaf-second-brain-800.9269074c1d47.webp 540w, /theme-previews/notion-template-shop/a/newleaf-second-brain-800.9269074c1d47.webp 720w, /theme-previews/notion-template-shop/a/newleaf-second-brain.eaded0d349bc.webp 900w" alt="Second Brain" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
+<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-second-brain.a2709297bf7a.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-second-brain-400.9f2b6a1a33d7.webp 360w, /theme-previews/notion-template-shop/a/newleaf-second-brain-800.b8a234225770.webp 540w, /theme-previews/notion-template-shop/a/newleaf-second-brain-800.b8a234225770.webp 720w, /theme-previews/notion-template-shop/a/newleaf-second-brain.a2709297bf7a.webp 900w" alt="Second Brain" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
 <span class="nls__row">
 <p class="nls__name">Second Brain</p><span class="nls__price">$4.50</span></span><p class="nls__desc">One place for everything you are working on and everything you want to keep.</p></a>
 </li><li class="nls__card" style="--i: 1">
 <a href="/theme-previews/notion-template-shop/products/weekly-reset.html">
-<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-weekly-reset.a4f23b7def35.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-weekly-reset-400.15de48ee0bbe.webp 360w, /theme-previews/notion-template-shop/a/newleaf-weekly-reset-800.28906a38b9bd.webp 540w, /theme-previews/notion-template-shop/a/newleaf-weekly-reset-800.28906a38b9bd.webp 720w, /theme-previews/notion-template-shop/a/newleaf-weekly-reset.a4f23b7def35.webp 900w" alt="Weekly Reset" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
+<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-weekly-reset.d093b8b5d0dd.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-weekly-reset-400.8d35438e8543.webp 360w, /theme-previews/notion-template-shop/a/newleaf-weekly-reset-800.8ac8c18dbf55.webp 540w, /theme-previews/notion-template-shop/a/newleaf-weekly-reset-800.8ac8c18dbf55.webp 720w, /theme-previews/notion-template-shop/a/newleaf-weekly-reset.d093b8b5d0dd.webp 900w" alt="Weekly Reset" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
 <span class="nls__row">
 <p class="nls__name">Weekly Reset</p><span class="nls__price">$0.99</span></span><p class="nls__desc">A short checklist for the end of the week: what went well, what is left over, and the three things...</p></a>
 </li><li class="nls__card" style="--i: 2">
 <a href="/theme-previews/notion-template-shop/products/time-blocking.html">
-<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-time-blocking.9521744e56cc.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-time-blocking-400.cc815cb88e37.webp 360w, /theme-previews/notion-template-shop/a/newleaf-time-blocking-800.2eaaea24ff90.webp 540w, /theme-previews/notion-template-shop/a/newleaf-time-blocking-800.2eaaea24ff90.webp 720w, /theme-previews/notion-template-shop/a/newleaf-time-blocking.9521744e56cc.webp 900w" alt="Time Blocking" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
+<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-time-blocking.67c3fa3af83e.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-time-blocking-400.53f91001c1b4.webp 360w, /theme-previews/notion-template-shop/a/newleaf-time-blocking-800.8e3453706605.webp 540w, /theme-previews/notion-template-shop/a/newleaf-time-blocking-800.8e3453706605.webp 720w, /theme-previews/notion-template-shop/a/newleaf-time-blocking.67c3fa3af83e.webp 900w" alt="Time Blocking" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
 <span class="nls__row">
 <p class="nls__name">Time Blocking</p><span class="nls__price">$0.99</span></span><p class="nls__desc">Write down your top priorities, empty your head of everything else, then drag each task into a block of the...</p></a>
 </li><li class="nls__card" style="--i: 0">
 <a href="/theme-previews/notion-template-shop/products/habit-tracker.html">
-<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-habit-tracker.e38aa01676c1.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-habit-tracker-400.a51ed31326d9.webp 360w, /theme-previews/notion-template-shop/a/newleaf-habit-tracker-800.c715039d8a68.webp 540w, /theme-previews/notion-template-shop/a/newleaf-habit-tracker-800.c715039d8a68.webp 720w, /theme-previews/notion-template-shop/a/newleaf-habit-tracker.e38aa01676c1.webp 900w" alt="Habit Tracker" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
+<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-habit-tracker.8de224372cc1.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-habit-tracker-400.414934165b76.webp 360w, /theme-previews/notion-template-shop/a/newleaf-habit-tracker-800.548f83fff53e.webp 540w, /theme-previews/notion-template-shop/a/newleaf-habit-tracker-800.548f83fff53e.webp 720w, /theme-previews/notion-template-shop/a/newleaf-habit-tracker.8de224372cc1.webp 900w" alt="Habit Tracker" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
 <span class="nls__row">
 <p class="nls__name">Habit Tracker</p><span class="nls__price">$1.99</span></span><p class="nls__desc">Choose up to six habits, tick them each day from your phone, and see the month at a glance.</p></a>
 </li><li class="nls__card" style="--i: 1">
 <a href="/theme-previews/notion-template-shop/products/project-board.html">
-<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-project-board.723c4fa43396.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-project-board-400.b46dbbeedfe0.webp 360w, /theme-previews/notion-template-shop/a/newleaf-project-board-800.870da7b3064a.webp 540w, /theme-previews/notion-template-shop/a/newleaf-project-board-800.870da7b3064a.webp 720w, /theme-previews/notion-template-shop/a/newleaf-project-board.723c4fa43396.webp 900w" alt="Project Board" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
+<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-project-board.ffb6c853113e.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-project-board-400.e44f74d9b568.webp 360w, /theme-previews/notion-template-shop/a/newleaf-project-board-800.c6c6e9919295.webp 540w, /theme-previews/notion-template-shop/a/newleaf-project-board-800.c6c6e9919295.webp 720w, /theme-previews/notion-template-shop/a/newleaf-project-board.ffb6c853113e.webp 900w" alt="Project Board" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
 <span class="nls__row">
 <p class="nls__name">Project Board</p><span class="nls__price">$0.99</span></span><p class="nls__desc">A board for side projects, coursework or small jobs at work.</p></a>
 </li></ul></div>
@@ -1236,22 +1128,22 @@ href="/theme-previews/notion-template-shop/index.html#newsletter"
 <div class="nls color-default gradient" data-nls>
 <div class="container"><div class="nls__head"><h2 class="h2">Home and life</h2><p>The everyday things, kept in one place.</p></div><ul class="nls__grid" role="list"><li class="nls__card" style="--i: 0">
 <a href="/theme-previews/notion-template-shop/products/home-admin.html">
-<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-home-admin.3647fd112fbf.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-home-admin-400.c288990dbb7e.webp 360w, /theme-previews/notion-template-shop/a/newleaf-home-admin-800.4e36b8cda8f8.webp 540w, /theme-previews/notion-template-shop/a/newleaf-home-admin-800.4e36b8cda8f8.webp 720w, /theme-previews/notion-template-shop/a/newleaf-home-admin.3647fd112fbf.webp 900w" alt="Home Admin" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
+<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-home-admin.3262e5a415d8.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-home-admin-400.febcddb1b496.webp 360w, /theme-previews/notion-template-shop/a/newleaf-home-admin-800.2923ab943d9f.webp 540w, /theme-previews/notion-template-shop/a/newleaf-home-admin-800.2923ab943d9f.webp 720w, /theme-previews/notion-template-shop/a/newleaf-home-admin.3262e5a415d8.webp 900w" alt="Home Admin" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
 <span class="nls__row">
 <p class="nls__name">Home Admin</p><span class="nls__price">Free</span></span><p class="nls__desc">Everything about running a home on one page: bills and when they leave, renewal dates for insurance and contracts, warranties...</p></a>
 </li><li class="nls__card" style="--i: 1">
 <a href="/theme-previews/notion-template-shop/products/meal-planner.html">
-<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-meal-planner.922a76b373f4.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-meal-planner-400.b02509b39f83.webp 360w, /theme-previews/notion-template-shop/a/newleaf-meal-planner-800.59ccd17133d8.webp 540w, /theme-previews/notion-template-shop/a/newleaf-meal-planner-800.59ccd17133d8.webp 720w, /theme-previews/notion-template-shop/a/newleaf-meal-planner.922a76b373f4.webp 900w" alt="Meal Planner" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
+<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-meal-planner.8ff1408e7f18.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-meal-planner-400.33fc0aa84769.webp 360w, /theme-previews/notion-template-shop/a/newleaf-meal-planner-800.cd797f0adf51.webp 540w, /theme-previews/notion-template-shop/a/newleaf-meal-planner-800.cd797f0adf51.webp 720w, /theme-previews/notion-template-shop/a/newleaf-meal-planner.8ff1408e7f18.webp 900w" alt="Meal Planner" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
 <span class="nls__row">
 <p class="nls__name">Meal Planner</p><span class="nls__price">$1.99</span></span><p class="nls__desc">Keep your recipes in one place, drag them onto the days of the week, and the shopping list collects every...</p></a>
 </li><li class="nls__card" style="--i: 2">
 <a href="/theme-previews/notion-template-shop/products/budget-tracker.html">
-<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-budget-tracker.a747a4a6a9f6.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-budget-tracker-400.88169edc8250.webp 360w, /theme-previews/notion-template-shop/a/newleaf-budget-tracker-800.c76b8c6233ee.webp 540w, /theme-previews/notion-template-shop/a/newleaf-budget-tracker-800.c76b8c6233ee.webp 720w, /theme-previews/notion-template-shop/a/newleaf-budget-tracker.a747a4a6a9f6.webp 900w" alt="Budget Tracker" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
+<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-budget-tracker.0dbd1a45d479.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-budget-tracker-400.33af01ebd767.webp 360w, /theme-previews/notion-template-shop/a/newleaf-budget-tracker-800.a9e450cb896f.webp 540w, /theme-previews/notion-template-shop/a/newleaf-budget-tracker-800.a9e450cb896f.webp 720w, /theme-previews/notion-template-shop/a/newleaf-budget-tracker.0dbd1a45d479.webp 900w" alt="Budget Tracker" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
 <span class="nls__row">
 <p class="nls__name">Budget Tracker</p><span class="nls__price">$2.50</span></span><p class="nls__desc">Set a monthly budget for each category, log what you spend in a few seconds from your phone, and see...</p></a>
 </li><li class="nls__card" style="--i: 0">
 <a href="/theme-previews/notion-template-shop/products/reading-journal.html">
-<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-reading-journal.a47f2cf469fe.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-reading-journal-400.a6c97dc4bbbe.webp 360w, /theme-previews/notion-template-shop/a/newleaf-reading-journal-800.6332d61b50c3.webp 540w, /theme-previews/notion-template-shop/a/newleaf-reading-journal-800.6332d61b50c3.webp 720w, /theme-previews/notion-template-shop/a/newleaf-reading-journal.a47f2cf469fe.webp 900w" alt="Reading Journal" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
+<span class="nls__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-reading-journal.8551bcba01f3.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-reading-journal-400.79f690bf5dcc.webp 360w, /theme-previews/notion-template-shop/a/newleaf-reading-journal-800.95b70d012023.webp 540w, /theme-previews/notion-template-shop/a/newleaf-reading-journal-800.95b70d012023.webp 720w, /theme-previews/notion-template-shop/a/newleaf-reading-journal.8551bcba01f3.webp 900w" alt="Reading Journal" loading="lazy" sizes="(min-width: 990px) 30vw, (min-width: 750px) 33vw, 50vw"></span>
 <span class="nls__row">
 <p class="nls__name">Reading Journal</p><span class="nls__price">$0.99</span></span><p class="nls__desc">A shelf for every book you read or want to read, with a page for each one: when you started,...</p></a>
 </li></ul><p class="nls__note">Templates are paid for here, in US dollars, and arrive by email as a link you duplicate into your Notion.</p></div>
@@ -1269,7 +1161,7 @@ href="/theme-previews/notion-template-shop/index.html#newsletter"
     below.forEach(function (c) { io.observe(c); });
   })();
 </script></section><section id="shopify-section-how" class="shopify-section section" data-section-id="how" data-section-type="newleaf-steps"><style>
-  #shopify-section-how .nlw { --nlw-accent: var(--btn-primary-bg-color); --nlw-panel: #eef0ec; padding-block: 32px 56px; }
+  #shopify-section-how .nlw { --nlw-accent: var(--btn-primary-bg-color); --nlw-panel: #eceef4; padding-block: 32px 56px; }
   #shopify-section-how .nlw__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 32px; padding-bottom: 16px; margin-bottom: 20px; border-bottom: 1px solid rgba(var(--color-heading-rgb), .12); }
   #shopify-section-how .nlw__head h2 { margin: 0; font-size: 28px; line-height: 1.1; }
   #shopify-section-how .nlw__head p { margin: 0; font-size: 14.5px; color: var(--color-text); }
@@ -1318,7 +1210,7 @@ href="/theme-previews/notion-template-shop/index.html#newsletter"
 <div><h3 class="h3">Buy it here</h3><p>Pick a template and check out. Free ones cost nothing and arrive the same way.</p></div>
 </div>
 <div class="nlw__panel" aria-hidden="true"><div class="nlw__card">
-<div class="nlw__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-card-lecture-notes.e7a47315e418.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-card-lecture-notes-400.f21f2227db87.webp 350w, /theme-previews/notion-template-shop/a/newleaf-card-lecture-notes.e7a47315e418.webp 700w" alt="" loading="lazy" sizes="(min-width: 990px) 28vw, 80vw"></div>
+<div class="nlw__pic"><img src="/theme-previews/notion-template-shop/a/newleaf-card-lecture-notes-800.4500698a59fd.webp" srcset="/theme-previews/notion-template-shop/a/newleaf-card-lecture-notes-400.fb703b30ba2a.webp 350w, /theme-previews/notion-template-shop/a/newleaf-card-lecture-notes-800.4500698a59fd.webp 700w" alt="" loading="lazy" sizes="(min-width: 990px) 28vw, 80vw"></div>
 <div class="nlw__meta">Lecture Notes<span>$2.99</span></div>
 <span class="nlw__btn nlw__btn--card">Get template</span>
 </div></div>
@@ -1366,7 +1258,19 @@ href="/theme-previews/notion-template-shop/index.html#newsletter"
   :where(html:not([data-font-priority='off'])) #shopify-section-about :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
-</style><style data-rs-bulletproof>
+</style><style>
+  #shopify-section-about.scroll-trigger {
+    --animation-duration: 900ms;
+    --animation-delay: 0ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-about');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', "editorial");
+  })();
+</script><style data-rs-bulletproof>
   #shopify-section-about + .shopify-section { margin-top: 0 !important; }
 </style><link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.03ff96a51b5f.css"><link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.b4db3f297c0c.css"><div
 class="sht color-default gradient"
@@ -1396,7 +1300,7 @@ style="--r7t-bg: var(--color-background); --r7t-link-ink: var(--color-link, var(
 <span class="sht__num" aria-hidden="true"></span>
 <div class="sht__body">
 <h3 class="sht__title" data-r7t-title hidden></h3>
-<div class="sht__text" data-r7t-text><p>If a template does not work the way you expected, email me at <a href="#" data-preview-inert>hello@newleaf.example</a> and I will help you sort it out.</p><p><strong>Maya</strong></p></div>
+<div class="sht__text" data-r7t-text><p>If a template does not work the way you expected, email me at <a href="#" data-preview-inert>hello@octavo.example</a> and I will help you sort it out.</p><p><strong>Maya</strong></p></div>
 <a class="sht__link" data-r7t-link hidden></a>
 </div>
 </div></div></div>
@@ -1405,6 +1309,18 @@ style="--r7t-bg: var(--color-background); --r7t-link-ink: var(--color-link, var(
     font-weight: var(--subheading-weight, 500);
   }
 </style><style>
+  #shopify-section-newsletter.scroll-trigger {
+    --animation-duration: 900ms;
+    --animation-delay: 0ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-newsletter');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', "editorial");
+  })();
+</script><style>
   #shopify-section-newsletter,#shopify-section-newsletter>.section,#shopify-section-newsletter>section,#shopify-section-newsletter>div,#shopify-section-newsletter>div>.section{margin-top:0!important;margin-bottom:0!important}
   #shopify-section-newsletter+.shopify-section,#shopify-section-newsletter+section,.shopify-section+#shopify-section-newsletter{margin-top:0!important}
   #shopify-section-newsletter{isolation:isolate;position:relative;margin-top:0px;margin-bottom:0px}
@@ -1451,7 +1367,7 @@ style="--r7t-bg: var(--color-background); --r7t-link-ink: var(--color-link, var(
 </style>
 <div class="nlm color-scheme-nl-slate gradient" data-nlm>
 <div class="container">
-<div class="nlm__word" aria-hidden="true"><span>New Leaf</span></div>
+<div class="nlm__word" aria-hidden="true"><span>Octavo</span></div>
 </div>
 </div>
 <script src="/theme-previews/notion-template-shop/a/i.955a15aad272.js"></script>
@@ -1460,6 +1376,18 @@ style="--r7t-bg: var(--color-background); --r7t-link-ink: var(--color-link, var(
     font-weight: var(--subheading-weight, 500);
   }
 </style><style>
+  #shopify-section-footer.scroll-trigger {
+    --animation-duration: 900ms;
+    --animation-delay: 0ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-footer');
+    if (!el || el.classList.contains('scroll-trigger') || document.documentElement.classList.contains('shopify-design-mode') || (window.SlTheme && window.SlTheme.designMode)) return;
+    el.classList.add('scroll-trigger', "editorial");
+  })();
+</script><style>
   #shopify-section-footer,#shopify-section-footer>.section,#shopify-section-footer>section,#shopify-section-footer>div,#shopify-section-footer>div>.section{margin-top:0!important;margin-bottom:0!important}
   #shopify-section-footer+.shopify-section,#shopify-section-footer+section,.shopify-section+#shopify-section-footer{margin-top:0!important}
   #shopify-section-footer{font-weight:var(--body-weight,inherit);isolation:isolate;position:relative}
@@ -1531,7 +1459,7 @@ Contact
 </div>
 <div class="footer__bottom"><div class="container"><div class="footer_bottom-inner footer-bottom border-top footer-bottom--one-row"><div class="footer-bottom__row footer-bottom__row--legal">
 <div class="footer-bottom__legal">
-<div class="footer__copyright" data-ft-copyright>© 2026 New Leaf Templates</div>
+<div class="footer__copyright" data-ft-copyright>© 2026 Octavo</div>
 <ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/notion-template-shop/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/notion-template-shop/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/notion-template-shop/policies/terms-of-service.html">Terms of service</a></li></ul><div class="footer__powered" data-ft-powered><a href="#" data-preview-inert data-storelib-badge="" style="display:inline-flex;align-items:center;gap:.45em;white-space:nowrap;vertical-align:middle"><svg data-storelib-badge-mark="" aria-hidden="true" focusable="false" viewBox="0 0 200 200" width="14" height="14" style="display:block;flex:none;width:1.2em;height:1.2em;overflow:visible"><mask id="sl-pb-s" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="200"><rect width="200" height="200" fill="#fff"/><path transform="translate(48.97 38.44) scale(1.08) translate(-54 -43) translate(134.125,52.875)" d="M0 0 C0.99749268 0.36665771 0.99749268 0.36665771 2.01513672 0.74072266 C6.62777473 2.59663113 6.62777473 2.59663113 7.68823242 4.86303711 C7.94652165 7.99120666 7.02705902 10.04467511 5.85546875 12.94921875 C5.41009766 14.05974609 4.96472656 15.17027344 4.50585938 16.31445312 C4.02955078 17.46880859 3.55324219 18.62316406 3.0625 19.8125 C2.59779297 20.97845703 2.13308594 22.14441406 1.65429688 23.34570312 C-1.85471661 31.98985831 -1.85471661 31.98985831 -4.125 33.125 C-6.02961204 32.43054915 -7.90085447 31.64344514 -9.75 30.8125 C-19.66422998 26.58368153 -27.26609106 25.85047702 -38.125 26.125 C-38.455 27.115 -38.785 28.105 -39.125 29.125 C-38.14402344 29.36734375 -37.16304687 29.6096875 -36.15234375 29.859375 C-33.31305776 30.56236873 -30.47635159 31.27497918 -27.640625 31.9921875 C-24.80213536 32.70970135 -21.95989766 33.40235421 -19.109375 34.0703125 C-6.69949938 37.1089446 3.02755655 40.84926977 9.875 52.125 C13.29151905 58.95803811 12.61307566 67.23479967 10.625 74.4375 C7.53029491 83.45189328 1.37513276 90.18616729 -7.02734375 94.67578125 C-26.20884362 103.04454374 -49.04415352 101.90170642 -68.5 94.625 C-72.25964144 93.07749587 -75.67848864 91.2806362 -79.125 89.125 C-78.55593823 84.90468545 -77.56543969 81.39586411 -75.83984375 77.5078125 C-75.39189453 76.48945313 -74.94394531 75.47109375 -74.48242188 74.421875 C-73.77956055 72.85179688 -73.77956055 72.85179688 -73.0625 71.25 C-72.59005859 70.18007812 -72.11761719 69.11015625 -71.63085938 68.0078125 C-70.46832699 65.3774362 -69.29955398 62.75002483 -68.125 60.125 C-63.80181734 61.13483216 -60.07150265 62.96083682 -56.07421875 64.87109375 C-49.32009515 67.74271451 -43.48344492 68.41757298 -36.25 68.3125 C-35.38375 68.31185547 -34.5175 68.31121094 -33.625 68.31054688 C-29.55080641 68.64235092 -29.55080641 68.64235092 -26.125 67.125 C-32.43853708 64.84703882 -38.66045093 62.93279428 -45.25 61.625 C-56.73505022 59.25968679 -67.31315991 55.21661495 -74.125 45.125 C-77.1608836 40.09281577 -77.67121961 36.10082917 -77.625 30.375 C-77.62072998 29.57876221 -77.61645996 28.78252441 -77.61206055 27.9621582 C-77.37730644 19.82208022 -74.95520496 14.3797357 -69.625 8.25 C-68.8 7.54875 -67.975 6.8475 -67.125 6.125 C-66.403125 5.465 -65.68125 4.805 -64.9375 4.125 C-46.69751714 -8.84565448 -20.22397968 -7.61423584 0 0 Z" fill="#000"/></mask><rect width="200" height="200" rx="48" fill="currentColor" mask="url(#sl-pb-s)"/></svg><span>Powered by Storelib</span></a></div></div><div class="footer-bottom__end"><div class="footer__payment flex grow-1 align-center max-w-100" style="justify-content: flex-start; --pb-width: 100%;" data-ft-block="pay" data-ft-type="payment_badges" data-block-id="pay">
 <ul class="footer__payment-badges"><li class="payment-badge" aria-label="Visa"><svg class="icon icon--full-color" viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Visa">
 <title>Visa</title>
@@ -1608,11 +1536,11 @@ aria-modal="true"
 aria-label="Search"
 data-search-mode="popup"
 class="search-overlay search-overlay--popup search__type-popup search__popup-anim--fade color-default"
-style="--color-background: #f8f7f3;          --color-text: #55554f;          --color-heading: #1c1c1a;          --color-primary: #1c1c1a;          --color-border: #e6e3dc;          --gradient-background: #f8f7f3;          background-color: #f8f7f3;          color: #55554f;"
+style="--color-background: #f7f7f4;          --color-text: #4a4d57;          --color-heading: #15182a;          --color-primary: #15182a;          --color-border: #e4e4df;          --gradient-background: #f7f7f4;          background-color: #f7f7f4;          color: #4a4d57;"
 ><div
 class="search__type-popup search__popup-anim--fade color-default h-full overflow-auto px-15 custom-scrollbar"
 data-search-popup-anim="fade"
-style="--color-background: #f8f7f3;    --color-text: #55554f;    --color-heading: #1c1c1a;    --color-primary: #1c1c1a;    --color-border: #e6e3dc;    --gradient-background: #f8f7f3;    background-color: #f8f7f3;    color: #55554f;"
+style="--color-background: #f7f7f4;    --color-text: #4a4d57;    --color-heading: #15182a;    --color-primary: #15182a;    --color-border: #e4e4df;    --gradient-background: #f7f7f4;    background-color: #f7f7f4;    color: #4a4d57;"
 >
 <div class="fluid_container">
 <h3 class="search-title search-title--animated text-center h4 m-0 hidden block-sm" aria-label="Search"><span class="search-title__char" style="--char-i: 0;" aria-hidden="true">S</span><span class="search-title__char" style="--char-i: 1;" aria-hidden="true">e</span><span class="search-title__char" style="--char-i: 2;" aria-hidden="true">a</span><span class="search-title__char" style="--char-i: 3;" aria-hidden="true">r</span><span class="search-title__char" style="--char-i: 4;" aria-hidden="true">c</span><span class="search-title__char" style="--char-i: 5;" aria-hidden="true">h</span></h3>
@@ -1743,13 +1671,13 @@ style=" ;--col-number: 1;--col-tablet: 1;--col-desktop-small:3;--col-desktop: 5;
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><link rel="stylesheet" href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"></noscript><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.9e8e2d8ea469.css" data-cart-drawer-style="paint">
+</style><link rel="stylesheet" href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"></noscript><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.ac79dfba451c.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #f8f7f3;    --color-text: #55554f;    --color-heading: #1c1c1a;    --color-primary: #1c1c1a;    --color-border: #e6e3dc;    --gradient-background: #f8f7f3;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #2f5d50;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #244b40;    --btn-secondary-color: #1c1c1a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #dcd8cf;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #1c1c1a;    --btn-outline-color: #1c1c1a;    --btn-outline-border-color: #e6e3dc;    background-color: #f8f7f3 !important;    color: #55554f !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #f8f7f3;    --color-text: #55554f;    --color-heading: #1c1c1a;    --color-primary: #1c1c1a;    --color-border: #e6e3dc;    --gradient-background: #f8f7f3;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #2f5d50;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #244b40;    --btn-secondary-color: #1c1c1a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #dcd8cf;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #1c1c1a;    --btn-outline-color: #1c1c1a;    --btn-outline-border-color: #e6e3dc;    background-color: #f8f7f3 !important;    color: #55554f !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #f7f7f4;    --color-text: #4a4d57;    --color-heading: #15182a;    --color-primary: #15182a;    --color-border: #e4e4df;    --gradient-background: #f7f7f4;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #2b44a8;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #22378b;    --btn-secondary-color: #15182a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d9dae0;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #15182a;    --btn-outline-color: #15182a;    --btn-outline-border-color: #e4e4df;    background-color: #f7f7f4 !important;    color: #4a4d57 !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #f7f7f4;    --color-text: #4a4d57;    --color-heading: #15182a;    --color-primary: #15182a;    --color-border: #e4e4df;    --gradient-background: #f7f7f4;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #2b44a8;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #22378b;    --btn-secondary-color: #15182a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d9dae0;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #15182a;    --btn-outline-color: #15182a;    --btn-outline-border-color: #e4e4df;    background-color: #f7f7f4 !important;    color: #4a4d57 !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">
@@ -1799,6 +1727,7 @@ Continue Shopping
   #shopify-section-custom-colors { isolation: isolate; position: relative; }
 </style>
 </div><script src="/theme-previews/notion-template-shop/a/i.7878e9c8a781.js"></script>
+<script src="/theme-previews/_base/a/animation.197cc38a1ae3.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/tingle-min.2433104e28fc.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-discount.31276c74b980.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/theme.b49152a98599.js"  defer="defer" type="module"></script>
@@ -1867,7 +1796,21 @@ window.__mtFormsUrl=u;if(/[?&](customer_posted|contact_posted|form_type)=/.test(
   html.mt-img-reveal img.media-fade-hold { opacity: 0 !important; }
 </style>
 <script src="/theme-previews/notion-template-shop/a/i.aa500cf99adf.js"></script>
-<link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.7c52d5318a5a.css">
+<style>
+        :root {
+          /* Wire the user's Animations & motion settings to the keyframe vars used by animation.css */
+          --duration-long: 630ms;
+          --duration-extra-long: 900ms;
+          --duration-extra-longer: 900ms;
+          --animation-duration: 900ms;
+          --animation-delay-base: 0ms;
+          --reveal-stagger: 110ms;
+        }
+        /* Every reveal type, its timing, the first screen, the builder and
+           reduced motion are drawn by animation.css for every .scroll-trigger
+           (theme-wide sections below and cards inside sections alike). */
+      </style>
+<script src="/theme-previews/notion-template-shop/a/i.999e279c57f1.js"></script><link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.7c52d5318a5a.css">
 <script src="/theme-previews/notion-template-shop/a/i.c9b8b9c1028c.js"></script><script id="materia-shipping-data" type="application/json">
   {
     "country": "US",
@@ -1883,13 +1826,13 @@ window.__mtFormsUrl=u;if(/[?&](customer_posted|contact_posted|form_type)=/.test(
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.9e8e2d8ea469.css" data-cart-drawer-style="paint">
+</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/notion-template-shop/a/i.ac79dfba451c.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #f8f7f3;    --color-text: #55554f;    --color-heading: #1c1c1a;    --color-primary: #1c1c1a;    --color-border: #e6e3dc;    --gradient-background: #f8f7f3;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #2f5d50;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #244b40;    --btn-secondary-color: #1c1c1a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #dcd8cf;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #1c1c1a;    --btn-outline-color: #1c1c1a;    --btn-outline-border-color: #e6e3dc;    background-color: #f8f7f3 !important;    color: #55554f !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #f8f7f3;    --color-text: #55554f;    --color-heading: #1c1c1a;    --color-primary: #1c1c1a;    --color-border: #e6e3dc;    --gradient-background: #f8f7f3;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #2f5d50;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #244b40;    --btn-secondary-color: #1c1c1a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #dcd8cf;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #1c1c1a;    --btn-outline-color: #1c1c1a;    --btn-outline-border-color: #e6e3dc;    background-color: #f8f7f3 !important;    color: #55554f !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #f7f7f4;    --color-text: #4a4d57;    --color-heading: #15182a;    --color-primary: #15182a;    --color-border: #e4e4df;    --gradient-background: #f7f7f4;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #2b44a8;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #22378b;    --btn-secondary-color: #15182a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d9dae0;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #15182a;    --btn-outline-color: #15182a;    --btn-outline-border-color: #e4e4df;    background-color: #f7f7f4 !important;    color: #4a4d57 !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #f7f7f4;    --color-text: #4a4d57;    --color-heading: #15182a;    --color-primary: #15182a;    --color-border: #e4e4df;    --gradient-background: #f7f7f4;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #2b44a8;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #22378b;    --btn-secondary-color: #15182a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d9dae0;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #15182a;    --btn-outline-color: #15182a;    --btn-outline-border-color: #e4e4df;    background-color: #f7f7f4 !important;    color: #4a4d57 !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">

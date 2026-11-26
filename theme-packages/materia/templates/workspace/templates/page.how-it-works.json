@@ -185,7 +185,7 @@
         "banner_surface": "soft",
         "banner_tint": 0,
         "use_custom_bg": true,
-        "bg_color": "#f2f1ee",
+        "bg_color": "#edf3f1",
         "max_width": 640,
         "text_align": "center",
         "use_theme_radius": false,
@@ -229,12 +229,16 @@
     "tour": {
       "type": "workspace-tour",
       "settings": {
-        "background": "#f2f1ee",
+        "background": "#edf3f1",
         "eyebrow": "Look inside",
         "heading": "See every template before you buy",
         "padding_top": 88,
         "padding_bottom": 88,
-        "tab_ground": "#e6e4de"
+        "tab_ground": "#e1e9e7",
+        "ink": "#13292c",
+        "muted": "#4b5a5c",
+        "accent": "#f07a5c",
+        "line_color": "#e2e7e5"
       },
       "blocks": {
         "tab_1": {
@@ -340,13 +344,17 @@
     "buyers": {
       "type": "workspace-reviews",
       "settings": {
-        "background": "#fbfbfa",
+        "background": "#fbfbf9",
         "card_background": "#ffffff",
         "eyebrow": "From buyers",
         "heading": "After the first week",
         "text": "<p>Sample quotes and photos, to show the layout. Replace them with what your buyers write back.</p>",
         "padding_top": 96,
-        "padding_bottom": 96
+        "padding_bottom": 96,
+        "ink": "#13292c",
+        "muted": "#4b5a5c",
+        "star_color": "#f07a5c",
+        "line_color": "#e2e7e5"
       },
       "blocks": {
         "review_1": {

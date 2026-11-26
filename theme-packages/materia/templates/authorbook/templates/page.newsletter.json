@@ -6,14 +6,14 @@
       "settings": {
         "color_scheme": "default",
         "image": "shopify://shop_images/authorbook-spread-week.webp",
-        "image_alt": "Two open pages from chapter two of Known For It",
+        "image_alt": "Two open pages from chapter two of Say It Plainly",
         "image_position": "left",
         "image_ratio": "landscape",
         "image_width": 50,
         "form_layout": "horizontal",
         "btn_text": "Send it to me",
         "email_placeholder": "Your email",
-        "note": "You also get the Friday note every other week. Leave whenever you like.",
+        "note": "You also get the Friday edit every other week. Leave whenever you like.",
         "success_text": "Done. Chapter two is in your inbox."
       },
       "blocks": {
@@ -26,7 +26,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Pick what you want to be known for, as a PDF: the one line headline, a week of posts and the fifteen word test. Fifteen minutes to read.</p>"
+            "text": "<p>Write the headline last, as a PDF: the ten headline exercise, five before and after rewrites and the friend test. Fifteen minutes to read.</p>"
           }
         }
       },
@@ -53,55 +53,55 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Fourteen short chapters, then ninety post prompts to start from.</p>"
+            "text": "<p>Twelve short chapters, then sixty copy templates to start from.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
             "label": "Chapter 2",
-            "heading": "Pick what you want to be known for",
-            "text": "<p>The fifteen word test and a week of posts.</p>"
+            "heading": "Write the headline last",
+            "text": "<p>Ten headlines, the friend test and five rewrites.</p>"
           }
         },
         "column_4": {
           "type": "column",
           "settings": {
             "label": "Chapter 3",
-            "heading": "Profile",
-            "text": "<p>A headline, an about section and a photo, line by line.</p>"
+            "heading": "Product pages",
+            "text": "<p>Answer the five questions every buyer has.</p>"
           }
         },
         "column_5": {
           "type": "column",
           "settings": {
             "label": "Chapter 5",
-            "heading": "Write a post in twenty minutes",
-            "text": "<p>One idea, first line last, then cut it in half.</p>"
+            "heading": "Write like you talk",
+            "text": "<p>Five edits that make any sentence sound like you.</p>"
           }
         },
         "column_6": {
           "type": "column",
           "settings": {
             "label": "Chapter 7",
-            "heading": "Comments that start conversations",
-            "text": "<p>Twenty minutes a day in other people's posts.</p>"
+            "heading": "An email people open",
+            "text": "<p>Honest subject lines, one point, one link.</p>"
           }
         },
         "column_7": {
           "type": "column",
           "settings": {
             "label": "Chapter 9",
-            "heading": "Three posts a week without burning out",
-            "text": "<p>Three posts a week you can keep up for a year.</p>"
+            "heading": "The ten minute edit",
+            "text": "<p>Cut the warm up, the vague words and a third of the rest.</p>"
           }
         },
         "column_8": {
           "type": "column",
           "settings": {
             "label": "Chapter 12",
-            "heading": "When nobody reacts",
-            "text": "<p>What a quiet post tells you, and what to change.</p>"
+            "heading": "When a page does not sell",
+            "text": "<p>What to check first, and what to leave alone.</p>"
           }
         }
       },
@@ -121,7 +121,7 @@
       "settings": {
         "color_scheme": "default",
         "image": "shopify://shop_images/authorbook-spread-lead.webp",
-        "image_alt": "Two open pages from chapter nine, Three posts a week without burning out",
+        "image_alt": "Two open pages from chapter nine, An email people open",
         "image_position": "right",
         "aspect_w": 16,
         "aspect_h": 11,
@@ -132,7 +132,7 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "The Friday note"
+            "text": "The Friday edit"
           }
         },
         "heading_2": {
@@ -144,7 +144,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>One post idea to try this fortnight, and an honest answer to a question a reader sent in. Free, and you can leave whenever you like.</p>"
+            "text": "<p>One real page, before and after, and an honest answer to a question a reader sent in. Free, and you can leave whenever you like.</p>"
           }
         }
       },
@@ -185,27 +185,27 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "body": "I rewrote my headline with the fifteen word test. The next client quoted it back to me.",
+            "body": "I rewrote my homepage headline with the friend test. The next customer quoted it back to me.",
             "name": "Priya N.",
-            "role": "Freelance designer",
+            "role": "Runs a candle shop",
             "rating": 5
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "body": "The twenty minute post chapter alone was worth it. I stopped rewriting drafts for days.",
+            "body": "The ten minute edit alone was worth it. Every product page in my shop got a third shorter.",
             "name": "Daniel A.",
-            "role": "Accountant, small practice",
+            "role": "Bookkeeper, small practice",
             "rating": 5
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "body": "I hated selling myself. Chapter three showed me how to write about the work instead.",
+            "body": "I hated writing anything that sounded like selling. Chapter three showed me how to just describe the thing.",
             "name": "Lena M.",
-            "role": "Looking for a new role",
+            "role": "Freelance photographer",
             "rating": 5
           }
         }

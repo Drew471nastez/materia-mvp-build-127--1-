@@ -27,6 +27,7 @@
  *
  * Pure and client safe; the pages pass what the browser needs as props.
  */
+import { slugWords, themeImageDirOf, themeImagePathOf, writtenImageStem, type ThemeImageKind } from "./theme-image-names"
 import {
   CODE_TEMPLATES,
   CODE_THEME_PACKAGE,
@@ -114,6 +115,22 @@ export const THEME_SEO_CATEGORIES: readonly ThemeSeoCategory[] = [
       { q: "What is a lookbook page?", a: "A page of large photos that shows a collection worn or styled, linking to the products in it. Clothing, Lifestyle label, Night shop and Redline include one." },
     ],
   },
+  /* Round 30: the streetwear store search, beside fashion (the other two of this round are after digital products). */
+  {
+    slug: "streetwear",
+    name: "Streetwear",
+    title: "Streetwear Store Templates | Storelib",
+    description: "Streetwear store templates on Storelib for brands selling hoodies, tees, caps and jackets: drops, lookbooks, size pickers and print on demand.",
+    h1: "Streetwear store templates",
+    intro: "Four templates for streetwear and casual clothing brands: Redline with its rail of garments and weekly drop countdown, Outerwear label for jackets and knitwear, Print on demand for tees printed to order, and Caps and tees for a small headwear and t-shirt label.",
+    primaryKeyword: "streetwear store template",
+    secondaryKeywords: ["streetwear website template", "streetwear brand website", "clothing drop website"],
+    members: ["streetwear-drop", "outerwear", "print-on-demand", "caps-tees"],
+    faqs: [
+      { q: "Can I run a limited drop?", a: "Yes. Redline has a drop countdown, and any of these templates can show a countdown or an announcement bar for a release date." },
+      { q: "Do these templates show sizes and colours?", a: "Yes. Size and colour are options on the product, and the product page shows a picker for each; Outerwear label also shows colour swatches on the cards." },
+    ],
+  },
   {
     slug: "digital-products",
     name: "Digital products",
@@ -127,6 +144,42 @@ export const THEME_SEO_CATEGORIES: readonly ThemeSeoCategory[] = [
     faqs: [
       { q: "How are files delivered to buyers?", a: "Storelib delivers the file after payment, on the receipt page and by email. The template only shows the product; delivery works the same on every template." },
       { q: "Can I add a licence for my files?", a: "Yes. Digital products and Sample packs include a licence page you can edit, and any template can have one added in the editor." },
+    ],
+  },
+  /*
+    Round 30, the owner: "per use-purpose keyword landing coverage". Three
+    searches people make that no page answered as a group: a website for
+    selling Notion templates, an ebook website and a streetwear store. Each
+    is a page of the templates that really are that, with its own questions.
+  */
+  {
+    slug: "notion-templates",
+    name: "Notion templates",
+    title: "Website Templates for Selling Notion Templates | Storelib",
+    description: "Templates for a Notion template website on Storelib: a template store, a shop by category, a sales page for one template, a maker's own site and a studio shop.",
+    h1: "Website templates for selling Notion templates",
+    intro: "Five templates for people who make Notion templates and sell them: a store with a searchable FAQ, a shop with shelves by category, a sales page for one template, a template maker's own site and a studio shop that also sells Canva files and presets. Buyers get the duplicate link or the file after they pay.",
+    primaryKeyword: "notion template website",
+    secondaryKeywords: ["website to sell notion templates", "notion template store template", "notion creator website"],
+    members: ["templates-shop", "notion-template-shop", "notion-sales-page", "notion-creator", "digital-studio"],
+    faqs: [
+      { q: "How do buyers get a Notion template?", a: "You add the duplicate link or a file to the product, and Storelib shows it to the buyer after payment, on the receipt page and by email." },
+      { q: "Which one fits my shop?", a: "Many templates in one store: Notion templates or the shop with category shelves. One template you want to sell on one long page: Notion sales page. A site about you and your templates: Notion creator. Notion templates beside Canva files and presets: Digital studio." },
+    ],
+  },
+  {
+    slug: "ebooks",
+    name: "Ebooks",
+    title: "Ebook Website Templates | Storelib",
+    description: "Ebook website templates on Storelib: a sales page for one book, a small shop for a cookbook in ebook and print, and a store for digital art and photo books.",
+    h1: "Ebook website templates",
+    intro: "Three templates for writers and artists who sell books as downloads: a long sales page for one ebook, a shop for a cookbook in ebook and hardback, and a store for digital art and photo books with a look inside the spreads. The file goes to the buyer as soon as they pay.",
+    primaryKeyword: "ebook website template",
+    secondaryKeywords: ["sell ebooks website", "ebook store template", "author website template"],
+    members: ["author-book", "ebooks", "art-books"],
+    faqs: [
+      { q: "Can I sell a PDF and a printed copy of the same book?", a: "Yes. Each edition is a product option or a product of its own; the ebook is delivered after payment and a printed copy ships like any other product." },
+      { q: "Can readers see inside the book before buying?", a: "Yes. The sales page shows open pages, and Art books has a spreads section where you choose which pages to show." },
     ],
   },
   {
@@ -151,8 +204,9 @@ export const THEME_SEO_CATEGORIES: readonly ThemeSeoCategory[] = [
     description: "Website templates for coaches and consultants on Storelib: a coaching site with prices, a business coach with a show, a fitness coach and a video sales letter.",
     h1: "Website templates for coaches",
     intro: "Templates for people who sell their time and expertise. They show who you are, what working together costs and how to book, and they sell programmes or guides beside it.",
-    primaryKeyword: "consultant website template",
-    secondaryKeywords: ["coach website design", "life coach website"],
+    /* Round 30: the search people make is "coach website template"; consultant stays beside it. */
+    primaryKeyword: "coach website template",
+    secondaryKeywords: ["consultant website template", "coach website design", "life coach website"],
     members: ["coach", "personal-trainer", "coach-creator", "fitness", "creator-landing", "vsl-course"],
     faqs: [
       { q: "Can clients book a call from the site?", a: "Coach and Video sales letter include a book a call page, and you put your booking link or calendar on it." },
@@ -566,13 +620,13 @@ export const THEME_SEO: readonly ThemeSeo[] = [
       { q: "Can I sell an option, such as a bigger pack or a setup video?", a: "Yes. Add an option to the product, for example 60 posts and 60 posts and 30 stories, with its own price. The product page shows it as a picker above Add to cart and Buy now." },
     ],
   },
-  /* Templates round 29: New Leaf, a Notion template shop by one maker after the owner's cleanslatetemplates.com reference. */
+  /* Templates round 29: Octavo (New Leaf until round 30), a Notion template shop by one maker after the owner's cleanslatetemplates.com reference. */
   {
     slug: "notion-template-shop",
     title: "Notion Template Shop Website Template | Storelib",
-    description: "A shop template for a Notion template maker: an opening chalkboard, templates by category with prices, a player that shows them in use, and a page per template.",
+    description: "A shop template for a Notion template maker: templates on shelves by category, a player that shows them in use, and a page per template with its screenshots.",
     h1: "Notion template shop website template",
-    intro: "New Leaf is a shop for a Notion template maker, shown with study, planning and home templates. A chalkboard wipes away on the first visit, then template pages, a player of them in use, shelves by category and the maker. Each template's page is built from the product.",
+    intro: "Octavo is a shop for a Notion template maker, shown with study, planning and home templates. It opens on a fan of template pages, then a player of them in use, shelves by category and the maker. Each template's page is built from the product and its Notion screenshots.",
     primaryCategory: "digital-products",
     primaryKeyword: "notion template shop website",
     secondaryKeywords: ["sell notion templates by category", "notion template store with product pages", "study and planner template shop"],
@@ -580,8 +634,8 @@ export const THEME_SEO: readonly ThemeSeo[] = [
     features: ["signup"],
     extraPages: [],
     faqs: [
-      { q: "How is it different from Notion creator and Notion templates?", a: "Notion creator is a personal site led by the creator's photo. Notion templates is a catalogue with a guided tour of one workspace. New Leaf is a shop of many small templates filed by category, with an opening animation, a player that shows each one in use, and a product page written from each template's own description and pictures." },
-      { q: "How does the product page know what to show?", a: "It reads the product. The strip and icon come from its first picture, the category from where it is filed, and What's inside makes a row for every Heading 3 in its description, with the product's next pictures beside them." },
+      { q: "How is it different from Notion creator and Notion templates?", a: "Notion creator is a personal site led by the creator's photo. Notion templates is a catalogue with a guided tour of one workspace. Octavo is a shop of many small templates filed by category, with a player that shows each one in use, and a product page written from each template's own description and pictures." },
+      { q: "How does the product page know what to show?", a: "It reads the product. The category comes from where it is filed, the picture beside the price is its desktop and phone screenshot, and What's inside makes a row for every Heading 3 in its description, with the product's next pictures beside them." },
     ],
   },
   {
@@ -652,7 +706,7 @@ export const THEME_SEO: readonly ThemeSeo[] = [
     title: "Ebook Sales Page Template for One Book | Storelib",
     description: "An ebook sales page template: the book on a dark hero, open spreads, who it is for, reader quotes, what the book covers, the author, editions and FAQ.",
     h1: "Ebook sales page template",
-    intro: "Ebook is a sales page for one book, shown here as a LinkedIn personal brand playbook in three editions with a typographic cover. The book comes first on a dark hero, then open pages, who it is for, reader quotes, what it covers, the author and a free chapter.",
+    intro: "Ebook is a sales page for one book, shown here as a copywriting handbook in three editions with a typographic cover. The book comes first on a dark hero, then open pages, who it is for, reader quotes, what it covers, the author and a free chapter.",
     primaryCategory: "digital-products",
     primaryKeyword: "ebook sales page template",
     secondaryKeywords: ["sell an ebook online", "nonfiction book website", "book launch website"],
@@ -859,6 +913,9 @@ export function themePageCopy(listing: ThemeListing): ThemePageCopy {
  * courses, coaching and landing pages share the people who sell expertise.
  */
 export const NEIGHBOUR_CATEGORIES: Readonly<Record<string, readonly string[]>> = {
+  "notion-templates": ["digital-products", "landing-pages", "creators"],
+  ebooks: ["digital-products", "landing-pages", "creators"],
+  streetwear: ["fashion", "online-store", "creators"],
   fashion: ["online-store", "creators"],
   "online-store": ["fashion", "creators"],
   creators: ["online-store", "fashion", "digital-products"],
@@ -934,6 +991,41 @@ export interface ThemeImages {
   fullPhone: string | null
 }
 
+/**
+ * WHAT A PICTURE'S FILE IS CALLED (round 30, the owner: "image alt text and
+ * file names"). A search engine reads a picture's file name as a light hint
+ * of what it shows, so the SEO pictures are named for what the template is
+ * and what it is called, the way its alt text says it: the template's
+ * primary keyword, then its name, e.g. t-shirt-store-website-template-caps-
+ * and-tees-hero.webp. Each template's pictures sit in a folder named by its
+ * address (SEO_IMAGE_DIR/<slug>/), so a rename leaves nothing stale behind:
+ * scripts/build-theme-seo-images.mjs empties the folder before it writes.
+ * The paths and the record of what was written are ./theme-image-names.ts.
+ */
+export { slugWords }
+/** The file stem a template's SEO pictures should have now: its primary keyword, then its name (left out where the keyword already ends with it). */
+export function themeImageStem(slug: string): string {
+  const seo = themeSeoFor(slug)
+  const name = CODE_TEMPLATES.find((t) => t.slug === slug)?.name ?? slug
+  const keyword = slugWords(seo?.primaryKeyword ?? `${name} website template`)
+  const own = slugWords(name)
+  return keyword.endsWith(own) || keyword.startsWith(`${own}-`) ? keyword : `${keyword}-${own}`
+}
+
+/** The folder a code template's SEO pictures are in. */
+export const themeImageDir = (slug: string) => themeImageDirOf(slug)
+
+/**
+ * One SEO picture's address: the card at a width, the hero, the phone's
+ * first screen, the share card or the whole page for the card's hover. By
+ * the stem the pictures were last written under (theme-image-names.ts), so
+ * a page always names files that exist; tests/theme-seo-r58 fails when a
+ * stem no longer says what the template is now.
+ */
+export function themeImagePath(slug: string, kind: ThemeImageKind): string {
+  return themeImagePathOf(slug, kind, writtenImageStem(slug) ?? themeImageStem(slug))
+}
+
 /** The overlay folder of a code template (its pictures are named by it), or null for an uploaded listing. */
 export function templateOf(listing: Pick<ThemeListing, "slug" | "codePackage">): string | null {
   const t = CODE_TEMPLATES.find((c) => c.slug === listing.slug)
@@ -944,12 +1036,12 @@ export function templateOf(listing: Pick<ThemeListing, "slug" | "codePackage">):
 export function themeImages(listing: ThemeListing): ThemeImages {
   const t = templateOf(listing)
   if (t) {
-    const card = (w: number) => `${SEO_IMAGE_DIR}/${t}-card-${w}.webp`
+    const card = (w: number) => themeImagePath(listing.slug, `card-${w}`)
     return {
       card: { src: card(CARD_WIDTHS[0]), srcSet: CARD_WIDTHS.map((w) => `${card(w)} ${w}w`).join(", "), width: CARD_WIDTHS[1], height: (CARD_WIDTHS[1] * CARD_RATIO.h) / CARD_RATIO.w },
-      hero: { src: `${SEO_IMAGE_DIR}/${t}-hero.webp`, ...dims(HERO_SIZE) },
-      phone: { src: `${SEO_IMAGE_DIR}/${t}-phone.webp`, ...dims(PHONE_SIZE) },
-      og: { src: `${SEO_IMAGE_DIR}/${t}-og.jpg`, ...dims(OG_SIZE) },
+      hero: { src: themeImagePath(listing.slug, "hero"), ...dims(HERO_SIZE) },
+      phone: { src: themeImagePath(listing.slug, "phone"), ...dims(PHONE_SIZE) },
+      og: { src: themeImagePath(listing.slug, "og"), ...dims(OG_SIZE) },
       fullDesktop: listing.screenshots[0] ?? listing.cover,
       fullPhone: listing.screenshots[1] ?? null,
     }
@@ -1047,14 +1139,26 @@ export const MARKETPLACE_SEO = {
 /**
  * The marketplace's addresses for storelib.com/sitemap/pages.xml
  * (lib/seo/sitemaps.ts pagesSitemap): every category page that has a
- * template on it, and every template's page with its pictures for Google
- * Images. Absolute addresses; no date, because nothing here records when a
+ * template on it, with its cards' pictures, and every template's page with
+ * its pictures for Google Images (each picture's words are the alt text on
+ * the page and its file name, themeImageStem: the image sitemap carries
+ * only the address, as Google reads it now). Absolute addresses; no date, because nothing here records when a
  * template's page last changed (lib/seo/indexing: a lastmod is left out
  * when nothing real is known).
  */
 export function themeSitemapEntries(listings: readonly ThemeListing[], origin = "https://storelib.com"): { url: string; images?: string[] }[] {
   const abs = (p: string) => (/^https?:\/\//i.test(p) ? p : `${origin}${p}`)
-  const cats = THEME_SEO_CATEGORIES.filter((c) => listingsInCategory(listings, c.slug).length > 0).map((c) => ({ url: abs(themeCategoryPath(c.slug)) }))
+  /* Round 30: a category page with the card pictures it shows, the largest of each, so Google Images finds them on the page that lists them too. */
+  const cardOf = (l: ThemeListing) => {
+    const c = themeImages(l).card
+    return c ? (c.srcSet.split(", ").at(-1)?.split(" ")[0] || c.src) : null
+  }
+  const cats = THEME_SEO_CATEGORIES.map((c) => ({ c, inIt: listingsInCategory(listings, c.slug) }))
+    .filter(({ inIt }) => inIt.length > 0)
+    .map(({ c, inIt }) => {
+      const images = inIt.map(cardOf).filter((s): s is string => !!s).map(abs)
+      return { url: abs(themeCategoryPath(c.slug)), ...(images.length ? { images } : {}) }
+    })
   const pages = listings.map((l) => {
     const img = themeImages(l)
     const images = [img.hero?.src, img.phone?.src, img.og?.src].filter((s): s is string => !!s).map(abs)

@@ -188,6 +188,8 @@ export async function serve(built: BuiltSite, productsDir: string, opts: { eager
       if (to.startsWith("/") && !to.startsWith("//")) { res.writeHead(302, { Location: to, "Cache-Control": "public, max-age=3600" }); res.end(); return }
     }
     const name = decodeURIComponent(url.pathname.split("/").pop() ?? "")
+    /* Round 30: the country flags beside a currency (storelib.com/flags/<code>.svg, public/) answer as on storelib.com; covers drew a grey dot without them. */
+    if (/^\/flags\/[A-Z]{2}\.svg$/.test(url.pathname) && existsSync(join("public", url.pathname))) { res.writeHead(200, { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=3600" }); res.end(readFileSync(join("public", url.pathname))); return }
     if (url.pathname.startsWith(MEDIA_PREFIX)) {
       const bytes = imported.media.get(name)
       if (!bytes) { missing.push(url.pathname); res.writeHead(404); res.end(); return }

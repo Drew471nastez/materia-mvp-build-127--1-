@@ -9,7 +9,7 @@
         "reset_spacing": true,
         "heading": "Search",
         "sorting": true,
-        "empty_text": "Nothing matched. Try ebook, audiobook or prompts.",
+        "empty_text": "Nothing matched. Try ebook, audiobook or templates.",
         "empty_link_label": "See everything",
         "empty_link_url": "/collections/all",
         "enable_filtering": false,
@@ -31,7 +31,7 @@
       "settings": {
         "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
         "heading": "Get the book",
-        "text": "<p>The ebook, the audiobook, the post prompts and the profile guide.</p>",
+        "text": "<p>The ebook, the audiobook, the copy templates and the homepage guide.</p>",
         "items_to_show": 4,
         "items_per_row": 4,
         "show_add_to_cart": true,
@@ -45,14 +45,14 @@
       "settings": {
         "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
         "image": "shopify://shop_images/authorbook-spread-week.webp",
-        "image_alt": "Two open pages from chapter two of Known For It",
+        "image_alt": "Two open pages from chapter two of Say It Plainly",
         "image_position": "left",
         "image_ratio": "landscape",
         "image_width": 50,
         "form_layout": "horizontal",
         "btn_text": "Send it to me",
         "email_placeholder": "Your email",
-        "note": "You also get the Friday note every other week. Leave whenever you like.",
+        "note": "You also get the Friday edit every other week. Leave whenever you like.",
         "success_text": "Done. Chapter two is in your inbox."
       },
       "blocks": {
@@ -65,7 +65,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Pick what you want to be known for, as a PDF: the one line headline, a week of posts and the fifteen word test.</p>"
+            "text": "<p>Write the headline last, as a PDF: the ten headline exercise, five before and after rewrites and the friend test.</p>"
           }
         }
       },

@@ -170,17 +170,21 @@
 .scroll-trigger.stagger_up { --reveal-name: revealFadeUp; --reveal-ease: var(--ease-out-expo); --reveal-part: revealPartUp; }
 .scroll-trigger.mask_reveal { --reveal-name: revealUnmaskCard; --reveal-ease: cubic-bezier(0.65, 0, 0.35, 1); --reveal-part: revealPartUp; --reveal-time: 1.15; }
 .scroll-trigger.split_text { --reveal-name: revealFadeUp; --reveal-ease: var(--ease-out-expo); --reveal-part: revealPartUp; }
+/* Editorial (round 30): a slower reveal for magazine-like templates. A section's
+   parts arrive one by one with a long, soft rise; its pictures fade in and
+   settle from a slight scale-down. Transform and opacity only. */
+.scroll-trigger.editorial { --reveal-name: revealEditorial; --reveal-ease: cubic-bezier(0.22, 1, 0.36, 1); --reveal-part: revealPartEditorial; --reveal-time: 1.25; }
 
 @media (prefers-reduced-motion: no-preference) {
   /* Waiting below the screen: the first frame of its own animation, so the start is seamless. */
-  .scroll-trigger.scroll-trigger--armed.scroll-trigger--offscreen:is(.fade_in, .fade_up, .slide_in, .zoom_in, .subtle_rise, .cinematic, .blur_up, .blur_in, .slide_side, .mask_reveal, .stagger_up, .split_text):not(.reveal-parts) {
+  .scroll-trigger.scroll-trigger--armed.scroll-trigger--offscreen:is(.fade_in, .fade_up, .slide_in, .zoom_in, .subtle_rise, .cinematic, .blur_up, .blur_in, .slide_side, .mask_reveal, .stagger_up, .split_text, .editorial):not(.reveal-parts) {
     animation-name: var(--reveal-name);
     animation-duration: 1s;
     animation-fill-mode: both;
     animation-play-state: paused;
     animation-delay: 0s;
   }
-  .scroll-trigger.scroll-trigger--armed:not(.scroll-trigger--offscreen):is(.fade_in, .fade_up, .slide_in, .zoom_in, .subtle_rise, .cinematic, .blur_up, .blur_in, .slide_side, .mask_reveal, .stagger_up, .split_text):not(.reveal-parts) {
+  .scroll-trigger.scroll-trigger--armed:not(.scroll-trigger--offscreen):is(.fade_in, .fade_up, .slide_in, .zoom_in, .subtle_rise, .cinematic, .blur_up, .blur_in, .slide_side, .mask_reveal, .stagger_up, .split_text, .editorial):not(.reveal-parts) {
     animation-name: var(--reveal-name);
     animation-duration: calc(var(--animation-duration, 700ms) * var(--reveal-time));
     animation-timing-function: var(--reveal-ease);
@@ -223,6 +227,12 @@
     animation: revealSettle calc(var(--animation-duration, 700ms) * 1.8) var(--ease-out-expo) calc(var(--animation-delay-base, 0ms) + var(--part, 0) * var(--reveal-stagger)) both;
     will-change: transform;
   }
+  /* Editorial: slower parts on a long ease; pictures fade and settle rather than rise. */
+  .scroll-trigger--armed:not(.scroll-trigger--offscreen).reveal-parts.editorial [data-reveal-part] {
+    animation-duration: calc(var(--animation-duration, 700ms) * 1.25);
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .reveal-parts.editorial [data-reveal-part='media'] { --reveal-part: revealEditorialMedia; }
   /* Headings word by word: the words (animation.js wraps them for the reveal only, then unwraps them). */
   .reveal-parts.split_text [data-reveal-part='words'] { --reveal-part: none; }
   .scroll-trigger--armed.reveal-parts.split_text .mt-word { display: inline-block; }
@@ -291,6 +301,18 @@
 }
 @keyframes revealPartUp {
   from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 28px, 0); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes revealEditorial {
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 40px, 0); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes revealPartEditorial {
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 40px, 0); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes revealEditorialMedia {
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: scale(0.96); }
   to { opacity: 1; transform: none; }
 }
 /* A picture opens from a window that already shows most of it. */

@@ -88,7 +88,7 @@
   {%- if s.title_uppercase -%}#shopify-section-{{ sid }} .spr__title, #shopify-section-{{ sid }} .spr__title a { text-transform: uppercase !important; }{%- endif -%}
   #shopify-section-{{ sid }} .spr__title a { color: var(--color-heading); text-decoration: none; text-transform: inherit; letter-spacing: inherit; }
   #shopify-section-{{ sid }} .spr__title a::after { content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: 0; }
-  #shopify-section-{{ sid }} .spr__card .ssp { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+  #shopify-section-{{ sid }} .spr__card .ssp { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
   #shopify-section-{{ sid }} .spr__cover { position: relative; display: block; aspect-ratio: 1; margin: 0 -6px; }
   #shopify-section-{{ sid }} .spr__cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; transition: transform .45s cubic-bezier(.2,.7,.2,1); }
   #shopify-section-{{ sid }} .spr__cover--empty { border-radius: calc(var(--spr-radius) * .6); background: rgba(var(--color-heading-rgb), .06); }
@@ -107,7 +107,8 @@
   #shopify-section-{{ sid }} .spr__empty { padding: 24px; border-radius: var(--spr-radius); background: var(--spr-card); font-size: 15px; }
   @media (hover: hover) and (pointer: fine) {
     #shopify-section-{{ sid }} .spr__card:hover { background: color-mix(in srgb, var(--spr-card), rgb(var(--color-heading-rgb)) 4%); }
-    #shopify-section-{{ sid }} .spr__card:hover .spr__cover img { transform: translateY(-4px) scale(1.02); }
+    {%- comment -%} Round 30: the cover grows in place on hover; it used to rise 4px into the title above it. {%- endcomment -%}
+    #shopify-section-{{ sid }} .spr__card:hover .spr__cover img { transform: scale(1.02); }
     #shopify-section-{{ sid }} .spr__card .ssp__btn:hover { transform: scale(1.06); }
   }
   @media (min-width: 750px) {

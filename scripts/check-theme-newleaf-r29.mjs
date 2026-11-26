@@ -1,5 +1,5 @@
 /**
- * New Leaf's product hero lines up and never spills (round 29).
+ * Octavo's (New Leaf until round 30) product hero lines up and never spills (round 29; round 30: light hero, no strip, still lined up).
  * The desktop row runs right to left with a 56px gap; when the theme's column
  * widths did not leave room for it the information column overflowed to the
  * left and the title was cut at the page's edge (-10px at 1024).

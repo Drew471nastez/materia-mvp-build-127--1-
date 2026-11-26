@@ -30,7 +30,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Hanna went freelance at twenty eight and spent a year posting long updates nobody read. Then she picked one thing, wrote about it three times a week and started getting messages from people she had never met.</p><p>She now runs workshops and writes a short note every other week. This is sample text. Replace it with your own story.</p>"
+            "text": "<p>Hanna started out writing product descriptions for a furniture shop, three hundred of them in her first year. She learned that the plain ones sold and the clever ones did not.</p><p>She now writes for small businesses, runs a monthly workshop and sends a short edit every other week. This is sample text. Replace it with your own story.</p>"
           }
         },
         "button_4": {
@@ -69,13 +69,13 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "The book she wanted in her first year"
+            "text": "The book she wanted on her first job"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Most LinkedIn advice is a list of forty hacks and a different rule every month. Known For It picks the handful that matter, in the order to learn them, with what to do when a post gets no reply.</p>"
+            "text": "<p>Most copywriting advice is a list of formulas and power words. Say It Plainly picks the handful of habits that matter, in the order to learn them, with real before and after examples from small businesses.</p>"
           }
         }
       },
@@ -103,24 +103,24 @@
           "type": "column",
           "settings": {
             "label": "01",
-            "heading": "One thing first",
-            "text": "<p>People remember one thing about you. Choose it before you write.</p>"
+            "heading": "Plain beats clever",
+            "text": "<p>If a reader has to work out what you mean, they leave.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
             "label": "02",
-            "heading": "Useful beats clever",
-            "text": "<p>A post that helps one reader beats one written to impress everyone.</p>"
+            "heading": "Their words, not yours",
+            "text": "<p>The best lines are already in your customers' emails and reviews.</p>"
           }
         },
         "column_4": {
           "type": "column",
           "settings": {
             "label": "03",
-            "heading": "Three a week wins",
-            "text": "<p>Three posts you can keep beat seven you cannot, every time.</p>"
+            "heading": "Shorter is kinder",
+            "text": "<p>Cut a third of every draft. Nobody misses it.</p>"
           }
         }
       },
@@ -162,27 +162,27 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "body": "I rewrote my headline with the fifteen word test. The next client quoted it back to me.",
+            "body": "I rewrote my homepage headline with the friend test. The next customer quoted it back to me.",
             "name": "Priya N.",
-            "role": "Freelance designer",
+            "role": "Runs a candle shop",
             "rating": 5
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "body": "The twenty minute post chapter alone was worth it. I stopped rewriting drafts for days.",
+            "body": "The ten minute edit alone was worth it. Every product page in my shop got a third shorter.",
             "name": "Daniel A.",
-            "role": "Accountant, small practice",
+            "role": "Bookkeeper, small practice",
             "rating": 5
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "body": "I hated selling myself. Chapter three showed me how to write about the work instead.",
+            "body": "I hated writing anything that sounded like selling. Chapter three showed me how to just describe the thing.",
             "name": "Lena M.",
-            "role": "Looking for a new role",
+            "role": "Freelance photographer",
             "rating": 5
           }
         }
@@ -201,14 +201,14 @@
       "settings": {
         "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
         "image": "shopify://shop_images/authorbook-spread-week.webp",
-        "image_alt": "Two open pages from chapter two of Known For It",
+        "image_alt": "Two open pages from chapter two of Say It Plainly",
         "image_position": "left",
         "image_ratio": "landscape",
         "image_width": 50,
         "form_layout": "horizontal",
         "btn_text": "Send it to me",
         "email_placeholder": "Your email",
-        "note": "You also get the Friday note every other week. Leave whenever you like.",
+        "note": "You also get the Friday edit every other week. Leave whenever you like.",
         "success_text": "Done. Chapter two is in your inbox."
       },
       "blocks": {
@@ -221,7 +221,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Pick what you want to be known for, as a PDF: the one line headline, a week of posts and the fifteen word test.</p>"
+            "text": "<p>Write the headline last, as a PDF: the ten headline exercise, five before and after rewrites and the friend test.</p>"
           }
         }
       },

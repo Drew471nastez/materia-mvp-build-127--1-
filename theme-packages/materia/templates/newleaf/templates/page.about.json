@@ -1,4 +1,4 @@
-/* Templates round 29: New Leaf. About: Maya in her own words, how she makes the templates, then the newsletter. */
+/* Templates round 29: Octavo. About: Maya in her own words, how she makes the templates, then the newsletter. */
 {
   "sections": {
     "heading": {
@@ -78,7 +78,7 @@
           "type": "text",
           "settings": {
             "heading": "",
-            "text": "<p>If a template does not work the way you expected, email me at <a href=\"mailto:hello@newleaf.example\">hello@newleaf.example</a> and I will help you sort it out.</p><p><strong>Maya</strong></p>"
+            "text": "<p>If a template does not work the way you expected, email me at <a href=\"mailto:hello@octavo.example\">hello@octavo.example</a> and I will help you sort it out.</p><p><strong>Maya</strong></p>"
           }
         },
         "p0": {
