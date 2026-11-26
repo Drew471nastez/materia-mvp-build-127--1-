@@ -129,7 +129,8 @@ console.log("\nTHE CANVAS")
 console.log("\nA PAGE'S CONTEXT IS CHEAPER TO READ")
 {
   check("a currency's sign is read once", currencySymbol("EUR") === currencySymbol("EUR") && currencySymbol("EUR") === "€")
-  check("a flag is drawn once", flagImage("IT") === flagImage("IT") && flagImage("IT").startsWith("data:image/svg+xml,"))
+  /* Changed on purpose (r64): a flag is its file in public/flags, not a data: SVG. */
+  check("a flag is drawn once", flagImage("IT") === flagImage("IT") && flagImage("IT") === "/flags/IT.svg")
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

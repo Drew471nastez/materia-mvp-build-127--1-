@@ -1,8 +1,9 @@
 "use client"
 
 import * as React from "react"
+import { FlagImage } from "@/components/ui/flag-image"
 
-import { countryFlag, countryName, describeEvent, deviceLabel } from "@/lib/activity/creator-activity"
+import { countryName, describeEvent, deviceLabel } from "@/lib/activity/creator-activity"
 import { ACTION_FILTERS, AREAS, AREA_LABEL, describeLiveAction, isArea, livePageLabel, sessionLength } from "@/lib/live/live"
 import type { LiveFeedPayload, LiveFeedRow, LivePayload, LiveSessionPayload, LiveSessionRow } from "@/lib/admin/types"
 
@@ -99,7 +100,7 @@ function Country({ code }: { code: string | null }) {
   if (!code) return <span className="text-[#6b6b76]">Unknown</span>
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5">
-      <span aria-hidden>{countryFlag(code)}</span>
+      <FlagImage code={code} />
       <span className="truncate">{countryName(code)}</span>
     </span>
   )
@@ -211,7 +212,7 @@ function LiveNow({ area, go }: { area: string; go: Go }) {
           { label: "Online now", value: o && o.online !== null ? num(o.online) : "", sub: o && o.signedIn !== null ? `${num(o.signedIn)} signed in` : undefined, unreadable: o && o.online === null ? notRead : null },
           { label: "Visits today", value: o && o.today !== null ? num(o.today) : "", sub: o && o.todaySignedIn !== null ? `${num(o.todaySignedIn)} signed in` : undefined, unreadable: o && o.today === null ? notRead : null },
           { label: "Creators in /app", value: o ? num(o.areas.app ?? 0) : "", sub: o && o.creatorsToday !== null ? `${num(o.creatorsToday)} today` : undefined },
-          { label: "Top country now", value: topNow ? <span className="inline-flex min-w-0 items-center gap-2"><span aria-hidden>{countryFlag(topNow[0])}</span><span className="truncate">{countryName(topNow[0])}</span></span> : "None yet", sub: topNow ? `${num(topNow[1])} online` : undefined },
+          { label: "Top country now", value: topNow ? <span className="inline-flex min-w-0 items-center gap-2"><FlagImage code={topNow[0]} /><span className="truncate">{countryName(topNow[0])}</span></span> : "None yet", sub: topNow ? `${num(topNow[1])} online` : undefined },
         ]}
       />
 
@@ -244,13 +245,25 @@ function LiveNow({ area, go }: { area: string; go: Go }) {
             {o.countriesNow.length ? (
               <p className="min-w-0">
                 <span className="text-[#6b6b76]">Now </span>
-                {o.countriesNow.map(([c, n]) => `${countryFlag(c)} ${countryName(c)} ${num(n)}`).join(", ")}
+                {o.countriesNow.map(([c, n], i) => (
+                  <span key={c} className="whitespace-nowrap">
+                    {i ? ", " : ""}
+                    <FlagImage code={c} className="mr-1" />
+                    {countryName(c)} {num(n)}
+                  </span>
+                ))}
               </p>
             ) : null}
             {o.countriesToday.length ? (
               <p className="min-w-0">
                 <span className="text-[#6b6b76]">Today </span>
-                {o.countriesToday.map(([c, n]) => `${countryFlag(c)} ${countryName(c)} ${num(n)}`).join(", ")}
+                {o.countriesToday.map(([c, n], i) => (
+                  <span key={c} className="whitespace-nowrap">
+                    {i ? ", " : ""}
+                    <FlagImage code={c} className="mr-1" />
+                    {countryName(c)} {num(n)}
+                  </span>
+                ))}
               </p>
             ) : null}
           </div>
