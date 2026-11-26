@@ -4,7 +4,7 @@
       "type": "soundpacks-hero",
       "settings": {
         "pill": "About Lowmoth",
-        "heading": "Two producers, one small room.",
+        "heading": "Two producers, one small room",
         "text": "<p>We started Lowmoth to sell the sounds we kept making for our own tracks. Everything in a pack is played, programmed or recorded by us.</p>",
         "button_label": "Hear the packs",
         "button_link": "/collections/packs",
@@ -12,11 +12,11 @@
         "button_2_link": "",
         "note": "",
         "chips_label": "Previews from the packs",
-        "button_from": "#d6ff5c",
+        "button_from": "#ffffff",
         "button_to": "#f2627a",
-        "accent": "#c6f432",
+        "accent": "#f2f0eb",
         "show_glow": true,
-        "glow_color": "#c6f432",
+        "glow_color": "#f2f0eb",
         "glow_strength": 16,
         "show_lines": true,
         "float": true,
@@ -138,14 +138,14 @@
           "type": "eyebrow",
           "settings": {
             "text": "The room",
-            "color": "#c6f432",
+            "color": "#f2f0eb",
             "size": 14
           }
         },
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "Where the packs are made.",
+            "text": "Where the packs are made",
             "tag": "h2",
             "size_desktop": 48,
             "size_mobile": 34
@@ -190,7 +190,7 @@
         "header_gap": 40,
         "show_dividers": true,
         "enable_custom_style": true,
-        "label_color": "#c6f432",
+        "label_color": "#8e8e96",
         "item_heading_color": "#f3f3f4",
         "text_color": "#a3a3ab",
         "divider_color": "#26262a",
@@ -208,7 +208,7 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "How a pack is made.",
+            "text": "How a pack is made",
             "size_enable": true,
             "size_desktop": 44,
             "size_mobile": 32
@@ -218,7 +218,7 @@
           "type": "column",
           "settings": {
             "label": "Week 1",
-            "heading": "Write a track.",
+            "heading": "Write a track",
             "text": "<p>We start from a style we play ourselves and write one finished track in it.</p>"
           }
         },
@@ -226,7 +226,7 @@
           "type": "column",
           "settings": {
             "label": "Week 2",
-            "heading": "Pull it apart.",
+            "heading": "Pull it apart",
             "text": "<p>Every loop, hit and chord becomes a file, plus the variations we did not use.</p>"
           }
         },
@@ -234,7 +234,7 @@
           "type": "column",
           "settings": {
             "label": "Week 3",
-            "heading": "Name and test.",
+            "heading": "Name and test",
             "text": "<p>Files are named by type, BPM and key, then tested in a fresh project in three DAWs.</p>"
           }
         },
@@ -242,7 +242,7 @@
           "type": "column",
           "settings": {
             "label": "Week 4",
-            "heading": "Release.",
+            "heading": "Release",
             "text": "<p>The track becomes the demo on the pack page, and the pack goes on sale.</p>"
           }
         }
@@ -258,7 +258,7 @@
     "free": {
       "type": "soundpacks-pack-row",
       "settings": {
-        "heading": "Start with a free pack.",
+        "heading": "Start with a free pack",
         "text": "<p>Same quality and licence as the paid ones.</p>",
         "link_label": "All free packs",
         "link_url": "/collections/free",
@@ -266,16 +266,16 @@
         "columns": 3,
         "card_width_mobile": 76,
         "columns_mobile": 1,
-        "card_color": "#18181b",
+        "card_color": "#141416",
         "use_theme_radius": true,
         "card_radius": 20,
-        "title_uppercase": true,
-        "accent": "#c6f432",
+        "title_uppercase": false,
+        "accent": "#f2f0eb",
         "free_label": "Free",
         "heading_size": 44,
         "heading_size_mobile": 32,
-        "title_size": 24,
-        "title_size_mobile": 21,
+        "title_size": 19,
+        "title_size_mobile": 18,
         "color_scheme": "scheme-sp-panel",
         "section_width": "container",
         "padding_top": 72,
@@ -368,7 +368,7 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "A free pack every month.",
+            "text": "A free pack every month",
             "tag": "h2",
             "size_enable": true,
             "size_desktop": 44,

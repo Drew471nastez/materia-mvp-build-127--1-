@@ -170,6 +170,11 @@
       for (var i = 0; i < stuck.length; i++) {
         var el = stuck[i];
         var top = v + gap;
+        {%- comment %}Never below where the column starts on the page: a gap
+           bigger than the space above the section pushed the gallery down at
+           the top of the page, out of line with the details (round 28).{% endcomment %}
+        var home = starts.get(el);
+        if (home != null && top > home) top = home;
         if (hs[i] + top + gap > vh) top = Math.min(top, vh - hs[i] - gap);
         var t = Math.round(top) + 'px';
         if (el.__mpTop !== t) {
@@ -207,9 +212,23 @@
       still = 0;
       if (!raf && stickyOn) raf = requestAnimationFrame(loop);
     }
+    var starts = new WeakMap();
+    {%- comment %}Where each sticky column starts in the document (its parent's
+       content top), read once per refresh, never per frame.{% endcomment %}
+    function measureStarts() {
+      var y = window.pageYOffset || 0;
+      for (var i = 0; i < stuck.length; i++) {
+        var parent = stuck[i].parentElement;
+        if (!parent) continue;
+        var pr = parent.getBoundingClientRect();
+        var pad = parseFloat(getComputedStyle(parent).paddingTop) || 0;
+        starts.set(stuck[i], Math.max(0, Math.round(pr.top + y + pad)));
+      }
+    }
     function refresh() {
       if (!stickyOn) return;
       tag();
+      measureStarts();
       pinnedCache = null;
       gap = parseFloat(getComputedStyle(root).getPropertyValue('--mp-sticky-gap')) || 0;
       last = -1;

@@ -236,7 +236,7 @@
       "type": "related-products",
       "settings": {
         "color_scheme": "default",
-        "section_width": "full_width",
+        "section_width": "fluid_container",
         "reset_spacing": true,
         "heading": "Hang it next to",
         "description": "",
@@ -244,7 +244,7 @@
         "header_alignment": "left",
         "items_per_row": 4,
         "items_per_row_mobile": 2,
-        "column_gap": 0,
+        "column_gap": 16,
         "intent": "related",
         "items_to_show": 4,
         "show_badges": true,
@@ -254,8 +254,8 @@
         "show_price": true,
         "show_add_to_cart": true,
         "show_action": false,
-        "padding_top": 40,
-        "padding_bottom": 0
+        "padding_top": 56,
+        "padding_bottom": 40
       }
     },
     "benefits": {
@@ -323,11 +323,11 @@
         "heading_rv"
       ],
       "settings": {
-        "section_width": "full_width",
+        "section_width": "fluid_container",
         "products_to_show": 8,
         "items_per_row": 4,
         "items_per_row_mobile": 2,
-        "column_gap": 20,
+        "column_gap": 16,
         "padding_top": 40,
         "padding_bottom": 56
       }

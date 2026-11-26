@@ -2,7 +2,7 @@
   Sound packs (templates round 26): a split hero for a sample label. The
   words on one side (a small label, a large heading, a line, two buttons, a
   note and up to three short facts), and on the other the pack covers as a
-  tilted wall: each cover is a block with its picture, its name and its
+  tilted wall (or, round 28, a straight grid): each cover is a block with its picture, its name and its
   product (or a link), and links to the product's page. On a phone the covers become one row under the buttons.
   The covers drift slowly unless the visitor prefers reduced motion.
   Fonts, colours and buttons follow Theme settings and the colour scheme.
@@ -53,13 +53,21 @@
     #shopify-section-{{ sid }} .sch--drift .sch__cover:nth-child(3n+2) { animation-delay: -3s; }
     #shopify-section-{{ sid }} .sch--drift .sch__cover:nth-child(3n+3) { animation-delay: -6s; }
   }
+  {%- comment -%} Round 28: the grid layout lays the covers out straight, three to a row, still and evenly spaced, like a label's catalogue. The tilted wall stays the default. {%- endcomment -%}
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .sch--grid .sch__wall { width: 100%; transform: translate(-50%, -50%); gap: 16px; }
+    #shopify-section-{{ sid }} .sch--grid .sch__cover:nth-child(n) { transform: none; animation: none; }
+    #shopify-section-{{ sid }} .sch--grid .sch__art { box-shadow: 0 1px 0 rgba(255, 255, 255, .04) inset, 0 20px 40px -24px rgba(0, 0, 0, .8); }
+  }
+  #shopify-section-{{ sid }} .sch--grid .sch__label { padding: 0; border: 0; border-radius: 0; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--color-text); }
+  #shopify-section-{{ sid }} .sch--grid .sch__label::before { width: 6px; height: 6px; }
   @keyframes sch-drift-{{ sid | handleize }} { from { translate: 0 -8px; } to { translate: 0 8px; } }
   @media (prefers-reduced-motion: reduce) {
     #shopify-section-{{ sid }} .sch--drift .sch__cover { animation: none; }
     #shopify-section-{{ sid }} .sch__art { transition: none; }
   }
 </style>
-<div class="sch section color-{{ color_scheme }} gradient{% if s.drift %} sch--drift{% endif %}">
+<div class="sch section color-{{ color_scheme }} gradient{% if s.drift and s.layout != 'grid' %} sch--drift{% endif %}{% if s.layout == 'grid' %} sch--grid{% endif %}">
   <div class="{{ s.section_width | default: 'container' }}">
     <div class="sch__grid">
       <div class="sch__copy">
@@ -124,7 +132,8 @@
     { "type": "text", "id": "note", "label": "Line under the buttons" },
     { "type": "header", "content": "Look" },
     { "type": "color", "id": "accent", "label": "Accent", "info": "The dot in the label and highlighted words. Left empty, the scheme's button colour." },
-    { "type": "checkbox", "id": "drift", "label": "Covers drift slowly", "default": true },
+    { "type": "select", "id": "layout", "label": "Covers", "default": "tilted", "options": [{ "value": "tilted", "label": "Tilted wall" }, { "value": "grid", "label": "Straight grid" }] },
+    { "type": "checkbox", "id": "drift", "label": "Covers drift slowly", "default": true, "info": "On the tilted wall." },
     { "type": "range", "id": "cover_radius", "label": "Cover corners", "min": 0, "max": 24, "step": 1, "unit": "px", "default": 6 },
     { "type": "range", "id": "heading_size", "label": "Heading size", "min": 36, "max": 120, "step": 2, "unit": "px", "default": 80 },
     { "type": "range", "id": "heading_size_mobile", "label": "Heading size on phones", "min": 28, "max": 64, "step": 2, "unit": "px", "default": 46 },

@@ -72,7 +72,7 @@ import { SCRIM } from "@/components/ui/scrim"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { TemplateAction, type TemplateCardState } from "@/components/website-builder/theme-template-card"
-import { CODE_TEMPLATES, CODE_THEME_PACKAGE, templatePreviewPath, type ThemeListing } from "@/lib/themes/marketplace-shared"
+import { CODE_TEMPLATES, CODE_THEME_PACKAGE, templatePreviewFrame, templatePreviewPath, type ThemeListing } from "@/lib/themes/marketplace-shared"
 import { TEMPLATE_PREVIEW_GROUNDS } from "@/lib/themes/template-preview-grounds"
 
 /** In the address while a preview is open: &preview=slug, one history entry over the grid or the page. */
@@ -503,8 +503,8 @@ export function framedSteps(): number {
   return Math.max(0, FRAMED.at)
 }
 
-/** One of the website's pages in its own frame (LiveSite: GOING TO ANOTHER PAGE). */
-type FramedPage = { key: number; src: string }
+/** One of the website's pages in its own frame (LiveSite: GOING TO ANOTHER PAGE). `parked`: drawn ahead on a hover, not asked for yet (THE NEXT PAGE, STARTED BEFORE THE PRESS). */
+type FramedPage = { key: number; src: string; parked?: boolean }
 /** A page that has drawn comes up over the last one in this long. */
 export const PREVIEW_PAGE_MS = 160
 /** A page that has not said it drew by now is shown as it is. */
@@ -599,9 +599,25 @@ function LiveSite({ src, device, name, openedAt, ground, blur }: { src: string; 
     history, so Back and the system's back still leave the preview.
   */
   const nextKey = React.useRef(1)
-  const going = pages.some((p) => p.key > front)
+  const going = pages.some((p) => p.key > front && !p.parked)
   const frontRef = React.useRef(front)
   frontRef.current = front
+  /*
+    THE NEXT PAGE, STARTED BEFORE THE PRESS (round 28). Every page of the
+    website is a document with no origin, and Chromium keeps none of its
+    files for such a frame, so each press asked for the page's stylesheets,
+    scripts and fonts again (scripts/check-template-preview-speed.mjs). The
+    page's shim says which link a pointer rests on (or a finger touches)
+    and that page is drawn here in a hidden frame, parked: never shown,
+    never counted in the history, until the press asks for that same
+    address. One is parked at a time.
+  */
+  const pagesRef = React.useRef(pages)
+  pagesRef.current = pages
+  const drawnKeys = React.useRef(new Set<number>())
+  const toldPaths = React.useRef(new Map<number, string>())
+  /* Parked pages the press has asked for, known at once: a message from one in the moment before the page list is drawn again is not a parked page's. */
+  const pressedKeys = React.useRef(new Set<number>())
   const show = React.useCallback((key: number) => setFront((f) => Math.max(f, key)), [])
   React.useEffect(() => {
     /* The last page goes once the new one has come up over it; a new one that never says it drew is shown all the same. */
@@ -609,7 +625,7 @@ function LiveSite({ src, device, name, openedAt, ground, blur }: { src: string; 
       const t = window.setTimeout(() => setPages((ps) => ps.filter((p) => p.key >= front)), PREVIEW_PAGE_MS + 40)
       return () => window.clearTimeout(t)
     }
-    const ahead = pages.filter((p) => p.key > front)
+    const ahead = pages.filter((p) => p.key > front && !p.parked)
     if (!ahead.length) return
     const t = window.setTimeout(() => show(ahead[ahead.length - 1].key), PAGE_WAIT_MS)
     return () => window.clearTimeout(t)
@@ -632,21 +648,41 @@ function LiveSite({ src, device, name, openedAt, ground, blur }: { src: string; 
         tell()
         return
       }
-      if (data.type === "storelib:template-preview-go") {
+      if (data.type === "storelib:template-preview-go" || data.type === "storelib:template-preview-intent") {
         /* Only from the page on show, and only to another page of the same website. */
         const href = typeof data.href === "string" ? data.href : ""
         const site = src.split("/").slice(0, 3).join("/") + "/"
         if (key !== frontRef.current || !href.startsWith(site) || !/^\/[\w./%-]+\.html(?:[?#][^\s"'<>]*)?$/.test(href)) return
+        const parked = pagesRef.current.find((p) => p.parked && p.src === href)
+        if (data.type === "storelib:template-preview-intent") {
+          /* Already on its way, parked or asked for: nothing more. */
+          if (parked || pagesRef.current.some((p) => p.key > frontRef.current && p.src === href)) return
+          const k = nextKey.current++
+          setPages((ps) => [...ps.filter((p) => !p.parked), { key: k, src: href, parked: true }])
+          return
+        }
+        if (parked) {
+          /* The press asks for the page drawn ahead: it is the one coming, and shown at once if it has drawn. */
+          pressedKeys.current.add(parked.key)
+          setPages((ps) => ps.filter((p) => p.key === frontRef.current || p.key === parked.key).map((p) => (p.key === parked.key ? { key: p.key, src: p.src } : p)))
+          const told = toldPaths.current.get(parked.key)
+          if (told) framedPage(told)
+          if (drawnKeys.current.has(parked.key)) show(parked.key)
+          return
+        }
         const k = nextKey.current++
         setPages((ps) => [...ps.filter((p) => p.key === frontRef.current), { key: k, src: href }])
         return
       }
+      const isParked = !pressedKeys.current.has(key) && pagesRef.current.some((p) => p.key === key && p.parked)
       /* Still arriving: the window's own fade shows it. Later: a fade of its own, once. */
       const arrived = () => {
         const early = performance.now() - (openedAt.current ?? 0) < PREVIEW_IN_MS * 0.6
         setReady((r) => r ?? (early ? "with-window" : "fade"))
       }
       if (data.type === "storelib:template-preview-drawn") {
+        drawnKeys.current.add(key)
+        if (isParked) return
         if (key > frontRef.current) show(key)
         /* The first page is shown on this, its first screen complete, rather than on its load (every picture on it) or a guess. */
         else arrived()
@@ -654,6 +690,11 @@ function LiveSite({ src, device, name, openedAt, ground, blur }: { src: string; 
       }
       if (data.type !== "storelib:template-preview") return
       tell()
+      /* A parked page is counted when it is asked for, not when it loads. */
+      if (isParked) {
+        if (typeof data.path === "string") toldPaths.current.set(key, data.path)
+        return
+      }
       if (typeof data.path === "string") framedPage(data.path)
       if (key > frontRef.current) show(key)
       /* Loaded but never said it drew: shown a moment later all the same. */
@@ -755,6 +796,8 @@ function LiveSite({ src, device, name, openedAt, ground, blur }: { src: string; 
           {asked
             ? pages.map((page) => {
                 const on = page.key <= front
+                /* From www.storelib.com on storelib.com, so the website has an origin of its own and keeps its files between pages (templatePreviewFrame). */
+                const frame = templatePreviewFrame(page.src)
                 return (
                   <iframe
                     key={page.key}
@@ -762,13 +805,13 @@ function LiveSite({ src, device, name, openedAt, ground, blur }: { src: string; 
                       if (el) frames.current.set(page.key, el)
                       else frames.current.delete(page.key)
                     }}
-                    src={page.src}
+                    src={frame.src}
                     title={tt("{name}, live website", { name })}
-                    sandbox="allow-scripts"
+                    sandbox={frame.sandbox}
                     referrerPolicy="no-referrer"
                     loading="eager"
                     data-preview-live-site=""
-                    data-preview-page={page.key === front ? "front" : on ? "leaving" : "coming"}
+                    data-preview-page={page.key === front ? "front" : on ? "leaving" : page.parked ? "parked" : "coming"}
                     aria-hidden={page.key !== front || undefined}
                     tabIndex={page.key === front ? undefined : -1}
                     className={cn(

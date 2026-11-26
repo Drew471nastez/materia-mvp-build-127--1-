@@ -31,8 +31,8 @@
   overflow: visible;
 }
 #search-form.search-overlay {
-  --search-dur: 320ms;
-  --search-ease: cubic-bezier(.22,.61,.36,1);
+  --search-dur: var(--mt-panel-out, 320ms);
+  --search-ease: var(--mt-panel-ease-out, cubic-bezier(.22,.61,.36,1));
   display: block;
   position: fixed;
   z-index: 1000;
@@ -46,6 +46,8 @@
     visibility 0s linear var(--search-dur);
 }
 #search-form.search-overlay.open {
+  --search-dur: var(--mt-panel-in, 320ms);
+  --search-ease: var(--mt-panel-ease-in, cubic-bezier(.22,.61,.36,1));
   visibility: visible;
   pointer-events: auto;
   transition-delay: 0s;
@@ -274,7 +276,7 @@
 
 /* ---- Drawer: a full height sheet above everything ---- */
 #search-form.search-overlay--drawer {
-  --search-dur: 320ms;
+  --search-dur: var(--mt-panel-out, 320ms);
   top: 0;
   bottom: 0;
   right: 0;

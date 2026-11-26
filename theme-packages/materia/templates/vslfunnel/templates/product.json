@@ -71,7 +71,7 @@
           "type": "text",
           "settings": {
             "heading": "",
-            "content": "<p>An eight week online chess course for adult improvers, taught by Lena Marsh.</p>"
+            "content": "<p>An eight week client acquisition program for freelancers and small studios, run by Daniel Brandt.</p>"
           }
         },
         "price_4": {
@@ -157,7 +157,7 @@
         "link_button_8": {
           "type": "link_button",
           "settings": {
-            "label": "Watch the free lesson first",
+            "label": "Watch the free training first",
             "link": "/",
             "style": "text",
             "icon": "none",
@@ -170,7 +170,7 @@
           "type": "whats_included",
           "settings": {
             "heading": "What you get",
-            "items": "44 video lessons in eight modules\nSix live game reviews with Lena\nThree hundred puzzles to print\nLessons yours to keep",
+            "items": "44 video lessons in eight modules\nSix live group calls with Daniel\nScripts, sheets and a proposal template\nLessons yours to keep",
             "two_columns": false,
             "boxed": true
           }
@@ -178,7 +178,7 @@
         "collapsible_row_10": {
           "type": "collapsible_row",
           "settings": {
-            "heading": "About the course",
+            "heading": "About the program",
             "content": "",
             "use_product_description": true,
             "open": true
@@ -188,7 +188,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "Options",
-            "content": "<p><strong>Course:</strong> the full class with the live reviews. <strong>Course and a game review:</strong> adds a 45 minute video call with Lena on ten of your games, with written notes after. Either can be paid in full or in three monthly parts.</p>",
+            "content": "<p><strong>Program:</strong> the full eight weeks with the live calls. <strong>Program and an audit:</strong> adds a 60 minute video call with Daniel on your offer, site and proposal, with written notes after. Either can be paid in full or in three monthly parts.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -199,12 +199,12 @@
             "heading": "Questions",
             "use_product_faqs": false,
             "first_open": false,
-            "q_1": "When does the class start?",
-            "a_1": "<p>12 January. Module one opens the day you join, so you can play your first logged games before the first live review.</p>",
-            "q_2": "What level is it for?",
-            "a_2": "<p>Adults who know the rules, from first rated games up to about 1500 online.</p>",
-            "q_3": "What if I miss a live review?",
-            "a_3": "<p>Every call is recorded and added to the course the same day. Send your game link beforehand and Lena reviews it on the recording.</p>",
+            "q_1": "When does the group start?",
+            "a_1": "<p>12 January. Module one opens the day you join, so you can have your client sheet ready before the first live call.</p>",
+            "q_2": "Who is it for?",
+            "a_2": "<p>Freelancers and studios of up to about five people who already have paying clients.</p>",
+            "q_3": "What if I miss a live call?",
+            "a_3": "<p>Every call is recorded and added to the program the same day. Send your question beforehand and Daniel answers it on the recording.</p>",
             "q_4": "What if it is not for me?",
             "a_4": "<p>Email us within 30 days of joining and you get a full refund.</p>",
             "spacing_top": 12,
@@ -279,8 +279,8 @@
         "section_width": "container",
         "image_position": "left",
         "text_column_width": 46,
-        "image": "shopify://shop_images/vslfunnel-table-wide.webp",
-        "image_alt": "A player moving a white piece across a wooden board",
+        "image": "shopify://shop_images/vslfunnel-desk-wide.webp",
+        "image_alt": "Daniel at his desk with a notebook and laptop",
         "aspect_w": 3,
         "aspect_h": 2,
         "image_fit": "cover",
@@ -293,19 +293,19 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Inside the course"
+            "text": "Inside the program"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Short lessons, three slow games a week"
+            "text": "Short lessons, outreach on two mornings"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Each module is five or six lessons of ten to twenty minutes and three slow games to play. About two hours a week.</p>"
+            "text": "<p>Each module is five or six lessons of ten to twenty minutes and one piece of real outreach to do. About two hours a week.</p>"
           }
         },
         "button_4": {
@@ -372,7 +372,7 @@
           "type": "heading",
           "settings": {
             "enabled": true,
-            "text": "What students say",
+            "text": "What members say",
             "enable_custom_typography": true,
             "font_size_desktop": 38,
             "font_size_mobile": 28,
@@ -383,56 +383,56 @@
           "type": "subheading",
           "settings": {
             "enabled": true,
-            "text": "<p>Sample reviews to show the layout. Replace them with your own students' words.</p>"
+            "text": "<p>Sample reviews to show the layout. Replace them with your own members' words.</p>"
           }
         },
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I played a thousand blitz games and stayed stuck. By week three I was doing the check without thinking, and I stopped hanging pieces.</p>",
+            "quote": "<p>I had never sent a message to someone I did not know. By week three it was a habit, and the sheet showed me who to follow up with.</p>",
             "rating": 0,
             "name": "Naomi B.",
-            "role": "Learned the rules at 35",
+            "role": "Freelance copywriter",
             "avatar": "shopify://shop_images/vslfunnel-student-1.webp"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The free lesson changed every game. One question after their move and half my blunders were gone.</p>",
+            "quote": "<p>The free training alone changed my Mondays. I stopped refreshing my inbox and started writing to people.</p>",
             "rating": 0,
             "name": "Rafael O.",
-            "role": "Plays after work",
+            "role": "Web developer",
             "avatar": "shopify://shop_images/vslfunnel-student-2.webp"
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Each week has one habit, so I never felt behind. In the live review Lena found the move where my game turned.</p>",
+            "quote": "<p>Each week has one habit, so I never felt behind. In the live call Daniel rewrote my offer in two lines.</p>",
             "rating": 0,
             "name": "Chloe L.",
-            "role": "Club player",
+            "role": "Two person studio",
             "avatar": "shopify://shop_images/vslfunnel-student-3.webp"
           }
         },
         "testimonial_7": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I used to memorise openings and still lose by move fifteen. Module four fixed that in an afternoon.</p>",
+            "quote": "<p>I used to send six page proposals and hear nothing. The one page version in module seven is all I use now.</p>",
             "rating": 0,
             "name": "Tomas K.",
-            "role": "Online player",
+            "role": "Brand designer",
             "avatar": "shopify://shop_images/vslfunnel-student-4.webp"
           }
         },
         "testimonial_8": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Short, clear lessons. I watched them on the train and played the game that evening.</p>",
+            "quote": "<p>Short, clear lessons. I watched them on the train and sent the messages that afternoon.</p>",
             "rating": 0,
             "name": "Elif M.",
-            "role": "Learns on the commute",
+            "role": "Video editor",
             "avatar": "shopify://shop_images/vslfunnel-student-5.webp"
           }
         }
@@ -454,7 +454,7 @@
         "color_scheme": "default",
         "section_width": "container",
         "reset_spacing": true,
-        "heading": "Also from Tempo",
+        "heading": "Also from Fullbook",
         "description": "",
         "header_size": "small",
         "header_alignment": "left",

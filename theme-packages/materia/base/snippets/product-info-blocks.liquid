@@ -129,11 +129,32 @@
               {%- render 'review-sold-block', block: block, product: product, sold_only: true -%}
             {%- when 'price' -%}
               {% comment %} Price {% endcomment %}
+              {%- liquid
+                comment
+                  Round 28: the price is never much smaller than the title. Its
+                  sizes are kept, with a floor of 55% of the title's size (at
+                  least 18px on phones, 20px on computers), in the theme's
+                  text scale: a 17px price under a 34px title read as small
+                  print. Templates whose price is already that size or larger
+                  draw exactly as before.
+                endcomment
+                assign pf_title_m = 28
+                assign pf_title_d = 34
+                for pf_b in section.blocks
+                  if pf_b.type == 'title'
+                    assign pf_title_m = pf_b.settings.title_font_size_mobile | default: 20
+                    assign pf_title_d = pf_b.settings.title_font_size_desktop | default: 24
+                    break
+                  endif
+                endfor
+                assign pf_floor_m = pf_title_m | times: 0.55 | round | at_least: 18
+                assign pf_floor_d = pf_title_d | times: 0.55 | round | at_least: 20
+              -%}
               <div
                 id="price-{{ section.id }}"
                 class="product-detail__price mb-10{% if enable_skeleton_loading %} skeleton-loading{% endif %}"
                 {{ block.shopify_attributes }}
-                style="font-size: {{ block_st.price_font_size_mobile | default: 18 }}px; font-weight: {{ block_st.price_font_weight | default: 600 }};"
+                style="--mp-price-floor-m: calc({{ pf_floor_m }}px * var(--sl-text-scale, 1)); --mp-price-floor-d: calc({{ pf_floor_d }}px * var(--sl-text-scale, 1)); font-size: max({{ block_st.price_font_size_mobile | default: 18 }}px, var(--mp-price-floor-m)); font-weight: {{ block_st.price_font_weight | default: 600 }};"
               >
                 {%- render 'price', scope: 'detail', product: product, class: 'price-large' -%}
               </div>
@@ -144,7 +165,7 @@
                 #price-{{ section.id }} .price-regular *,
                 #price-{{ section.id }} .price-item--last,
                 #price-{{ section.id }} .price-item:not(.compare-price):not(.price-item--compare) {
-                  font-size: {{ block_st.price_font_size_mobile | default: 18 }}px !important;
+                  font-size: max({{ block_st.price_font_size_mobile | default: 18 }}px, var(--mp-price-floor-m, 0px)) !important;
                   font-weight: {{ block_st.price_font_weight | default: 600 }} !important;
                 }
                 /* Compare-at price — actual class is .compare-price (also <s>). */
@@ -165,7 +186,7 @@
                   #price-{{ section.id }} .price-regular *,
                   #price-{{ section.id }} .price-item--last,
                   #price-{{ section.id }} .price-item:not(.compare-price):not(.price-item--compare) {
-                    font-size: {{ block_st.price_font_size_desktop | default: 20 }}px !important;
+                    font-size: max({{ block_st.price_font_size_desktop | default: 20 }}px, var(--mp-price-floor-d, 0px)) !important;
                   }
                   #price-{{ section.id }} .compare-price,
                   #price-{{ section.id }} .compare-price *,

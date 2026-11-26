@@ -63,7 +63,16 @@ const busyForm = `form[action*="/cart/add"]:is(${BUSY_MARKS.join(",")}) :is(butt
   or part of one (looked for inside that same button only, so a section
   whose wrapper happens to say "loader" changes nothing).
 */
-const rule = (button: string) => `${button} :is(${ICON}):not(:is(${SPINNER}),${button} :is(${SPINNER}) *){visibility:hidden!important}`
+/*
+  Round 28: "inside a spinner" is written `… :is(${SPINNER}) :is(${ICON})`,
+  not `… :is(${SPINNER}) *`. They match the same icons (the rule only ever
+  styles an icon), but a `*` under a [class*=…] test told Chrome that any
+  class change anywhere could restyle everything below it: a class on <html>
+  (a drawer's scroll lock, a menu opening) restyled the whole page, 20 to
+  40ms on a store page and far more on a phone, in the frame the panel was
+  to start moving. With the icons named, only icons are looked at again.
+*/
+const rule = (button: string) => `${button} :is(${ICON}):not(:is(${SPINNER}),${button} :is(${SPINNER}) :is(${ICON})){visibility:hidden!important}`
 
 export const BUSY_BUTTON_CSS = `${rule(busyButton)}${rule(busyForm)}`
 

@@ -1,14 +1,19 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/sound-packs/a/cart.e5d3f250b61c.json",WISH_DATA="",QV_DATA="/theme-previews/sound-packs/a/quickview.258d27fbba1b.json",RV_DATA="/theme-previews/sound-packs/a/recent.f061c0975d32.json";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/sound-packs/a/cart.8895956862ba.json",WISH_DATA="",QV_DATA="/theme-previews/sound-packs/a/quickview.4da2c1249eea.json",RV_DATA="/theme-previews/sound-packs/a/recent.9e3fbea7db44.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
 var ph=D.createElement("style");ph.textContent="@media (max-width: 767.98px){html{scrollbar-width:none}html::-webkit-scrollbar{display:none}}";(D.head||D.documentElement).appendChild(ph);
-function mem(){var m={};return{getItem:function(k){return Object.prototype.hasOwnProperty.call(m,k)?m[k]:null},setItem:function(k,v){m[k]=String(v)},removeItem:function(k){delete m[k]},clear:function(){m={}},key:function(i){return Object.keys(m)[i]||null},get length(){return Object.keys(m).length}}}
-["localStorage","sessionStorage"].forEach(function(n){try{W[n].getItem("x")}catch(e){try{Object.defineProperty(W,n,{value:mem(),configurable:true})}catch(_){}}});
-try{D.cookie}catch(e){var jar="";try{Object.defineProperty(D,"cookie",{get:function(){return jar},set:function(v){var kv=String(v).split(";")[0];jar=jar?jar+"; "+kv:kv},configurable:true})}catch(_){}}
+/* Round 28: the frame is sandboxed without storage, so its storage is kept in the frame's window.name (beside the cart's, preview-cart.ts) and lasts from page to page as a browser's would: a heart pressed on one page is still saved on the next, the header count and the Wishlist page show it. */
+function wn(){try{var n=JSON.parse(W.name||"null");return n&&typeof n==="object"&&n.slpv?n:null}catch(e){return null}}
+function mem(scope){var n0=wn(),m=n0&&n0.slls&&n0.slls[scope]&&typeof n0.slls[scope]==="object"?n0.slls[scope]:{};function save(){try{if(W.name&&!wn())return;var n=wn()||{slpv:{}};n.slls=n.slls||{};n.slls[scope]=m;var s=JSON.stringify(n);if(s.length<400000)W.name=s}catch(e){}}
+return{getItem:function(k){return Object.prototype.hasOwnProperty.call(m,k)?m[k]:null},setItem:function(k,v){m[k]=String(v);save()},removeItem:function(k){delete m[k];save()},clear:function(){m={};save()},key:function(i){return Object.keys(m)[i]||null},get length(){return Object.keys(m).length}}}
+/* Round 28 (framing): kept this way always. On storelib.com the frame has www's origin (templatePreviewFrame in lib/themes/marketplace-shared.ts), where storage and cookies would be real ones: the preview keeps to its own, and writes nothing for any Storelib host. */
+["localStorage","sessionStorage"].forEach(function(n){try{Object.defineProperty(W,n,{value:mem(n),configurable:true})}catch(_){}});
+var jar="";try{Object.defineProperty(D,"cookie",{get:function(){return jar},set:function(v){var kv=String(v).split(";")[0];jar=jar?jar+"; "+kv:kv},configurable:true})}catch(_){}
+try{Object.defineProperty(W,"cookieStore",{value:undefined,configurable:true})}catch(_){}
 var ROOT="/theme-previews/";
 function mine(u){try{var x=new URL(u,location.href);return x.host===location.host&&x.pathname.indexOf(ROOT)===0}catch(e){return false}}
 function path(u){try{return new URL(u,location.href).pathname}catch(e){return""}}
@@ -156,6 +161,25 @@ if(wait)return setTimeout(look,50);
 Promise.all(seen.slice(0,24).map(function(g){return g.decode?g.decode().catch(function(){}):0})).then(fin,fin)}
 look();setTimeout(fin,1500)}
 D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn)});
+var PAGES=["/","/collections","/collections/all","/cart","/search","/blogs/news","/pages/about","/pages/contact","/pages/faqs","/account/login","/account/register","/products/night-bus","/products/chrome-drums","/products/soft-focus","/products/heavy-water","/products/afterglow","/products/dust-and-tape","/products/first-light","/products/small-hours","/products/drums-and-low-end","/products/the-full-shelf","/collections/gifts","/collections/new-in","/collections/best-sellers","/collections/packs","/collections/free","/collections/bundles","/blogs/news/tuning-an-808-so-it-sits-under-the-kick","/blogs/news/swing-for-uk-garage-without-a-template","/blogs/news/what-goes-into-a-lowmoth-pack","/policies/refund-policy","/policies/privacy-policy","/policies/terms-of-service","/pages/licence","/pages/support"];
+function siteOf(){return ROOT+SLUG+"/"}
+function pageFor(x){var p=x.pathname.replace(/\/+$/,"")||"/";if(p.indexOf(ROOT)===0)return p.indexOf(siteOf())===0?x.pathname+x.search+x.hash:null;p=p.replace(/^\/collections\/[^/]+(?=\/products\/)/,"");if(PAGES.indexOf(p)<0)return null;return siteOf()+(p==="/"?"index":p.slice(1))+".html"+x.search+x.hash}
+function goTo(how,u,from){var x;try{x=new URL(String(u),location.href)}catch(e){return}
+if(/^(javascript|mailto|tel|sms):$/i.test(x.protocol))return;
+var to=x.host===location.host?pageFor(x):null;
+if(!to){showNote(from||null);return}
+if(x.pathname.replace(/\/+$/,"")==="/cart"||/\/cart[.]html$/.test(x.pathname))to=carry(to);
+var y=new URL(to,location.href);if(y.pathname===location.pathname&&y.search===location.search){if(y.hash!==location.hash)location.hash=y.hash;return}
+if(HAND&&how!=="replace"&&handoff(y.pathname+y.search+y.hash))return;
+how==="replace"?location.replace(y.href):location.assign(y.href)}
+W.__slGo=function(how,u){goTo(how,u)};
+W.__slLoc={get href(){return location.href},set href(u){goTo("assign",u)},toString:function(){return location.href}};
+/* A link a script made after the page was written: pressed, it opens the website's own page or stays. */
+D.addEventListener("click",function(e){if(e.defaultPrevented||e.button!==0)return;var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(!a||a.hasAttribute("download")||a.hasAttribute("data-preview-inert"))return;var h=(a.getAttribute("href")||"").trim();if(!h||h.charAt(0)==="#"||/^(javascript|mailto|tel|sms|data):/i.test(h))return;var x;try{x=new URL(a.href)}catch(_){return}if(x.host===location.host&&x.pathname.indexOf(siteOf())===0)return;e.preventDefault();goTo("assign",a.href,a)},true);
+var IT=0,ITH="";function intent(a){if(!a||a.hasAttribute("download"))return;var to=nextPage(a.href);if(!to||to===ITH)return;ITH=to;try{parent.postMessage({type:"storelib:template-preview-intent",href:to},"*")}catch(e){}}
+D.addEventListener("pointerover",function(e){if(!HAND||e.pointerType==="touch")return;var a=e.target&&e.target.closest&&e.target.closest("a[href]");clearTimeout(IT);if(a)IT=setTimeout(function(){intent(a)},80)},{passive:true});
+D.addEventListener("touchstart",function(e){if(!HAND)return;intent(e.target&&e.target.closest&&e.target.closest("a[href]"))},{passive:true});
+
 })();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#0b0b0c}</style><script>
       (function () {
         function show(img) {
@@ -175,7 +199,7 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
 <script src="/theme-previews/sound-packs/a/i.59a2755e14fa.js"></script><meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content=""><script src="/theme-previews/sound-packs/a/i.5802c928e030.js"></script><title>New in | Lowmoth</title>
+<meta name="theme-color" content=""><script src="/theme-previews/sound-packs/a/i.5802c928e030.js"></script><link rel="icon" type="image/png" href="/theme-previews/sound-packs/a/soundpacks-mark.7afa885dbcc6.webp"><title>New in | Lowmoth</title>
 <meta name="description" content="What arrived this month.">
 <meta property="og:site_name" content="Lowmoth">
 <meta property="og:title" content="New in | Lowmoth">
@@ -208,26 +232,26 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
         try {
           var l = document.createElement('link');
           l.rel = 'modulepreload';
-          l.href = new URL('/theme-previews/_base/a/cart-components.b6711c3796ec.js', new URL("/theme-previews/_base/a/theme.bbc3b899a286.js", location.href)).href;
+          l.href = new URL('/theme-previews/_base/a/cart-components.b6711c3796ec.js', new URL("/theme-previews/_base/a/theme.2c4dd2165111.js", location.href)).href;
           l.fetchPriority = 'low';
           document.head.appendChild(l);
         } catch (e) {}
       })();
-    </script><link href="/theme-previews/_base/a/base.8713243a6371.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":true,"card_atc_button":"primary","product_size":16,"price_size":15,"product_name_text_transform":"unset","card_atc_bg":"#f3f3f4","card_atc_color":"#0b0b0c","card_atc_hover_bg":"#c6f432","card_atc_hover_color":"#10120a","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
+    </script><link href="/theme-previews/_base/a/base.4e43ff40dd46.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":true,"card_atc_button":"primary","product_size":16,"price_size":15,"product_name_text_transform":"unset","card_atc_bg":"#f3f3f4","card_atc_color":"#0b0b0c","card_atc_hover_bg":"#ffffff","card_atc_hover_color":"#0b0b0c","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = true === true ? 'true' : 'false';</script>
 <script type="application/json" data-badge-style-settings>false</script>
-<script>document.documentElement.dataset.badgeCustom = 'false';</script><script src="/theme-previews/sound-packs/a/i.1ce91c58da38.js"></script><link rel="stylesheet" href="/theme-previews/sound-packs/a/i.5545cdcebedc.css" data-pc-custom-actions><style>:root { --pc-act-size: 44px; }</style>
+<script>document.documentElement.dataset.badgeCustom = 'false';</script><script src="/theme-previews/sound-packs/a/i.1ce91c58da38.js"></script><link rel="stylesheet" href="/theme-previews/sound-packs/a/i.2389e589e27a.css" data-pc-custom-actions><style>:root { --pc-act-size: 44px; }</style>
 <script>(function(u){var done=false;function go(){if(done)return;done=true;for(var i=0;u.length>i;i++){if(document.querySelector('link[href="'+u[i]+'"]'))continue;var l=document.createElement('link');l.rel='stylesheet';l.href=u[i];document.head.appendChild(l)}}
     window.MateriaLateCss={now:go};if(document.readyState==='complete')setTimeout(go,0);else{addEventListener('load',function(){setTimeout(go,0)},{once:true});
     document.addEventListener('DOMContentLoaded',function(){setTimeout(go,4000)},{once:true})}
-    ['pointerdown','click','keydown','scroll','touchstart'].forEach(function(n){addEventListener(n,go,{once:true,passive:true,capture:true})})})(["/theme-previews/_base/a/popup.18cdf2513c31.css","/theme-previews/_base/a/tingle-min.ed947d9dd1c7.css"]);</script><link rel="stylesheet" href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" media="print" onload="this.media='all'">
+    ['pointerdown','click','keydown','scroll','touchstart'].forEach(function(n){addEventListener(n,go,{once:true,passive:true,capture:true})})})(["/theme-previews/_base/a/popup.537a49cfcb3e.css","/theme-previews/_base/a/tingle-min.ed947d9dd1c7.css"]);</script><link rel="stylesheet" href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" media="print" onload="this.media='all'">
 <noscript><link href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" rel="stylesheet" type="text/css" media="all"></noscript>
-<link rel="stylesheet" href="/theme-previews/_base/a/fonts.c27e303307a3.css" data-materia-fonts>
-<style data-materia-font-fallbacks>@font-face{font-family:"Hanken Grotesk Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:100.9%;ascent-override:99.1%;descent-override:30%;line-gap-override:0%}@font-face{font-family:"Hanken Grotesk Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:100.9%;ascent-override:99.1%;descent-override:30%;line-gap-override:0%}@font-face{font-family:"Urbanist Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:98.9%;ascent-override:96%;descent-override:25.3%;line-gap-override:0%}@font-face{font-family:"Urbanist Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:98.9%;ascent-override:96%;descent-override:25.3%;line-gap-override:0%}</style><style data-shopify>
+<link rel="stylesheet" href="/theme-previews/_base/a/fonts.04821b83513d.css" data-materia-fonts>
+<style data-materia-font-fallbacks>@font-face{font-family:"Hanken Grotesk Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:100.9%;ascent-override:99.1%;descent-override:30%;line-gap-override:0%}@font-face{font-family:"Hanken Grotesk Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:100.9%;ascent-override:99.1%;descent-override:30%;line-gap-override:0%}</style><style data-shopify>
   :root {
     --body-font: "Hanken Grotesk", "Hanken Grotesk Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --heading-font: "Urbanist", "Urbanist Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --heading-font: "Hanken Grotesk", "Hanken Grotesk Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --menu-font: var(--body-font);
     --btn-font: var(--body-font);
     --heading-font-style: normal;
@@ -235,19 +259,19 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
     --font-heading-family: var(--heading-font);
   }
 </style>
-<link rel="stylesheet" href="/theme-previews/sound-packs/a/i.b9a03b4d37fb.css" data-shopify><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
+<link rel="stylesheet" href="/theme-previews/sound-packs/a/i.bfe27ffe851f.css" data-shopify><noscript><link href="/theme-previews/_base/a/popup.537a49cfcb3e.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.f1153aca0529.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/minicart.679b4fb18845.css" fetchpriority="low">
 <link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.6a68b7e13653.css" fetchpriority="low">
-<link rel="stylesheet" href="/theme-previews/sound-packs/a/i.c9258a0055a1.css"><link rel="stylesheet" href="/theme-previews/sound-packs/a/i.63f22cb4aaee.css"><link rel="modulepreload" href="/theme-previews/_base/a/theme.bbc3b899a286.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/sound-packs/a/i.585ec254f5fd.js"></script>
+<link rel="stylesheet" href="/theme-previews/sound-packs/a/i.0ea441630d77.css"><link rel="stylesheet" href="/theme-previews/sound-packs/a/i.eb96caf6c027.css"><link rel="modulepreload" href="/theme-previews/_base/a/theme.2c4dd2165111.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/sound-packs/a/i.754b28e257c3.js"></script>
 <script src="/theme-previews/_base/a/swiper-bundle-min.31d164f7367d.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/motion-min.d1f8eb312b47.js" type="module" defer="defer" fetchpriority="low"></script>
-<script src="/theme-previews/_base/a/utils.26985d2d39f0.js" defer="defer" data-cart-count="0"></script>
-<script src="/theme-previews/_base/a/global.6451f87adf35.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/utils.3e8a73beb3e9.js" defer="defer" data-cart-count="0"></script>
+<script src="/theme-previews/_base/a/global.d6dc0d64340b.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-drawer-safety.b8d627a0381e.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/section-links.83dcb60cec8e.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/product-counters.9ef274d65c34.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/product-block-runtime.6868605d527a.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/product-dialogs.f42edf25d068.js" defer="defer"></script><script src="/theme-previews/_base/a/hero-image-one.9accbabb78ac.js" defer="defer"></script><script src="/theme-previews/sound-packs/a/i.c19642bd6029.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" rel="stylesheet" type="text/css" media="all"></noscript>
+<script src="/theme-previews/_base/a/product-dialogs.f42edf25d068.js" defer="defer"></script><script src="/theme-previews/_base/a/hero-image-one.9accbabb78ac.js" defer="defer"></script><script src="/theme-previews/sound-packs/a/i.d8f808a259c8.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" rel="stylesheet" type="text/css" media="all"></noscript>
 <script src="/theme-previews/_base/a/drift.eaae124afa1e.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/photoswipe-init.7fe034915110.js" type="module"></script>
 <script src="/theme-previews/sound-packs/a/i.69f67d6283fa.js"></script><script>(function(){try{var d=document.createElement('div');d.style.cssText='position:absolute;top:-99px;width:60px;height:60px;overflow:scroll;visibility:hidden';document.documentElement.appendChild(d);if(d.offsetWidth-d.clientWidth>0)document.documentElement.classList.add('sl-sb-room');d.remove()}catch(e){}})();</script><style>
@@ -267,7 +291,7 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
         body > #shopify-section-footer-group,
         body > #shopify-section-sections--footer-group,
         body > .shopify-section-group-footer-group { flex: 0 0 auto; }
-      </style><style data-sl-focus>[tabindex="-1"]:focus,dialog:focus,[role="dialog"]:focus,[aria-modal="true"]:focus,details-modal:focus,modal-dialog:focus{outline:none!important}</style><link rel="stylesheet" href="/theme-previews/sound-packs/a/i.baba7fb2aa0e.css" data-sl-busy-buttons><style data-sl-missing-image>img[data-sl-missing]{background-color:#f3f4f6!important;background-image:none!important;object-fit:contain!important;object-position:50% 50%!important;color:transparent!important}html[data-sl-dark] img[data-sl-missing],[data-community-theme="dark"] img[data-sl-missing]{background-color:#26282c!important}</style><script data-sl-missing-image src="/theme-previews/sound-packs/a/i.d77d88883af7.js"></script><script data-sl-cover-trim src="/theme-previews/sound-packs/a/i.fc4335148114.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/fonts.bd14396acf32.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/_base/a/fonts.fb2ab27c2a4b.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/sound-packs/a/i.17f73b1756bd.css" data-storelib-bundle><link rel="stylesheet" href="/theme-previews/sound-packs/a/i.ed30deb2b656.css" data-storelib-overrides><link rel="icon" href="data:,"></head>
+      </style><style data-sl-focus>[tabindex="-1"]:focus,dialog:focus,[role="dialog"]:focus,[aria-modal="true"]:focus,details-modal:focus,modal-dialog:focus{outline:none!important}</style><link rel="stylesheet" href="/theme-previews/sound-packs/a/i.741d2f016a53.css" data-sl-busy-buttons><style data-sl-missing-image>img[data-sl-missing]{background-color:#f3f4f6!important;background-image:none!important;object-fit:contain!important;object-position:50% 50%!important;color:transparent!important}html[data-sl-dark] img[data-sl-missing],[data-community-theme="dark"] img[data-sl-missing]{background-color:#26282c!important}</style><script data-sl-missing-image src="/theme-previews/sound-packs/a/i.d77d88883af7.js"></script><script data-sl-cover-trim src="/theme-previews/sound-packs/a/i.fc4335148114.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/fonts.bd14396acf32.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/_base/a/fonts.fb2ab27c2a4b.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/sound-packs/a/i.17f73b1756bd.css" data-storelib-bundle><link rel="stylesheet" href="/theme-previews/sound-packs/a/i.a550b5797d0e.css" data-storelib-overrides></head>
 <body
 class="gradient rounded-style  collection"
 data-btn-style="solid"
@@ -277,7 +301,7 @@ data-zoom-image="true"
 data-btn-shape="rounded"
 data-btn-hover="fade"
 data-sl-btn-hover="none"
-data-badge-shape="pill"
+data-badge-shape="rectangle"
 data-badge-size="small"
 data-badge-position="top_start"
 data-badge-anim="none"
@@ -302,13 +326,13 @@ data-menu-hover="none"
   :where(html:not([data-font-priority='off'])) #shopify-section-bar :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
-</style><span data-ti-no-reveal hidden></span><link rel="stylesheet" href="/theme-previews/sound-packs/a/i.99ecdf2285eb.css"><link rel="stylesheet" href="/theme-previews/sound-packs/a/i.cdc4c5ecc0c0.css"><section id="announcement-bar-bar" class="unique-announcement-bar color-scheme-sp-accent gradient" data-an-root="announcement-bar-basic" data-an-section="bar" data-an-close-days="1" data-an-fallback-href="/collections/all" data-width="full_width" data-reset="true" data-show="display_all" data-close-d="false" data-close-m="false" data-close-days="1" data-sticky-announcement="false" data-own-weight aria-label="Announcement" style="--ab-bg: #c6f432;--ab-text: #10120a;--ab-border: var(--color-border);--ab-bw: 0px;--ab-justify: center;--ab-ta: center;--ab-gap: 12px;--ab-px: 16px;--ab-px-m: 14px;--ab-ls: 0px;--ab-tt: none;--ab-ff: inherit;--ab-fw: 600;--ab-fs-d: 14px;--ab-fs-m: 13px;--ab-h-d: 40px;--ab-h-m: 49px;"><a href="/theme-previews/sound-packs/collections/packs.html" class="ab-msg" data-an-no-link="SPAN" data-vis="all" data-an-block="message_1" data-an-type="message" data-block-id="message_1" style=""><span class="ab-msg__d">Night Bus is out: 412 UK garage sounds with a demo to play first</span><span class="ab-msg__m">Night Bus is out: 412 UK garage sounds</span></a><button type="button" class="close-button" data-an-close aria-label="Close announcement"><span aria-hidden="true">&times;</span></button>
+</style><span data-ti-no-reveal hidden></span><link rel="stylesheet" href="/theme-previews/sound-packs/a/i.99ecdf2285eb.css"><link rel="stylesheet" href="/theme-previews/sound-packs/a/i.cdc4c5ecc0c0.css"><section id="announcement-bar-bar" class="unique-announcement-bar color-scheme-sp-accent gradient" data-an-root="announcement-bar-basic" data-an-section="bar" data-an-close-days="1" data-an-fallback-href="/collections/all" data-width="full_width" data-reset="true" data-show="display_all" data-close-d="false" data-close-m="false" data-close-days="1" data-sticky-announcement="false" data-own-weight aria-label="Announcement" style="--ab-bg: #f2f0eb;--ab-text: #0b0b0c;--ab-border: var(--color-border);--ab-bw: 0px;--ab-justify: center;--ab-ta: center;--ab-gap: 12px;--ab-px: 16px;--ab-px-m: 14px;--ab-ls: 0px;--ab-tt: none;--ab-ff: inherit;--ab-fw: 600;--ab-fs-d: 14px;--ab-fs-m: 13px;--ab-h-d: 40px;--ab-h-m: 49px;"><a href="/theme-previews/sound-packs/collections/packs.html" class="ab-msg" data-an-no-link="SPAN" data-vis="all" data-an-block="message_1" data-an-type="message" data-block-id="message_1" style=""><span class="ab-msg__d">Night Bus is out: 412 UK garage sounds with a demo to play first</span><span class="ab-msg__m">Night Bus is out: 412 UK garage sounds</span></a><button type="button" class="close-button" data-an-close aria-label="Close announcement"><span aria-hidden="true">&times;</span></button>
 </section><script>
   (function () {
     var bar = document.getElementById('announcement-bar-bar');
     try { var until = +localStorage.getItem('announcementBarClosedUntil:bar') || 0; if (until && Date.now() < until) bar.hidden = true; if (sessionStorage.getItem('announcementBarClosed:bar') === '1') bar.hidden = true; } catch (e) {}
   })();
-</script></div><div id="shopify-section-header" class="shopify-section shopify-section-group-header-group section-header has-popup" data-section-id="header" data-section-type="theme-header"><link href="/theme-previews/_base/a/header-section.d609d0b23c83.css" rel="stylesheet" type="text/css" media="all">
+</script></div><div id="shopify-section-header" class="shopify-section shopify-section-group-header-group section-header has-popup" data-section-id="header" data-section-type="theme-header"><link href="/theme-previews/_base/a/header-section.0b1f3e2d8175.css" rel="stylesheet" type="text/css" media="all">
 <script src="/theme-previews/_base/a/header-section.529bac1525b9.js" defer="defer"></script><style>
   #shopify-section-header {
     --hs-margin-top: 0px;
@@ -355,7 +379,7 @@ data-sticky-mobile="true" data-reset-spacing
 data-menu-hover="fade" data-theme-hover="none"
 data-header-blocks="pill_glass_1:pill_glass menu_badges_1:menu_badges header_button_1:header_button " data-menu-type='{"on":false,"font":&quot;Bodoni Moda, serif&quot;,"size":15,"weight":&quot;500&quot;}' data-own-weight
 data-mega-label="button" data-dd-tinted data-logo-m="left" data-hs-flush data-logo-x="0 0"
-style="--section-pt: 0;--section-pb: 0;--transparent-color: #1a1a1a;--menu-hover-color: var(--color-link-hover, currentColor);--dd-duration: 400ms;--dd-ease: cubic-bezier(0.187, 0.775, 0.435, 0.925);--dd-shadow: 0 5px 30px 0 rgba(0, 0, 0, 0.05);--dd-width: 260px;--dd-pad-y: 20px;--dd-pad-x: 30px;--dd-link-space: 3px;--dd-radius: 14px;--mega-gap: 32px;--mega-card-radius: 0px;--hs-menu-weight: 500;--hs-act-size: 16px;--hs-act-weight: 400;--hs-act-case: none;--hs-logo-gap-m: 0px;"
+style="--section-pt: 0;--section-pb: 0;--transparent-color: #1a1a1a;--menu-hover-color: var(--color-link-hover, currentColor);--dd-duration: 220ms;--dd-ease: cubic-bezier(0.187, 0.775, 0.435, 0.925);--dd-shadow: 0 5px 30px 0 rgba(0, 0, 0, 0.05);--dd-width: 260px;--dd-pad-y: 20px;--dd-pad-x: 30px;--dd-link-space: 3px;--dd-radius: 14px;--mega-gap: 32px;--mega-card-radius: 0px;--hs-menu-weight: 500;--hs-act-size: 16px;--hs-act-weight: 400;--hs-act-case: none;--hs-logo-gap-m: 0px;"
 ><div class="header__inner header__layout-1" id="header-sticky">
 <div class="fluid_container">
 <header-inner class="logo-position grid logo-left gap-10 gap-xl-50 header-middle align-center">
@@ -366,18 +390,18 @@ aria-label="Lowmoth"
 >
 <span
 class="header__logo inline-flex align-center"
-style="--header-logo-width: 118px; --header-logo-width-mobile: 104px;"
+style="--header-logo-width: 150px; --header-logo-width-mobile: 128px;"
 ><img
-srcset="/theme-previews/sound-packs/a/soundpacks-logo-400.0845aab7894a.webp 165w,/theme-previews/sound-packs/a/soundpacks-logo-400.0845aab7894a.webp 330w,/theme-previews/sound-packs/a/soundpacks-logo.7a5babaa6310.webp 535w,/theme-previews/sound-packs/a/soundpacks-logo.7a5babaa6310.webp 552w
+srcset="/theme-previews/sound-packs/a/soundpacks-logo-400.eec337bda31e.webp 165w,/theme-previews/sound-packs/a/soundpacks-logo-400.eec337bda31e.webp 330w,/theme-previews/sound-packs/a/soundpacks-logo.1baf393082f9.webp 535w,/theme-previews/sound-packs/a/soundpacks-logo.1baf393082f9.webp 623w
 "
-src="/theme-previews/sound-packs/a/soundpacks-logo-400.0845aab7894a.webp"
+src="/theme-previews/sound-packs/a/soundpacks-logo-400.eec337bda31e.webp"
 sizes="(max-width: 1024.98px) 112px, 132px"
 loading="eager"
 decoding="sync"
 fetchpriority="high"
 class="header__normal-logo"
-width="118"
-height="31"
+width="150"
+height="20"
 alt="Lowmoth"
 ></span>
 </a>
@@ -393,7 +417,7 @@ class="action nav-toggle overlay inline-flex pointer w-44 h-44 hidden-1025 heade
 <path d="M2 8H20C20.2812 8 20.5156 7.90625 20.7031 7.71875C20.9062 7.51562 21.0078 7.27344 21.0078 6.99219C21.0078 6.72656 20.9062 6.5 20.7031 6.3125C20.5156 6.10938 20.2812 6.00781 20 6.00781H2C1.71875 6.00781 1.47656 6.10938 1.27344 6.3125C1.08594 6.5 0.992188 6.72656 0.992188 6.99219C0.992188 7.27344 1.08594 7.51562 1.27344 7.71875C1.47656 7.90625 1.71875 8 2 8ZM2 2H20C20.2812 2 20.5156 1.90625 20.7031 1.71875C20.9062 1.51563 21.0078 1.27344 21.0078 0.992188C21.0078 0.726562 20.9062 0.5 20.7031 0.3125C20.5156 0.109375 20.2812 0.0078125 20 0.0078125H2C1.71875 0.0078125 1.47656 0.109375 1.27344 0.3125C1.08594 0.5 0.992188 0.726562 0.992188 0.992188C0.992188 1.27344 1.08594 1.51563 1.27344 1.71875C1.47656 1.90625 1.71875 2 2 2ZM2 14H20C20.2812 14 20.5156 13.9062 20.7031 13.7188C20.9062 13.5156 21.0078 13.2734 21.0078 12.9922C21.0078 12.7266 20.9062 12.5 20.7031 12.3125C20.5156 12.1094 20.2812 12.0078 20 12.0078H2C1.71875 12.0078 1.47656 12.1094 1.27344 12.3125C1.08594 12.5 0.992188 12.7266 0.992188 12.9922C0.992188 13.2734 1.08594 13.5156 1.27344 13.7188C1.47656 13.9062 1.71875 14 2 14Z" fill="currentColor"/>
 </svg>
 </button>
-<link href="/theme-previews/_base/a/navigation.9c20c549e3cf.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/navigation.f1153aca0529.css" rel="stylesheet" type="text/css" media="all">
 <nav
 class="flex flex-column block-1025 navigation horizontal fixed static-1025 visible-1025 inset-0 down-to-up"
 data-action-mobile="true"
@@ -707,7 +731,7 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
 </div>
 </div>
 </div>
-<a class="hs-cta hs-cta--pos-after_icons hs-cta--m-in_row hs-cta--secondary hs-cta--theme hs-cta--desktop hs-cta--ms-compact hs-cta--font-body" href="/theme-previews/sound-packs/collections/free.html" data-theme-button="secondary" data-sl-button style="--mb-bg: var(--btn-secondary-bg-color); --mb-text: var(--btn-secondary-color); --mb-hover-bg: var(--btn-secondary-hover-bg-color); --mb-hover-text: var(--btn-secondary-hover-color); --hs-cta-gap: 20px; --hs-cta-gap-mobile: 10px; --hs-cta-x: 0px; --hs-cta-y: 0px; --hs-cta-bg: rgba(0, 0, 0, 0); --hs-cta-fg: #f3f3f4; --hs-cta-bd: #3a3a3f; --hs-cta-bw: 0px; --hs-cta-radius: 999px; --hs-cta-fs: 15px; --hs-cta-fw: 700; --hs-cta-tt: none; --hs-cta-ls: 0px; --hs-cta-py: 13px; --hs-cta-px: 26px; --hs-cta-deco: none; --hs-cta-shadow: none; --hs-cta-dur: 200ms; --hs-cta-ease: cubic-bezier(0.2, 0.7, 0.2, 1); --hs-cta-hbg: #f3f3f4; --hs-cta-hfg: #111113; --hs-cta-hbd: #f3f3f4; --hs-cta-htransform: none; --hs-cta-hshadow: none; --hs-cta-hfilter: none; --hs-cta-hdeco: none;" data-lh-block="header_button_1" data-block-id="header_button_1">Free packs</a></div>
+<a class="hs-cta hs-cta--pos-after_icons hs-cta--m-in_row hs-cta--secondary hs-cta--theme hs-cta--desktop hs-cta--ms-compact hs-cta--font-body" href="/theme-previews/sound-packs/collections/free.html" data-theme-button="secondary" data-sl-button style="--mb-bg: var(--btn-secondary-bg-color); --mb-text: var(--btn-secondary-color); --mb-hover-bg: var(--btn-secondary-hover-bg-color); --mb-hover-text: var(--btn-secondary-hover-color); --hs-cta-gap: 20px; --hs-cta-gap-mobile: 10px; --hs-cta-x: 0px; --hs-cta-y: 0px; --hs-cta-bg: rgba(0, 0, 0, 0); --hs-cta-fg: #f3f3f4; --hs-cta-bd: #3a3a3f; --hs-cta-bw: 0px; --hs-cta-radius: 6px; --hs-cta-fs: 14px; --hs-cta-fw: 600; --hs-cta-tt: none; --hs-cta-ls: 0px; --hs-cta-py: 13px; --hs-cta-px: 24px; --hs-cta-deco: none; --hs-cta-shadow: none; --hs-cta-dur: 200ms; --hs-cta-ease: cubic-bezier(0.2, 0.7, 0.2, 1); --hs-cta-hbg: #f3f3f4; --hs-cta-hfg: #111113; --hs-cta-hbd: #f3f3f4; --hs-cta-htransform: none; --hs-cta-hshadow: none; --hs-cta-hfilter: none; --hs-cta-hdeco: none;" data-lh-block="header_button_1" data-block-id="header_button_1">Free packs</a></div>
 </header-inner>
 </div>
 </div></header><script src="/theme-previews/sound-packs/a/i.b8ec2f2ea707.js"></script>
@@ -833,7 +857,7 @@ data-block-id="description">
   #shopify-section-main-collection-product { font-weight: var(--body-weight, inherit); isolation: isolate; position: relative; }
   :where(#shopify-section-main-collection-product) :is(h1, h2, h3, h4, h5, h6) { font-weight: var(--heading-weight, inherit); }
 </style><link rel="stylesheet" href="/theme-previews/sound-packs/a/i.39752e0a959d.css"><link rel="stylesheet" href="/theme-previews/sound-packs/a/i.d283edfd6bac.css">
-<script src="/theme-previews/sound-packs/a/i.911cfed98be7.js"></script><link href="/theme-previews/_base/a/collection-page.d54a62119cca.css" rel="stylesheet" type="text/css" media="all">
+<script src="/theme-previews/sound-packs/a/i.911cfed98be7.js"></script><link href="/theme-previews/_base/a/collection-page.ea212761c899.css" rel="stylesheet" type="text/css" media="all">
 <section
 class="section pt-min sec__collection-main fade_in bls-image-js color-default gradient"
 data-section-id="main-collection-product"
@@ -1152,17 +1176,17 @@ aria-label="Night Bus"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 1/1;"
 >
-<img src="/theme-previews/sound-packs/a/soundpacks-night-bus.bbf893be031f.webp" srcset="/theme-previews/sound-packs/a/soundpacks-night-bus.bbf893be031f.webp 720w, /theme-previews/sound-packs/a/soundpacks-night-bus.bbf893be031f.webp 660w, /theme-previews/sound-packs/a/soundpacks-night-bus.bbf893be031f.webp 550w, /theme-previews/sound-packs/a/soundpacks-night-bus.bbf893be031f.webp 480w, /theme-previews/sound-packs/a/soundpacks-night-bus-400.34eeb419e834.webp 330w, /theme-previews/sound-packs/a/soundpacks-night-bus-400.34eeb419e834.webp 240w, /theme-previews/sound-packs/a/soundpacks-night-bus-400.34eeb419e834.webp 185w" alt="Night Bus" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1600px -  20px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 20px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
+<img src="/theme-previews/sound-packs/a/soundpacks-night-bus.7474d527d779.webp" srcset="/theme-previews/sound-packs/a/soundpacks-night-bus-800.44ac1c623e8b.webp 720w, /theme-previews/sound-packs/a/soundpacks-night-bus-800.44ac1c623e8b.webp 660w, /theme-previews/sound-packs/a/soundpacks-night-bus-800.44ac1c623e8b.webp 550w, /theme-previews/sound-packs/a/soundpacks-night-bus-800.44ac1c623e8b.webp 480w, /theme-previews/sound-packs/a/soundpacks-night-bus-400.a60ce77dd10f.webp 330w, /theme-previews/sound-packs/a/soundpacks-night-bus-400.a60ce77dd10f.webp 240w, /theme-previews/sound-packs/a/soundpacks-night-bus-400.a60ce77dd10f.webp 185w" alt="Night Bus" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1600px -  20px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 20px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
 data-max="4"
-data-sale-color="#10120a"
+data-sale-color="#0b0b0c"
 data-sold-out-color="#ffffff"
 data-pre-order-color="#ffffff"
-data-sale-bg="#c6f432"
+data-sale-bg="#f2f0eb"
 data-sold-out-bg="#3a3a3f"
 data-pre-order-bg="#6a33d8"
 data-show-sale="true"
@@ -1255,17 +1279,17 @@ aria-label="Chrome Drums"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 1/1;"
 >
-<img src="/theme-previews/sound-packs/a/soundpacks-chrome-drums.e30b6d7ec4d9.webp" srcset="/theme-previews/sound-packs/a/soundpacks-chrome-drums.e30b6d7ec4d9.webp 720w, /theme-previews/sound-packs/a/soundpacks-chrome-drums.e30b6d7ec4d9.webp 660w, /theme-previews/sound-packs/a/soundpacks-chrome-drums.e30b6d7ec4d9.webp 550w, /theme-previews/sound-packs/a/soundpacks-chrome-drums.e30b6d7ec4d9.webp 480w, /theme-previews/sound-packs/a/soundpacks-chrome-drums-400.ce0763bf53c4.webp 330w, /theme-previews/sound-packs/a/soundpacks-chrome-drums-400.ce0763bf53c4.webp 240w, /theme-previews/sound-packs/a/soundpacks-chrome-drums-400.ce0763bf53c4.webp 185w" alt="Chrome Drums" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1600px -  20px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 20px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
+<img src="/theme-previews/sound-packs/a/soundpacks-chrome-drums.1fef27460662.webp" srcset="/theme-previews/sound-packs/a/soundpacks-chrome-drums-800.b0cde45a5da7.webp 720w, /theme-previews/sound-packs/a/soundpacks-chrome-drums-800.b0cde45a5da7.webp 660w, /theme-previews/sound-packs/a/soundpacks-chrome-drums-800.b0cde45a5da7.webp 550w, /theme-previews/sound-packs/a/soundpacks-chrome-drums-800.b0cde45a5da7.webp 480w, /theme-previews/sound-packs/a/soundpacks-chrome-drums-400.9197283fbcac.webp 330w, /theme-previews/sound-packs/a/soundpacks-chrome-drums-400.9197283fbcac.webp 240w, /theme-previews/sound-packs/a/soundpacks-chrome-drums-400.9197283fbcac.webp 185w" alt="Chrome Drums" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1600px -  20px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 20px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
 data-max="4"
-data-sale-color="#10120a"
+data-sale-color="#0b0b0c"
 data-sold-out-color="#ffffff"
 data-pre-order-color="#ffffff"
-data-sale-bg="#c6f432"
+data-sale-bg="#f2f0eb"
 data-sold-out-bg="#3a3a3f"
 data-pre-order-bg="#6a33d8"
 data-show-sale="true"
@@ -1346,17 +1370,17 @@ aria-label="Soft Focus"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 1/1;"
 >
-<img src="/theme-previews/sound-packs/a/soundpacks-soft-focus.2e7cd1a91a18.webp" srcset="/theme-previews/sound-packs/a/soundpacks-soft-focus.2e7cd1a91a18.webp 720w, /theme-previews/sound-packs/a/soundpacks-soft-focus.2e7cd1a91a18.webp 660w, /theme-previews/sound-packs/a/soundpacks-soft-focus.2e7cd1a91a18.webp 550w, /theme-previews/sound-packs/a/soundpacks-soft-focus.2e7cd1a91a18.webp 480w, /theme-previews/sound-packs/a/soundpacks-soft-focus-400.2999495b9393.webp 330w, /theme-previews/sound-packs/a/soundpacks-soft-focus-400.2999495b9393.webp 240w, /theme-previews/sound-packs/a/soundpacks-soft-focus-400.2999495b9393.webp 185w" alt="Soft Focus" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1600px -  20px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 20px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
+<img src="/theme-previews/sound-packs/a/soundpacks-soft-focus.51d566e83992.webp" srcset="/theme-previews/sound-packs/a/soundpacks-soft-focus-800.3596c2f897cd.webp 720w, /theme-previews/sound-packs/a/soundpacks-soft-focus-800.3596c2f897cd.webp 660w, /theme-previews/sound-packs/a/soundpacks-soft-focus-800.3596c2f897cd.webp 550w, /theme-previews/sound-packs/a/soundpacks-soft-focus-800.3596c2f897cd.webp 480w, /theme-previews/sound-packs/a/soundpacks-soft-focus-400.d3b17e05d0f0.webp 330w, /theme-previews/sound-packs/a/soundpacks-soft-focus-400.d3b17e05d0f0.webp 240w, /theme-previews/sound-packs/a/soundpacks-soft-focus-400.d3b17e05d0f0.webp 185w" alt="Soft Focus" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1600px -  20px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 20px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
 data-max="4"
-data-sale-color="#10120a"
+data-sale-color="#0b0b0c"
 data-sold-out-color="#ffffff"
 data-pre-order-color="#ffffff"
-data-sale-bg="#c6f432"
+data-sale-bg="#f2f0eb"
 data-sold-out-bg="#3a3a3f"
 data-pre-order-bg="#6a33d8"
 data-show-sale="true"
@@ -1442,17 +1466,17 @@ aria-label="Heavy Water"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 1/1;"
 >
-<img src="/theme-previews/sound-packs/a/soundpacks-heavy-water.a2b54184f12d.webp" srcset="/theme-previews/sound-packs/a/soundpacks-heavy-water.a2b54184f12d.webp 720w, /theme-previews/sound-packs/a/soundpacks-heavy-water.a2b54184f12d.webp 660w, /theme-previews/sound-packs/a/soundpacks-heavy-water.a2b54184f12d.webp 550w, /theme-previews/sound-packs/a/soundpacks-heavy-water.a2b54184f12d.webp 480w, /theme-previews/sound-packs/a/soundpacks-heavy-water-400.97d4911f79a9.webp 330w, /theme-previews/sound-packs/a/soundpacks-heavy-water-400.97d4911f79a9.webp 240w, /theme-previews/sound-packs/a/soundpacks-heavy-water-400.97d4911f79a9.webp 185w" alt="Heavy Water" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1600px -  20px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 20px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
+<img src="/theme-previews/sound-packs/a/soundpacks-heavy-water.c2aa7fa58ee1.webp" srcset="/theme-previews/sound-packs/a/soundpacks-heavy-water-800.d20f558479be.webp 720w, /theme-previews/sound-packs/a/soundpacks-heavy-water-800.d20f558479be.webp 660w, /theme-previews/sound-packs/a/soundpacks-heavy-water-800.d20f558479be.webp 550w, /theme-previews/sound-packs/a/soundpacks-heavy-water-800.d20f558479be.webp 480w, /theme-previews/sound-packs/a/soundpacks-heavy-water-400.0c976ab43d69.webp 330w, /theme-previews/sound-packs/a/soundpacks-heavy-water-400.0c976ab43d69.webp 240w, /theme-previews/sound-packs/a/soundpacks-heavy-water-400.0c976ab43d69.webp 185w" alt="Heavy Water" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1600px -  20px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 20px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
 data-max="4"
-data-sale-color="#10120a"
+data-sale-color="#0b0b0c"
 data-sold-out-color="#ffffff"
 data-pre-order-color="#ffffff"
-data-sale-bg="#c6f432"
+data-sale-bg="#f2f0eb"
 data-sold-out-bg="#3a3a3f"
 data-pre-order-bg="#6a33d8"
 data-show-sale="true"
@@ -1545,17 +1569,17 @@ aria-label="Afterglow"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 1/1;"
 >
-<img src="/theme-previews/sound-packs/a/soundpacks-afterglow.b4a0cbe735c9.webp" srcset="/theme-previews/sound-packs/a/soundpacks-afterglow.b4a0cbe735c9.webp 720w, /theme-previews/sound-packs/a/soundpacks-afterglow.b4a0cbe735c9.webp 660w, /theme-previews/sound-packs/a/soundpacks-afterglow.b4a0cbe735c9.webp 550w, /theme-previews/sound-packs/a/soundpacks-afterglow.b4a0cbe735c9.webp 480w, /theme-previews/sound-packs/a/soundpacks-afterglow-400.34cfdba0c6cd.webp 330w, /theme-previews/sound-packs/a/soundpacks-afterglow-400.34cfdba0c6cd.webp 240w, /theme-previews/sound-packs/a/soundpacks-afterglow-400.34cfdba0c6cd.webp 185w" alt="Afterglow" width="1600" height="1600" loading="eager" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1600px -  20px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 20px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
+<img src="/theme-previews/sound-packs/a/soundpacks-afterglow.e504c872891d.webp" srcset="/theme-previews/sound-packs/a/soundpacks-afterglow-800.5b41061d4874.webp 720w, /theme-previews/sound-packs/a/soundpacks-afterglow-800.5b41061d4874.webp 660w, /theme-previews/sound-packs/a/soundpacks-afterglow-800.5b41061d4874.webp 550w, /theme-previews/sound-packs/a/soundpacks-afterglow-800.5b41061d4874.webp 480w, /theme-previews/sound-packs/a/soundpacks-afterglow-400.f78470bc5ad8.webp 330w, /theme-previews/sound-packs/a/soundpacks-afterglow-400.f78470bc5ad8.webp 240w, /theme-previews/sound-packs/a/soundpacks-afterglow-400.f78470bc5ad8.webp 185w" alt="Afterglow" width="1600" height="1600" loading="eager" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1600px -  20px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 20px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
 data-max="4"
-data-sale-color="#10120a"
+data-sale-color="#0b0b0c"
 data-sold-out-color="#ffffff"
 data-pre-order-color="#ffffff"
-data-sale-bg="#c6f432"
+data-sale-bg="#f2f0eb"
 data-sold-out-bg="#3a3a3f"
 data-pre-order-bg="#6a33d8"
 data-show-sale="true"
@@ -1666,7 +1690,7 @@ class="newsletter-icon mb-15 flex justify-content-center scroll-trigger fade_in"
 data-nl-icon
 style="--animation-order: 0;--nl-icon: 40px;"
 hidden
-><span class="newsletter-icon__glyph" data-nl-glyph><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span></motion-element><link rel="stylesheet" href="/theme-previews/sound-packs/a/i.be24cebeee15.css"><motion-element data-motion="fade-up-lg" data-motion-delay="50" hold class="block scroll-trigger fade_in" style="--animation-order: 0;" data-ct-block="heading" data-ct-type="heading" data-block-id="heading"><h2 class="section__header-heading heading-letter-spacing h1-size mt-0 mb-0 ct-h" id="block-heading" data-ct-el data-own-size style="--ch-fs-d:44px;--ch-fs-m:30px;--ch-lh:1.1;--ch-ls:0px;">A free pack every month.</h2>
+><span class="newsletter-icon__glyph" data-nl-glyph><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span></motion-element><link rel="stylesheet" href="/theme-previews/sound-packs/a/i.be24cebeee15.css"><motion-element data-motion="fade-up-lg" data-motion-delay="50" hold class="block scroll-trigger fade_in" style="--animation-order: 0;" data-ct-block="heading" data-ct-type="heading" data-block-id="heading"><h2 class="section__header-heading heading-letter-spacing h1-size mt-0 mb-0 ct-h" id="block-heading" data-ct-el data-own-size style="--ch-fs-d:44px;--ch-fs-m:30px;--ch-lh:1.1;--ch-ls:0px;">A free pack every month</h2>
 </motion-element><motion-element data-motion="fade-up-lg" data-motion-delay="150" hold class="section__header-des block rich__text-m0 scroll-trigger fade_in" style="--animation-order: 1;" data-ct-block="subheading" data-ct-type="subheading" data-block-id="subheading">
 <div class="ct-s" id="block-subheading" data-ct-el><p>Subscribers get a small pack of new sounds on the first of the month, and hear about new packs before anyone else.</p></div>
 </motion-element></div><template data-ct-icons><svg data-icon="envelope" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" data-icon-default><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg><svg data-icon="paper_plane" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4Z"/></svg><svg data-icon="bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><svg data-icon="gift" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 0 1 0 5"/></svg><svg data-icon="sparkles" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><path d="m6.3 6.3 2.4 2.4M15.3 15.3l2.4 2.4M17.7 6.3l-2.4 2.4M8.7 15.3l-2.4 2.4"/></svg></template><motion-element 
@@ -1777,7 +1801,7 @@ data-block-id="store_info_1"
 <div
 class="store-info-content"
 >
-<img src="/theme-previews/sound-packs/a/soundpacks-logo.7a5babaa6310.webp" srcset="/theme-previews/sound-packs/a/soundpacks-logo.7a5babaa6310.webp 720w, /theme-previews/sound-packs/a/soundpacks-logo.7a5babaa6310.webp 660w, /theme-previews/sound-packs/a/soundpacks-logo.7a5babaa6310.webp 550w, /theme-previews/sound-packs/a/soundpacks-logo.7a5babaa6310.webp 480w, /theme-previews/sound-packs/a/soundpacks-logo-400.0845aab7894a.webp 360w, /theme-previews/sound-packs/a/soundpacks-logo-400.0845aab7894a.webp 240w, /theme-previews/sound-packs/a/soundpacks-logo-400.0845aab7894a.webp 185w, /theme-previews/sound-packs/a/soundpacks-logo-400.0845aab7894a.webp 120w, /theme-previews/sound-packs/a/soundpacks-logo-400.0845aab7894a.webp 60w" alt="Lowmoth" width="118" height="30" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, 118px">
+<img src="/theme-previews/sound-packs/a/soundpacks-logo.1baf393082f9.webp" srcset="/theme-previews/sound-packs/a/soundpacks-logo.1baf393082f9.webp 720w, /theme-previews/sound-packs/a/soundpacks-logo.1baf393082f9.webp 660w, /theme-previews/sound-packs/a/soundpacks-logo.1baf393082f9.webp 550w, /theme-previews/sound-packs/a/soundpacks-logo.1baf393082f9.webp 480w, /theme-previews/sound-packs/a/soundpacks-logo-400.eec337bda31e.webp 360w, /theme-previews/sound-packs/a/soundpacks-logo-400.eec337bda31e.webp 240w, /theme-previews/sound-packs/a/soundpacks-logo-400.eec337bda31e.webp 185w, /theme-previews/sound-packs/a/soundpacks-logo-400.eec337bda31e.webp 120w, /theme-previews/sound-packs/a/soundpacks-logo-400.eec337bda31e.webp 60w" alt="Lowmoth" width="118" height="15" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, 118px">
 <div class="footer__block-info rich__text-mt-0 mb-20" data-ft-desc>
 <p>Sample packs made in one small room. Drums, bass, keys and textures, each with a preview you can play before you buy.</p>
 </div>
@@ -2157,7 +2181,7 @@ viewBox="0 0 165.521 105.965">
 </div>
 </div>
 </footer>
-<script src="/theme-previews/_base/a/footer-section.250ebdc9bef8.js" defer></script></div><script>window.__mtFillCounts&&window.__mtFillCounts(true)</script><link rel="stylesheet" href="/theme-previews/_base/a/search-type-default.fb1515a9c0d2.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/search-type-default.fb1515a9c0d2.css" rel="stylesheet" type="text/css" media="all"></noscript>
+<script src="/theme-previews/_base/a/footer-section.250ebdc9bef8.js" defer></script></div><script>window.__mtFillCounts&&window.__mtFillCounts(true)</script><link rel="stylesheet" href="/theme-previews/_base/a/search-type-default.7a56178b1228.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/search-type-default.7a56178b1228.css" rel="stylesheet" type="text/css" media="all"></noscript>
 <header-search class="header_search search_type_popup">
 <div class="block block-quick-search block-search predictive_search_suggest search_popup"><div
 id="search-form"
@@ -2167,11 +2191,11 @@ aria-modal="true"
 aria-label="Search"
 data-search-mode="popup"
 class="search-overlay search-overlay--popup search__type-popup search__popup-anim--fade color-default"
-style="--color-background: #0b0b0c;          --color-text: #a3a3ab;          --color-heading: #f3f3f4;          --color-primary: #f3f3f4;          --color-border: #232326;          --gradient-background: #0b0b0c;          background-color: #0b0b0c;          color: #a3a3ab;"
+style="--color-background: #0b0b0c;          --color-text: #a1a1a8;          --color-heading: #f3f3f4;          --color-primary: #f3f3f4;          --color-border: #222225;          --gradient-background: #0b0b0c;          background-color: #0b0b0c;          color: #a1a1a8;"
 ><div
 class="search__type-popup search__popup-anim--fade color-default h-full overflow-auto px-15 custom-scrollbar"
 data-search-popup-anim="fade"
-style="--color-background: #0b0b0c;    --color-text: #a3a3ab;    --color-heading: #f3f3f4;    --color-primary: #f3f3f4;    --color-border: #232326;    --gradient-background: #0b0b0c;    background-color: #0b0b0c;    color: #a3a3ab;"
+style="--color-background: #0b0b0c;    --color-text: #a1a1a8;    --color-heading: #f3f3f4;    --color-primary: #f3f3f4;    --color-border: #222225;    --gradient-background: #0b0b0c;    background-color: #0b0b0c;    color: #a1a1a8;"
 >
 <div class="fluid_container">
 <h3 class="search-title search-title--animated text-center h4 m-0 hidden block-sm" aria-label="Search"><span class="search-title__char" style="--char-i: 0;" aria-hidden="true">S</span><span class="search-title__char" style="--char-i: 1;" aria-hidden="true">e</span><span class="search-title__char" style="--char-i: 2;" aria-hidden="true">a</span><span class="search-title__char" style="--char-i: 3;" aria-hidden="true">r</span><span class="search-title__char" style="--char-i: 4;" aria-hidden="true">c</span><span class="search-title__char" style="--char-i: 5;" aria-hidden="true">h</span></h3>
@@ -2235,7 +2259,7 @@ aria-label="Close"
 <div class="predictive-search__results" data-predictive-search></div>
 <span class="predictive-search-status visually-hidden" role="status" aria-hidden="true"></span>
 </div>
-<div class="search__loading-state mt-15 "><link href="/theme-previews/_base/a/skeleton.19cc8fb18037.css" rel="stylesheet" type="text/css" media="all">
+<div class="search__loading-state mt-15 "><link href="/theme-previews/_base/a/skeleton.0c1ea714db3c.css" rel="stylesheet" type="text/css" media="all">
 <div slot="loading" class=" popup" style="opacity: 1; transform: translateY(0px);">
 <div class="v-stack  gap-custom">
 <span class="skeleton skeleton--tab heading"></span>
@@ -2302,13 +2326,13 @@ style=" ;--col-number: 1;--col-tablet: 1;--col-desktop-small:3;--col-desktop: 5;
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><link rel="stylesheet" href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"></noscript><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/sound-packs/a/i.8e16d57362f7.css" data-cart-drawer-style="paint">
+</style><link rel="stylesheet" href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"></noscript><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/sound-packs/a/i.b24377ffd038.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #0b0b0c;    --color-text: #a3a3ab;    --color-heading: #f3f3f4;    --color-primary: #f3f3f4;    --color-border: #232326;    --gradient-background: #0b0b0c;    --btn-primary-color: #10120a;    --btn-primary-bg-color: #c6f432;    --btn-primary-hover-color: #10120a;    --btn-primary-hover-bg-color: #d6ff5c;    --btn-secondary-color: #f3f3f4;    --btn-secondary-bg-color: rgba(0, 0, 0, 0);    --btn-secondary-border-color: #3a3a3f;    --btn-secondary-hover-color: #0b0b0c;    --btn-secondary-hover-bg-color: #f3f3f4;    --btn-outline-color: #f3f3f4;    --btn-outline-border-color: #3a3a3f;    background-color: #0b0b0c !important;    color: #a3a3ab !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #0b0b0c;    --color-text: #a3a3ab;    --color-heading: #f3f3f4;    --color-primary: #f3f3f4;    --color-border: #232326;    --gradient-background: #0b0b0c;    --btn-primary-color: #10120a;    --btn-primary-bg-color: #c6f432;    --btn-primary-hover-color: #10120a;    --btn-primary-hover-bg-color: #d6ff5c;    --btn-secondary-color: #f3f3f4;    --btn-secondary-bg-color: rgba(0, 0, 0, 0);    --btn-secondary-border-color: #3a3a3f;    --btn-secondary-hover-color: #0b0b0c;    --btn-secondary-hover-bg-color: #f3f3f4;    --btn-outline-color: #f3f3f4;    --btn-outline-border-color: #3a3a3f;    background-color: #0b0b0c !important;    color: #a3a3ab !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #0b0b0c;    --color-text: #a1a1a8;    --color-heading: #f3f3f4;    --color-primary: #f3f3f4;    --color-border: #222225;    --gradient-background: #0b0b0c;    --btn-primary-color: #0b0b0c;    --btn-primary-bg-color: #f2f0eb;    --btn-primary-hover-color: #0b0b0c;    --btn-primary-hover-bg-color: #ffffff;    --btn-secondary-color: #f3f3f4;    --btn-secondary-bg-color: rgba(0, 0, 0, 0);    --btn-secondary-border-color: #3a3a3f;    --btn-secondary-hover-color: #0b0b0c;    --btn-secondary-hover-bg-color: #f3f3f4;    --btn-outline-color: #f3f3f4;    --btn-outline-border-color: #3a3a3f;    background-color: #0b0b0c !important;    color: #a1a1a8 !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #0b0b0c;    --color-text: #a1a1a8;    --color-heading: #f3f3f4;    --color-primary: #f3f3f4;    --color-border: #222225;    --gradient-background: #0b0b0c;    --btn-primary-color: #0b0b0c;    --btn-primary-bg-color: #f2f0eb;    --btn-primary-hover-color: #0b0b0c;    --btn-primary-hover-bg-color: #ffffff;    --btn-secondary-color: #f3f3f4;    --btn-secondary-bg-color: rgba(0, 0, 0, 0);    --btn-secondary-border-color: #3a3a3f;    --btn-secondary-hover-color: #0b0b0c;    --btn-secondary-hover-bg-color: #f3f3f4;    --btn-outline-color: #f3f3f4;    --btn-outline-border-color: #3a3a3f;    background-color: #0b0b0c !important;    color: #a1a1a8 !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">
@@ -2344,7 +2368,7 @@ Continue Shopping
 </button>
 </div></div></form>
 </div>
-</div></div><link rel="stylesheet" href="/theme-previews/_base/a/cart-drawer.980eb92e88b7.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/cart-drawer.980eb92e88b7.css" rel="stylesheet" type="text/css" media="all"></noscript>
+</div></div><link rel="stylesheet" href="/theme-previews/_base/a/cart-drawer.f00274b6fc4e.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/cart-drawer.f00274b6fc4e.css" rel="stylesheet" type="text/css" media="all"></noscript>
 <script src="/theme-previews/_base/a/cart-drawer.579386a6ba85.js" defer="defer"></script></cart-notification>
 <div class="overlayminicart">
 </div>
@@ -2359,13 +2383,13 @@ Continue Shopping
 </style>
 </div><script src="/theme-previews/sound-packs/a/i.7878e9c8a781.js"></script>
 <script src="/theme-previews/_base/a/animation.098515b1320f.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/tingle-min.9664ca3641cf.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/tingle-min.2433104e28fc.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-discount.31276c74b980.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/theme.bbc3b899a286.js"  defer="defer" type="module"></script>
+<script src="/theme-previews/_base/a/theme.2c4dd2165111.js"  defer="defer" type="module"></script>
 <script src="/theme-previews/_base/a/materia-experience.95a8a8fb6473.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/product-card-settings.6a080b7abf94.js" defer="defer"></script><script>(window.mtLazy||function(u){var s=document.createElement('script');s.src=u;document.head.appendChild(s)})("/theme-previews/_base/a/size-chart.cbff3f8443f7.js")</script>
 <script src="/theme-previews/_base/a/theme-navigation.56a40d956dde.js" defer="defer"></script>
-<script>(window.mtLazy||function(u){var s=document.createElement('script');s.src=u;document.head.appendChild(s)})("/theme-previews/_base/a/cart-variant-edit.8299a1d91738.js")</script><script src="/theme-previews/_base/a/collection.d9a19ef2b548.js" defer="defer"></script><svg aria-hidden="true" focusable="false" role="presentation" xmlns="http://www.w3.org/2000/svg" class="hidden" hidden>
+<script>(window.mtLazy||function(u){var s=document.createElement('script');s.src=u;document.head.appendChild(s)})("/theme-previews/_base/a/cart-variant-edit.8299a1d91738.js")</script><script src="/theme-previews/_base/a/collection.af97a7c8a6ec.js" defer="defer"></script><svg aria-hidden="true" focusable="false" role="presentation" xmlns="http://www.w3.org/2000/svg" class="hidden" hidden>
 <symbol id="icon-close" viewBox="0 0 13 14" fill="none">
 <path d="M0.282609 2.06784C0.0942029 1.89363 0 1.68314 0 1.43635C0 1.17504 0.0942029 0.950028 0.282609 0.761307C0.456522 0.587102 0.673913 0.5 0.934783 0.5C1.19565 0.5 1.41304 0.587102 1.58696 0.761307L6.5 5.68258L11.413 0.761307C11.587 0.587102 11.8043 0.5 12.0652 0.5C12.3261 0.5 12.5435 0.587102 12.7174 0.761307C12.9058 0.950028 13 1.17504 13 1.43635C13 1.68314 12.9058 1.89363 12.7174 2.06784L7.80435 6.98911L12.7174 11.9104C12.9058 12.0991 13 12.3241 13 12.5854C13 12.8322 12.9058 13.0427 12.7174 13.2169C12.5435 13.4056 12.3261 13.5 12.0652 13.5C11.8043 13.5 11.587 13.4056 11.413 13.2169L6.5 8.31742L1.58696 13.2169C1.41304 13.4056 1.19565 13.5 0.934783 13.5C0.673913 13.5 0.456522 13.4056 0.282609 13.2169C0.0942029 13.0427 0 12.8322 0 12.5854C0 12.3241 0.0942029 12.0991 0.282609 11.9104L5.19565 6.98911L0.282609 2.06784Z" fill="currentColor"/>
 </symbol>
@@ -2426,7 +2450,7 @@ window.__mtFormsUrl=u;if(/[?&](customer_posted|contact_posted|form_type)=/.test(
   }
   html.mt-img-reveal img.media-fade-hold { opacity: 0 !important; }
 </style>
-<script src="/theme-previews/sound-packs/a/i.01f9e21922b8.js"></script>
+<script src="/theme-previews/sound-packs/a/i.aa500cf99adf.js"></script>
 <style>
         :root {
           /* Wire the user's Animations & motion settings to the keyframe vars used by animation.css */
@@ -2457,13 +2481,13 @@ window.__mtFormsUrl=u;if(/[?&](customer_posted|contact_posted|form_type)=/.test(
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/sound-packs/a/i.8e16d57362f7.css" data-cart-drawer-style="paint">
+</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/sound-packs/a/i.b24377ffd038.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #0b0b0c;    --color-text: #a3a3ab;    --color-heading: #f3f3f4;    --color-primary: #f3f3f4;    --color-border: #232326;    --gradient-background: #0b0b0c;    --btn-primary-color: #10120a;    --btn-primary-bg-color: #c6f432;    --btn-primary-hover-color: #10120a;    --btn-primary-hover-bg-color: #d6ff5c;    --btn-secondary-color: #f3f3f4;    --btn-secondary-bg-color: rgba(0, 0, 0, 0);    --btn-secondary-border-color: #3a3a3f;    --btn-secondary-hover-color: #0b0b0c;    --btn-secondary-hover-bg-color: #f3f3f4;    --btn-outline-color: #f3f3f4;    --btn-outline-border-color: #3a3a3f;    background-color: #0b0b0c !important;    color: #a3a3ab !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #0b0b0c;    --color-text: #a3a3ab;    --color-heading: #f3f3f4;    --color-primary: #f3f3f4;    --color-border: #232326;    --gradient-background: #0b0b0c;    --btn-primary-color: #10120a;    --btn-primary-bg-color: #c6f432;    --btn-primary-hover-color: #10120a;    --btn-primary-hover-bg-color: #d6ff5c;    --btn-secondary-color: #f3f3f4;    --btn-secondary-bg-color: rgba(0, 0, 0, 0);    --btn-secondary-border-color: #3a3a3f;    --btn-secondary-hover-color: #0b0b0c;    --btn-secondary-hover-bg-color: #f3f3f4;    --btn-outline-color: #f3f3f4;    --btn-outline-border-color: #3a3a3f;    background-color: #0b0b0c !important;    color: #a3a3ab !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #0b0b0c;    --color-text: #a1a1a8;    --color-heading: #f3f3f4;    --color-primary: #f3f3f4;    --color-border: #222225;    --gradient-background: #0b0b0c;    --btn-primary-color: #0b0b0c;    --btn-primary-bg-color: #f2f0eb;    --btn-primary-hover-color: #0b0b0c;    --btn-primary-hover-bg-color: #ffffff;    --btn-secondary-color: #f3f3f4;    --btn-secondary-bg-color: rgba(0, 0, 0, 0);    --btn-secondary-border-color: #3a3a3f;    --btn-secondary-hover-color: #0b0b0c;    --btn-secondary-hover-bg-color: #f3f3f4;    --btn-outline-color: #f3f3f4;    --btn-outline-border-color: #3a3a3f;    background-color: #0b0b0c !important;    color: #a1a1a8 !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #0b0b0c;    --color-text: #a1a1a8;    --color-heading: #f3f3f4;    --color-primary: #f3f3f4;    --color-border: #222225;    --gradient-background: #0b0b0c;    --btn-primary-color: #0b0b0c;    --btn-primary-bg-color: #f2f0eb;    --btn-primary-hover-color: #0b0b0c;    --btn-primary-hover-bg-color: #ffffff;    --btn-secondary-color: #f3f3f4;    --btn-secondary-bg-color: rgba(0, 0, 0, 0);    --btn-secondary-border-color: #3a3a3f;    --btn-secondary-hover-color: #0b0b0c;    --btn-secondary-hover-bg-color: #f3f3f4;    --btn-outline-color: #f3f3f4;    --btn-outline-border-color: #3a3a3f;    background-color: #0b0b0c !important;    color: #a1a1a8 !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">

@@ -27,7 +27,7 @@
         "description_tLPCVn": {
           "type": "description",
           "settings": {
-            "description": "<p>The course, the short courses that go with it and the one to one call.</p>",
+            "description": "<p>The course, the template packs that go with it and the one to one call.</p>",
             "description_color": "#57575e",
             "enable_custom_style": true,
             "description_font_size": 15

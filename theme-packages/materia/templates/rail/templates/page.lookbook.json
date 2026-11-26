@@ -6,7 +6,7 @@
         "eyebrow": "Lookbook",
         "eyebrow_2": "Autumn drop",
         "heading": "Layers that hang right.",
-        "text_below": "<p>Ten pieces in fleece and jersey. Choose one to see it close.</p>",
+        "text_below": "<p>The autumn rail, hoodies to tees. Choose one to see it close.</p>",
         "button_label": "Shop the collection",
         "button_link": "/collections/all",
         "caption_layout": "split",
@@ -27,7 +27,7 @@
         "rail_brackets": false,
         "background_style": "picture",
         "background_colour": "",
-        "background_image": "shopify://shop_images/rail-hills.webp",
+        "background_image": "shopify://shop_images/rail-lookbook-mural.webp",
         "image_focus_x": 50,
         "image_focus_y": 60,
         "overlay_colour": "",
@@ -313,7 +313,7 @@
         "image_6": {
           "type": "image",
           "settings": {
-            "image": "shopify://shop_images/rail-tile-hoodies.webp",
+            "image": "shopify://shop_images/rail-cat-hoodies.webp",
             "caption": "Out walking"
           }
         },
@@ -429,7 +429,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "Hoodies in five colours, sweats and tees, all in heavy cotton.",
+            "text": "Hoodies, bombers, tees and long sleeves, from the same autumn drop.",
             "enable_custom_style": false,
             "font": "body",
             "weight": "theme",

@@ -45,7 +45,7 @@ async function main() {
     check("Dawn's button, a theme's add-to-cart class, any submit of a /cart/add form and a quick add are all Add to cart", ['form[action*="/cart/add"] button', ".product-form__submit", ".quick-add__submit", '[class*="add-to-cart" i]', '[name="add"]'].every((s) => ADD_TO_CART_BUTTONS.includes(s)))
     check("a busy button's icons are hidden with their room kept (visibility, never display or a width)", /\{visibility:hidden!important\}/.test(BUSY_BUTTON_CSS) && !/display\s*:\s*none/.test(BUSY_BUTTON_CSS) && !/width|height/.test(BUSY_BUTTON_CSS))
     check("icons are drawings, pictures and icon fonts", /:is\(svg,img,i,\.icon\)/.test(BUSY_BUTTON_CSS))
-    check("the spinner and what is inside it are never hidden", /:not\(:is\(\[class\*="spin" i\],\[class\*="loader" i\]/.test(BUSY_BUTTON_CSS) && /:is\(\[class\*="spin" i\][^)]*\) \*\)/.test(BUSY_BUTTON_CSS))
+    check("the spinner and what is inside it are never hidden", /:not\(:is\(\[class\*="spin" i\],\[class\*="loader" i\]/.test(BUSY_BUTTON_CSS) && /* Changed on purpose (round 28): inside the spinner is named as its icons, not `*` (a `*` under [class*=…] restyled the whole page on any class change); it matches the same icons. */ /:is\(\[class\*="spin" i\][^)]*\) :is\(svg,img,i,\.icon\)\)/.test(BUSY_BUTTON_CSS))
     check("busy on the form (a card's quick add) counts too", /form\[action\*="\/cart\/add"\]:is\(\.loading/.test(BUSY_BUTTON_CSS))
     check("no transition: the icon is gone the frame the spinner comes, and back the frame it goes", !/transition|animation/.test(BUSY_BUTTON_CSS))
     check("the style cannot close itself early", !BUSY_BUTTON_CSS.includes("<"))

@@ -274,7 +274,12 @@ async function boutiqueAndLook() {
   }
   check("Boutique Rail: the caption and the hovered name share one cell, the name on one line", /\.brail__lines > \* \{ grid-area: 1 \/ 1;/.test(BR) && /\.brail__name \{[^}]*white-space: nowrap/.test(BR) && /-webkit-line-clamp: 2/.test(BR))
   check("  its focus view scrolls with no scroll bar showing", /\.brail__focus \{[^}]*overflow-y: auto[^}]*scrollbar-width: none/.test(BR) && /\.brail__focus::-webkit-scrollbar \{ display: none/.test(BR))
-  check("  open and close are one set of animations, played backwards to close", /direction: opening \? 'normal' : 'reverse'/.test(BR) && /total - p\.delay - p\.duration/.test(BR))
+  /* Changed on purpose (templates round 28): close is no longer the open played backwards (which waited out the open's delays and felt laggy); it is its own short movement that starts at once from wherever things are. */
+  check("  close is its own short movement (about a fifth of a second, transform and opacity) that starts from where things are", /closeMotion\(li\)/.test(BR) && /commitStyles\(\)/.test(BR) && /duration: 200, easing/.test(BR) && /duration: 220, easing/.test(BR) && !/direction: opening \? 'normal' : 'reverse'/.test(BR))
+  check("  the focus view wears a colour scheme and the theme's buttons, pills and quantity box (round 28)", /class="brail__focus color-\{\{ focus_scheme \}\}"/.test(BR) && /data-theme-button="primary"/.test(BR) && /<quantity-input class="quantity bf__qty"/.test(BR) && /var\(--btn-primary-bg-color/.test(BR) && /var\(--pill-radius/.test(BR) && /"id": "focus_color_scheme"/.test(BR))
+  check("  its picture area is neutral: no hook line, border, shadow or filter on a product photo", !/bf__hook/.test(BR) && /\.bf__slide img \{[^}]*border: 0;[^}]*box-shadow: none; filter: none;/.test(BR))
+  check("  a product with several pictures swipes through them (scroll snap) with dots and arrows", /\.bf__slides \{[^}]*scroll-snap-type: x mandatory/.test(BR) && /data-f-dots/.test(BR) && /data-f-inext/.test(BR) && /"images": \[\{\{ img_json \}\}\]/.test(BR))
+  check("  the page is locked only after the garment has landed (locking re-lays out the page and held up the first frame)", /await this\.motion\(\);\s*if \(this\.dialog\.open && !this\.dialog\.classList\.contains\('is-closing'\)\) document\.documentElement\.classList\.add\('brail-lock'\)/.test(BR))
   check("Try the look: no pin setting is named product_N (the engine fills those with the first product)", !/"id": "product_\d"/.test(TL) && /"id": "piece_1"/.test(TL) && /"id": "look_collection"/.test(TL))
   check("  the View / Drag circle is drawn at the pointer, its words cross-fade", /translate3d\(' \+ x \+ 'px,' \+ y \+ 'px,0\)/.test(TL) && /\[data-mode='drag'\] \[data-v-view\] \{ opacity: 0;/.test(TL))
   check("  a touch drag is not ended by the look handing its pointer to the stage", /lostpointercapture', e => \{ if \(e\.target === st\) end\(e\); \}/.test(TL))
@@ -301,9 +306,10 @@ async function boutiqueAndLook() {
   const tabs = [...m.matchAll(/<button type="button" class="brail__tab"[^>]*>([^<]*)<\/button>/g)].map((x) => x[1])
   check("Redline's rail: Fleece and Jersey are two tabs, each its collection's garments", tabs.join("|") === "Fleece|Jersey" && (m.match(/<ul class="brail__track"/g) ?? []).length === 2, tabs)
   const tracks = m.split('<ul class="brail__track"').slice(1).map((t) => (t.match(/<li class="brail__item"/g) ?? []).length)
-  check("  six fleece pieces and four jersey pieces hang", tracks[0] === 6 && tracks[1] === 4, tracks)
+  /* Changed on purpose (templates round 28): Fleece and Jersey are mixed rails (tees, hoodies, jackets, long sleeves), eleven pieces each, so the rail scrolls. */
+  check("  eleven pieces hang on each, mixed: tees, hoodies, jackets and long sleeves", tracks[0] === 11 && tracks[1] === 11, tracks)
   const gd = [...m.matchAll(/<script type="application\/json" data-g-data>([\s\S]*?)<\/script>/g)].map((x) => JSON.parse(x[1]) as { title: string; url: string; variants: { id: string }[]; with: { variant: string; title: string }[]; price: string })
-  check("  every garment carries its product (title, address, variants with ids, price) and what it is worn with", gd.length === 10 && gd.every((d) => products.some((p) => p.settings.title === d.title) && d.variants.length > 0 && d.variants.every((v) => !!v.id) && !!d.price && d.with.length === 2 && d.with.every((w) => !!w.variant)), gd[0])
+  check("  every garment carries its product (title, address, variants with ids, price) and what it is worn with", gd.length === 22 && gd.every((d) => products.some((p) => p.settings.title === d.title) && d.variants.length > 0 && d.variants.every((v) => !!v.id) && !!d.price && d.with.length === 2 && d.with.every((w) => !!w.variant)), gd[0])
   check("  no template code is left", !RAW.test(m.replace(/<script[\s\S]*?<\/script>/g, "")))
   /* The eyebrow as plain text: one rail; as links with no second collection. */
   const variant = (patch: Record<string, unknown>) => { const h = JSON.parse(JSON.stringify(home)) as Stored[]; const s = h.find((x) => x.id === br.id)!; s.settings = { ...s.settings, ...patch }; built.site.pages.home = h as never }
@@ -361,7 +367,10 @@ async function boutiqueAndLook() {
     await sleep(1500)
     /* Hover every garment while every frame measures what is under the rail and the page height. */
     await p.evaluate(() => { const w = window as unknown as { mv: number; on: boolean }; w.mv = 0; w.on = true; const r = document.querySelector("boutique-rail")!; const els = [r.querySelector(".brail__foot")!, r.querySelector("[data-button]")!, r.closest(".shopify-section")!.nextElementSibling!]; const at = () => [...els.map((e) => e.getBoundingClientRect().top), r.getBoundingClientRect().height, document.documentElement.scrollHeight]; const b = at(); const tick = () => { at().forEach((v, i) => { w.mv = Math.max(w.mv, Math.abs(v - b[i])) }); if (w.on) requestAnimationFrame(tick) }; requestAnimationFrame(tick) })
-    const gs = await p.$$("boutique-rail .brail__track:not([hidden]) .brail__g")
+    /* Changed on purpose (templates round 28): the rail holds eleven pieces and scrolls sideways, so the garments on screen are the ones pointed at (the same first ones, so gs[2] is still the third garment). */
+    const gsAll = await p.$$("boutique-rail .brail__track:not([hidden]) .brail__g")
+    const gs: typeof gsAll = []
+    for (const g of gsAll) { const bb = await g.boundingBox(); if (bb && bb.x >= 0 && bb.x + bb.width < 1440 - 80) gs.push(g) }
     for (const g of gs) { const bb = (await g.boundingBox())!; await p.mouse.move(bb.x + bb.width / 2, bb.y + bb.height * 0.45, { steps: 5 }); await sleep(320) }
     const named = await p.evaluate(() => ({ on: document.querySelector("boutique-rail")!.classList.contains("is-naming"), name: document.querySelector("boutique-rail [data-name]")!.textContent }))
     await p.mouse.move(4, 4); await sleep(700)
@@ -372,7 +381,7 @@ async function boutiqueAndLook() {
     await p.mouse.click(g2.x + g2.width / 2, g2.y + g2.height * 0.45)
     await sleep(1400)
     const open = await p.evaluate(() => { const d = document.querySelector<HTMLDialogElement>("boutique-rail [data-focus-dialog]")!; return { open: d.open, title: d.querySelector(".bf__title")!.textContent, sizes: d.querySelectorAll(".bf__val").length, pairs: d.querySelectorAll(".bf__pair").length, scrollbar: d.offsetWidth - d.clientWidth, lifted: document.querySelectorAll(".brail__item.is-lifted").length, flies: d.querySelectorAll(".bf__fly").length, bg: getComputedStyle(d.querySelector("[data-f-bg]")!).backgroundColor } })
-    check("  clicking lifts it into the focus view: its product, sizes, the pieces it is worn with, an empty hanger, no scroll bar, the background chosen", open.open && open.title === gd[2].title && open.sizes >= 3 && open.pairs === 2 && open.lifted === 1 && open.flies === 0 && open.scrollbar === 0 && open.bg === "rgb(255, 255, 255)", open)
+    check("  clicking lifts it into the focus view: its product, sizes, the pieces it is worn with, an empty hanger, no scroll bar, the background chosen", open.open && open.title === gd[2].title && open.sizes >= 3 && open.pairs === 2 && open.lifted === 1 && open.flies === 0 && open.scrollbar === 0 && open.bg === "rgb(252, 252, 252)", open) /* Changed on purpose (templates round 28): the focus view wears its own colour scheme (the template's Default, #fcfcfc), no longer a picked white. */
     await p.click("boutique-rail [data-f-next]"); await sleep(700)
     check("  the arrow slides to the next garment, its hanger empty instead", (await p.$eval("boutique-rail .bf__title", (e) => e.textContent)) === gd[3].title && (await p.evaluate(() => document.querySelectorAll(".brail__item.is-lifted").length)) === 1)
     posts.length = 0
@@ -386,6 +395,27 @@ async function boutiqueAndLook() {
     await p.keyboard.press("Escape"); await sleep(1200)
     const closed = await p.evaluate(() => ({ open: document.querySelector<HTMLDialogElement>("boutique-rail [data-focus-dialog]")!.open, lifted: document.querySelectorAll(".brail__item.is-lifted").length, flies: document.querySelectorAll(".bf__fly").length, lock: document.documentElement.classList.contains("brail-lock") }))
     check("  Escape plays it back: closed, the garment on its hanger, nothing left over", !closed.open && closed.lifted === 0 && closed.flies === 0 && !closed.lock, closed)
+    /* Round 28: the pictures swipe (dots and arrows), the quantity is sent, and closing is quick. */
+    await p.mouse.click(g2.x + g2.width / 2, g2.y + g2.height * 0.45); await sleep(1200)
+    const gal = await p.evaluate(() => { const d = document.querySelector("boutique-rail [data-focus-dialog]")!; return { slides: d.querySelectorAll(".bf__slide").length, dots: d.querySelectorAll(".bf__dot").length } })
+    const mb = (await (await p.$("boutique-rail [data-f-media]"))!.boundingBox())!
+    await p.mouse.move(mb.x + mb.width / 2, mb.y + mb.height / 2); await sleep(300)
+    await p.click("boutique-rail [data-f-inext]"); await sleep(900)
+    const at = await p.evaluate(() => { const sl = document.querySelector<HTMLElement>("boutique-rail [data-f-slides]")!; return { k: Math.round(sl.scrollLeft / sl.clientWidth), cur: [...document.querySelectorAll("boutique-rail .bf__dot")].findIndex((x) => x.getAttribute("aria-current") === "true") } })
+    check("  the focus view swipes through the product's pictures: the hanging cut-out first, then the photo of it worn (dots and arrows)", gal.slides >= 2 && gal.dots === gal.slides && at.k === 1 && at.cur === 1, { gal, at })
+    await p.evaluate(() => { document.querySelector<HTMLElement>("boutique-rail [data-f-slides]")!.scrollLeft = 0 }); await sleep(200)
+    posts.length = 0
+    await p.click("boutique-rail [data-f-qty] button[name=plus]"); await sleep(80)
+    await p.click("boutique-rail [data-f-atc]"); await sleep(700)
+    check("  the quantity box adds that many", posts.length === 1 && (JSON.parse(posts[0]) as { items: { quantity: number }[] }).items[0].quantity === 2, posts)
+    /* Timed inside the page, from the key press to the dialog closing, so the test's own round trips do not count. The animations last 220 ms; the old close (the open played backwards) took about a second. */
+    await p.evaluate(() => { const w = window as unknown as { t0: number; t1: number }; const d = document.querySelector<HTMLDialogElement>("boutique-rail [data-focus-dialog]")!; w.t1 = 0; document.addEventListener("keydown", () => { w.t0 = performance.now() }, { capture: true, once: true }); new MutationObserver((_, o) => { if (!d.open) { w.t1 = performance.now(); o.disconnect() } }).observe(d, { attributes: true, attributeFilter: ["open"] }) })
+    await p.keyboard.press("Escape")
+    await p.waitForFunction(() => (window as unknown as { t1: number }).t1 > 0, { timeout: 3000 }).catch(() => undefined)
+    const closeMs = await p.evaluate(() => { const w = window as unknown as { t0: number; t1: number }; return Math.round(w.t1 - w.t0) })
+    /* Its animations last 220 ms; the old close could not end before 714 ms (its longest part reversed), so 650 ms separates the two even on a busy machine. */
+    check("  closing is quick: the view is gone well before the old close could end, timed in the page", closeMs > 0 && closeMs < 650 && (await p.evaluate(() => document.querySelectorAll(".bf__fly").length)) === 0, closeMs)
+    await sleep(500)
     /* Closed while it is still opening: the opening turns round where it is, and it opens cleanly again after. */
     await p.mouse.click(g2.x + g2.width / 2, g2.y + g2.height * 0.45); await sleep(250)
     await p.keyboard.press("Escape"); await sleep(1100)
@@ -396,7 +426,7 @@ async function boutiqueAndLook() {
     await p.keyboard.press("Escape"); await sleep(1200)
     const tab2 = (await p.$$("boutique-rail [data-tab]"))[1]
     await tab2.click(); await sleep(1500)
-    check("  Jersey switches the rail to the jersey pieces", (await p.evaluate(() => document.querySelectorAll("boutique-rail .brail__track:not([hidden]) .brail__item").length)) === 4)
+    check("  Jersey switches the rail to the jersey pieces", (await p.evaluate(() => document.querySelectorAll("boutique-rail .brail__track:not([hidden]) .brail__item").length)) === 11)
 
     /* Try the look: drag 1:1, the circle at the pointer, a dot, the whole look */
     await p.evaluate(() => document.querySelector("try-the-look")!.scrollIntoView({ block: "start" })); await sleep(900)
@@ -408,7 +438,11 @@ async function boutiqueAndLook() {
     let worst = 0
     for (let dx = -12; dx >= -144; dx -= 12) { await p.mouse.move(x0 + dx, y0); await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))); worst = Math.max(worst, Math.abs((await cx()) - c0 - dx)) }
     const circle = await p.evaluate(() => { const v = document.querySelector<HTMLElement>("try-the-look [data-view]")!; const st = v.parentElement!.getBoundingClientRect(); const mm = new DOMMatrix(getComputedStyle(v).transform); return { x: mm.m41 + st.x, y: mm.m42 + st.y, mode: v.dataset.mode } })
-    await p.mouse.up(); await sleep(1200)
+    await p.mouse.up()
+    const settle = await p.evaluate(() => { const st = document.querySelector<HTMLElement>("try-the-look [data-stage]")!; return { on: st.classList.contains("is-settling"), ms: parseFloat(st.style.getPropertyValue("--settle")), blur: getComputedStyle(document.querySelector("try-the-look .ttl__model:not(.is-on)")!).filter } })
+    /* Round 28: the release keeps the drag's speed (a settle as long as the distance left at that speed, eased out) and no blur is redrawn while it moves. */
+    check("  Try the look: let go, it glides into place at the speed it was let go (240 to 620 ms), with no blur while it moves", settle.on && settle.ms >= 240 && settle.ms <= 620 && settle.blur === "none", settle)
+    await sleep(1200)
     check("  Try the look: dragging moves the looks exactly with the pointer (within 1 px) and the Drag circle sits on it", worst <= 1 && Math.abs(circle.x - (x0 - 144)) <= 1 && Math.abs(circle.y - y0) <= 1 && circle.mode === "drag", { worst, circle, at: [x0 - 144, y0] })
     const fit = (await (await p.$("try-the-look .ttl__model.is-on .ttl__fit"))!.boundingBox())!
     await p.mouse.click(fit.x + fit.width / 2, fit.y + fit.height * 0.4); await sleep(900)

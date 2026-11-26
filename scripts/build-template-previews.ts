@@ -58,6 +58,7 @@ import { answer, themeAsset } from "../lib/storelib-theme/compat/site"
 import { importTemplate, MEDIA_PREFIX, type BuiltSite } from "./theme-templates/site"
 import { auditSite } from "./theme-templates/fixtures"
 import { PREVIEW_CART_SHIM, diffMarkup, patchMarkup, previewCartData } from "./theme-templates/preview-cart"
+import { PREVIEW_INTENT_SHIM, PREVIEW_NAVIGATION_SHIM, keepNavigationInPreview, keepPageNavigationInPreview } from "./theme-templates/preview-navigation"
 
 const OUT = join("public", TEMPLATE_PREVIEW_ROOT.replace(/^\//, ""))
 const FONT_CACHE = join("node_modules", ".cache", "template-previews-fonts")
@@ -255,6 +256,8 @@ async function buildTemplate(t: (typeof CODE_TEMPLATES)[number]) {
               making.set(clean, `${dir}/${stem}.s${sha(source)}.${ext}`)
               let text = vendorless(source)
               if (ext === "css") text = await cssUrls(text, "/__asset/")
+              /* Round 28: every page a script opens stays inside the preview (./theme-templates/preview-navigation.ts). */
+              if (ext === "js") text = keepNavigationInPreview(text)
               text = await assetRefs(text)
               body = text
             }
@@ -394,6 +397,7 @@ async function buildTemplate(t: (typeof CODE_TEMPLATES)[number]) {
     page = await assetRefs(page)
     page = await inlineStyleUrls(page)
     page = linksAndForms(page, pageOf)
+    page = keepPageNavigationInPreview(page)
     return page.replace(/https?:\/\/preview\.invalid/g, "").replace(/preview\.invalid/g, "preview")
   }
 
@@ -481,7 +485,7 @@ async function buildTemplate(t: (typeof CODE_TEMPLATES)[number]) {
     /* Prefetching, and the structured data search engines read (a preview is never indexed, and it names the build's host). */
     page = page.replace(/<script\b[^>]*type=["'](?:speculationrules|application\/ld\+json)["'][^>]*>[\s\S]*?<\/script>/gi, "")
     page = await finish(page)
-    page = page.replace(/<head\b[^>]*>/i, (h) => `${h}<script data-template-preview>${shim(cartData, wishData, qvData, rvData)}</script>`)
+    page = page.replace(/<head\b[^>]*>/i, (h) => `${h}<script data-template-preview>${shim(cartData, wishData, qvData, rvData, [...pages.keys()])}</script>`)
     html.set(path, page)
   }
 
@@ -567,8 +571,8 @@ function linksAndForms(page: string, pageOf: (href: string) => string | null): s
           if (attr.toLowerCase() !== "href") return `${sp}${attr}=${q}#${q}`
           return `${sp}href=${q}#${q} data-preview-inert`
         })
-        /* A JSON setting in an attribute that names a page ("url":"/products/x"). */
-        a = a.replace(/&quot;(\/(?:products|collections|pages|blogs|policies)\/[^&"]*|\/(?:cart|search)?)&quot;/g, (m, v: string) => {
+        /* A JSON setting in an attribute that names a page ("url":"/products/x"), or a place on the home page ("/#offer", round 28: a section's script writes it into its button). */
+        a = a.replace(/&quot;(\/(?:products|collections|pages|blogs|policies)\/[^&"]*|\/(?:cart|search)?(?:#[^&"]*)?)&quot;/g, (m, v: string) => {
           const to = pageOf(v)
           return to ? `&quot;${to}&quot;` : m
         })
@@ -588,14 +592,19 @@ function linksAndForms(page: string, pageOf: (href: string) => string | null): s
  * says it is a preview. When the page is drawn, the marketplace is told, so
  * it can take its screenshot away.
  */
-const shim = (cartData: string, wishData = "", qvData = "", rvData = "") => `(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA=${JSON.stringify(cartData)},WISH_DATA=${JSON.stringify(wishData)},QV_DATA=${JSON.stringify(qvData)},RV_DATA=${JSON.stringify(rvData)};
+const shim = (cartData: string, wishData = "", qvData = "", rvData = "", pages: string[] = []) => `(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA=${JSON.stringify(cartData)},WISH_DATA=${JSON.stringify(wishData)},QV_DATA=${JSON.stringify(qvData)},RV_DATA=${JSON.stringify(rvData)};
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
 var ph=D.createElement("style");ph.textContent="@media (max-width: 767.98px){html{scrollbar-width:none}html::-webkit-scrollbar{display:none}}";(D.head||D.documentElement).appendChild(ph);
-function mem(){var m={};return{getItem:function(k){return Object.prototype.hasOwnProperty.call(m,k)?m[k]:null},setItem:function(k,v){m[k]=String(v)},removeItem:function(k){delete m[k]},clear:function(){m={}},key:function(i){return Object.keys(m)[i]||null},get length(){return Object.keys(m).length}}}
-["localStorage","sessionStorage"].forEach(function(n){try{W[n].getItem("x")}catch(e){try{Object.defineProperty(W,n,{value:mem(),configurable:true})}catch(_){}}});
-try{D.cookie}catch(e){var jar="";try{Object.defineProperty(D,"cookie",{get:function(){return jar},set:function(v){var kv=String(v).split(";")[0];jar=jar?jar+"; "+kv:kv},configurable:true})}catch(_){}}
+/* Round 28: the frame is sandboxed without storage, so its storage is kept in the frame's window.name (beside the cart's, preview-cart.ts) and lasts from page to page as a browser's would: a heart pressed on one page is still saved on the next, the header count and the Wishlist page show it. */
+function wn(){try{var n=JSON.parse(W.name||"null");return n&&typeof n==="object"&&n.slpv?n:null}catch(e){return null}}
+function mem(scope){var n0=wn(),m=n0&&n0.slls&&n0.slls[scope]&&typeof n0.slls[scope]==="object"?n0.slls[scope]:{};function save(){try{if(W.name&&!wn())return;var n=wn()||{slpv:{}};n.slls=n.slls||{};n.slls[scope]=m;var s=JSON.stringify(n);if(s.length<400000)W.name=s}catch(e){}}
+return{getItem:function(k){return Object.prototype.hasOwnProperty.call(m,k)?m[k]:null},setItem:function(k,v){m[k]=String(v);save()},removeItem:function(k){delete m[k];save()},clear:function(){m={};save()},key:function(i){return Object.keys(m)[i]||null},get length(){return Object.keys(m).length}}}
+/* Round 28 (framing): kept this way always. On storelib.com the frame has www's origin (templatePreviewFrame in lib/themes/marketplace-shared.ts), where storage and cookies would be real ones: the preview keeps to its own, and writes nothing for any Storelib host. */
+["localStorage","sessionStorage"].forEach(function(n){try{Object.defineProperty(W,n,{value:mem(n),configurable:true})}catch(_){}});
+var jar="";try{Object.defineProperty(D,"cookie",{get:function(){return jar},set:function(v){var kv=String(v).split(";")[0];jar=jar?jar+"; "+kv:kv},configurable:true})}catch(_){}
+try{Object.defineProperty(W,"cookieStore",{value:undefined,configurable:true})}catch(_){}
 var ROOT="${TEMPLATE_PREVIEW_ROOT}/";
 function mine(u){try{var x=new URL(u,location.href);return x.host===location.host&&x.pathname.indexOf(ROOT)===0}catch(e){return false}}
 function path(u){try{return new URL(u,location.href).pathname}catch(e){return""}}
@@ -679,6 +688,7 @@ if(wait)return setTimeout(look,50);
 Promise.all(seen.slice(0,24).map(function(g){return g.decode?g.decode().catch(function(){}):0})).then(fin,fin)}
 look();setTimeout(fin,1500)}
 D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn)});
+${PREVIEW_NAVIGATION_SHIM(pages)}${PREVIEW_INTENT_SHIM}
 })();`
 
 /*

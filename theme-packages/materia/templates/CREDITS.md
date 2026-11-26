@@ -388,13 +388,13 @@ Video sales letter (round 22): a short video course (Hookline). The poster is sh
 | vsl (cover only) | scripts/theme-templates/products/vsl/vsl-templates.webp | https://images.unsplash.com/photo-1771642430984-182bd68a6eda | Unsplash License |
 | vsl (cover only) | scripts/theme-templates/products/vsl/vsl-review-call.webp | https://images.unsplash.com/photo-1627244714766-94dab62ed964 | Unsplash License |
 
-Online course (round 21, remade in round 26): Endgrain, a hand tool woodworking course taught by Tom Ashby, a sample teacher. Every picture of the teacher is one Unsplash session of the same man in a leather apron in his workshop (Bailey Alexander); the stool, the dovetail, the tool wall and the hands marking and measuring are separate Unsplash photographs. The logo is drawn for the template. The student faces on the sample reviews are Unsplash portraits, cropped round and marked as samples on the page.
+Online course (round 21, remade in round 26 and round 28): Gridwork, a Canva design course for small business owners and creators, taught by Clara Lind, a sample teacher. Every photograph of the teacher, on the pages and on the products, is one Unsplash session of the same woman in her studio (Vitaly Gariev). The carousel template pack and the workbook are drawn for the template, the pack around one photograph from the same session. The logo is drawn for the template. The student faces on the sample reviews are Unsplash portraits, cropped round and marked as samples on the page.
 
-| course2 | assets/course2-hero.webp | https://images.unsplash.com/photo-1631396327819-8683b8fda119 | Unsplash License |
-| course2 | assets/course2-teacher.webp | https://images.unsplash.com/photo-1631396328075-9c65a7406f09 | Unsplash License |
-| course2 | assets/course2-planing.webp | https://images.unsplash.com/photo-1631396326838-de37e5f8bcbc | Unsplash License |
-| course2 | assets/course2-sawing.webp | https://images.unsplash.com/photo-1631396326870-da00e37a9fc6 | Unsplash License |
-| course2 | assets/course2-stool.webp | https://images.unsplash.com/photo-1783613754318-14cc407d61e0 | Unsplash License |
+| course2 | assets/course2-hero.webp | https://images.unsplash.com/photo-1758876017826-8a0097bc5aac | Unsplash License |
+| course2 | assets/course2-teacher.webp | https://images.unsplash.com/photo-1758876017845-39187338e752 | Unsplash License |
+| course2 | assets/course2-call.webp | https://images.unsplash.com/photo-1758876020207-67890de8aa73 | Unsplash License |
+| course2 | assets/course2-desk.webp | https://images.unsplash.com/photo-1758876017749-d1bd378e2577 | Unsplash License |
+| course2 | assets/course2-studio.webp | https://images.unsplash.com/photo-1758876019338-c190822f6ca0 | Unsplash License |
 | course2 | assets/course2-logo.webp | Drawn for this template | Storelib |
 | course2 | assets/course2-student-1.webp | https://images.unsplash.com/photo-1583264277168-58ceba4b84e7 | Unsplash License |
 | course2 | assets/course2-student-2.webp | https://images.unsplash.com/photo-1625241152315-4a698f74ceb7 | Unsplash License |
@@ -402,14 +402,14 @@ Online course (round 21, remade in round 26): Endgrain, a hand tool woodworking 
 | course2 | assets/course2-student-4.webp | https://images.unsplash.com/photo-1779212508632-673f06f27210 | Unsplash License |
 | course2 | assets/course2-student-5.webp | https://images.unsplash.com/photo-1780322195200-64e71db074c2 | Unsplash License |
 | course2 | assets/course2-student-6.webp | https://images.unsplash.com/photo-1714750977930-e7a7f4611257 | Unsplash License |
-| course2 (cover only) | scripts/theme-templates/products/course2/course2-woodwork-from-scratch.webp | https://images.unsplash.com/photo-1722960966932-deb25cbe35b9 | Unsplash License |
-| course2 (cover only) | scripts/theme-templates/products/course2/course2-dovetails.webp | https://images.unsplash.com/photo-1789654499278-0ad599c8c241 | Unsplash License |
-| course2 (cover only) | scripts/theme-templates/products/course2/course2-tool-list.webp | https://images.unsplash.com/photo-1761544775659-aaa6fa2e5b3d | Unsplash License |
-| course2 (cover only) | scripts/theme-templates/products/course2/course2-feedback.webp | https://images.unsplash.com/photo-1659930087003-2d64e33181f7 | Unsplash License |
-| course2 (cover only) | scripts/theme-templates/products/course2/course2-private-lesson.webp | https://images.unsplash.com/photo-1631396326838-de37e5f8bcbc | Unsplash License |
-| course2 (cover only) | scripts/theme-templates/products/course2/course2-post-sharpen.webp | https://images.unsplash.com/photo-1638718260002-18bdc8082608 | Unsplash License |
-| course2 (cover only) | scripts/theme-templates/products/course2/course2-post-knife-line.webp | https://images.unsplash.com/photo-1685022515782-534dfba3a2c4 | Unsplash License |
-| course2 (cover only) | scripts/theme-templates/products/course2/course2-post-measure.webp | https://images.unsplash.com/photo-1626081063434-79a2169791b1 | Unsplash License |
+| course2 (cover only) | scripts/theme-templates/products/course2/course2-design-it-yourself.webp | https://images.unsplash.com/photo-1758876018914-f45a74618d37 | Unsplash License |
+| course2 (cover only) | scripts/theme-templates/products/course2/course2-carousel-pack.webp | Drawn for this template around https://images.unsplash.com/photo-1758876019673-704b039d405c | Storelib |
+| course2 (cover only) | scripts/theme-templates/products/course2/course2-workbook.webp | Drawn for this template | Storelib |
+| course2 (cover only) | scripts/theme-templates/products/course2/course2-feedback.webp | https://images.unsplash.com/photo-1758876019427-e2e5bf9a92c5 | Unsplash License |
+| course2 (cover only) | scripts/theme-templates/products/course2/course2-private-lesson.webp | https://images.unsplash.com/photo-1758876020337-2501eeb1ede5 | Unsplash License |
+| course2 (cover only) | scripts/theme-templates/products/course2/course2-post-fonts.webp | https://images.unsplash.com/photo-1758876019211-e713dc156eb0 | Unsplash License |
+| course2 (cover only) | scripts/theme-templates/products/course2/course2-post-photos.webp | https://images.unsplash.com/photo-1758876019084-cb8f8556d8db | Unsplash License |
+| course2 (cover only) | scripts/theme-templates/products/course2/course2-post-first-slide.webp | https://images.unsplash.com/photo-1758876019673-704b039d405c | Unsplash License |
 
 Course landing (round 20, remade in round 25, round 26 additions): Arch Pilates, every studio picture from one Unsplash session. Round 26 adds the arch mark and wordmark, drawn for the template, and four Unsplash portraits, cropped round, beside the sample review in the hero.
 
@@ -448,10 +448,10 @@ Retro desktop (round 20): the garments are Unsplash photographs cut out, recolou
 | retro (sample products, second picture) | scripts/theme-templates/products/retro/retro-sticker-pack-loose.webp | Drawn for this template: the sheet's stickers laid loose | Storelib |
 | retro (sample products) | scripts/theme-templates/products/retro/retro-error-hoodie.webp | Round 25: one picture; no honest second shot of a plain hoodie could be printed cleanly | as above |
 
-Ebook (round 23, remade in round 25 and round 26): Sit, Stay, Settle, a puppy training ebook by Tess Moran, a sample author, on the Good Dog Press site (Keep Them Alive, on houseplants, until round 26). The author picture and the dog bed room are Unsplash photographs. The cover is a real Unsplash photograph of a Labrador puppy with its dark top extended upward and the title set on it for the template; the book in 3D, its open pages, the training cards, the devices and the reader initials are drawn as HTML and photographed, with Unsplash dog photographs placed on some pages and cards (the rows below name them). The Good Dog Press logo is drawn for the template. The blog pictures are Unsplash photographs.
+Ebook (round 23, remade in round 25, round 26 and round 28): Known For It, a LinkedIn personal brand playbook by Hanna Reyes, a sample author. The two photographs of the author, and the photograph inside the second spread (https://images.unsplash.com/photo-1616587226830-e493599b0c15), are one Unsplash session of the same woman (LinkedIn Sales Solutions); the desk and notebook pictures, including the one inside the third spread (https://images.unsplash.com/photo-1789724919872-00dc3c222e3d), are separate Unsplash photographs. The cover is typographic and, with the book, spreads, prompt cards, devices, logo and reader initials, drawn for the template.
 
-| authorbook | assets/authorbook-author.webp | https://images.unsplash.com/photo-1712746438700-7d8912a051b6 | Unsplash License |
-| authorbook | assets/authorbook-home.webp | https://images.unsplash.com/photo-1581888227599-779811939961 | Unsplash License |
+| authorbook | assets/authorbook-author.webp | https://images.unsplash.com/photo-1616587224717-f502f5b0c4dd | Unsplash License |
+| authorbook | assets/authorbook-home.webp | https://images.unsplash.com/photo-1616587226157-48e49175ee20 | Unsplash License |
 | authorbook | assets/authorbook-book.webp | Drawn for this template | Storelib |
 | authorbook | assets/authorbook-spread-week.webp | Drawn for this template | Storelib |
 | authorbook | assets/authorbook-logo.webp | Drawn for this template | Storelib |
@@ -462,17 +462,17 @@ Ebook (round 23, remade in round 25 and round 26): Sit, Stay, Settle, a puppy tr
 | authorbook | assets/authorbook-reader-5.webp | Drawn for this template | Storelib |
 | authorbook | assets/authorbook-spread-sit.webp | Drawn for this template | Storelib |
 | authorbook | assets/authorbook-spread-lead.webp | Drawn for this template | Storelib |
-| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-cover.webp | The photograph https://images.unsplash.com/photo-1586671267731-da2cf3ceeb80 with its dark top extended and the title set on it for this template | Unsplash License, type Storelib |
-| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-ebook.webp | Drawn for this template around the cover photograph | Storelib |
-| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-ed-ebook.webp | Drawn for this template around the cover photograph | Storelib |
-| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-ed-audio.webp | Drawn for this template around the cover photograph | Storelib |
-| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-audiobook.webp | Drawn for this template around the cover photograph | Storelib |
-| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-ed-complete.webp | Drawn for this template around https://images.unsplash.com/photo-1735989967755-706e5edcb44b and https://images.unsplash.com/photo-1537151625747-768eb6cf92b2 | Storelib |
-| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-cards.webp | Drawn for this template around https://images.unsplash.com/photo-1735989967755-706e5edcb44b, https://images.unsplash.com/photo-1561037404-61cd46aa615b and https://images.unsplash.com/photo-1537151625747-768eb6cf92b2 | Storelib |
-| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-crate.webp | Drawn for this template around https://images.unsplash.com/photo-1581888227599-779811939961 | Storelib |
-| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-post-settle.webp | https://images.unsplash.com/photo-1741872458628-dceb70952c7c | Unsplash License |
-| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-post-biting.webp | https://images.unsplash.com/photo-1601979031925-424e53b6caaa | Unsplash License |
-| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-post-recall.webp | https://images.unsplash.com/photo-1568393691622-c7ba131d63b4 | Unsplash License |
+| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-cover.webp | Drawn for this template | Storelib |
+| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-ebook.webp | Drawn for this template | Storelib |
+| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-ed-ebook.webp | Drawn for this template | Storelib |
+| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-ed-audio.webp | Drawn for this template | Storelib |
+| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-audiobook.webp | Drawn for this template | Storelib |
+| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-ed-complete.webp | Drawn for this template | Storelib |
+| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-prompts.webp | Drawn for this template | Storelib |
+| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-profile.webp | Drawn for this template around https://images.unsplash.com/photo-1616587226157-48e49175ee20 | Storelib |
+| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-post-headline.webp | https://images.unsplash.com/photo-1789724919850-20d7f3a30af0 | Unsplash License |
+| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-post-comments.webp | https://images.unsplash.com/photo-1789724919872-00dc3c222e3d | Unsplash License |
+| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-post-ideas.webp | https://images.unsplash.com/photo-1686815094755-7729c6d63187 | Unsplash License |
 
 Content creator (round 21, rebuilt round 22): the creator, Nina Brooks, is one session by one photographer (Videodeck): the same woman in her studio. A small logo on her hoodie, the maker's names on the microphone and the light and a logo on the laptop are painted out. The course pictures are those photographs without titles; the Notion style workspace is drawn for the template. The student faces are the Online course template's photographs.
 
@@ -512,11 +512,11 @@ Coach creator (round 21, remade in round 26): the coach, Marcus Hale, is a sampl
 | coachpro | assets/coachpro-client-5.webp | Drawn for this template | Storelib |
 | coachpro | assets/coachpro-client-6.webp | Drawn for this template | Storelib |
 
-Digital Renaissance (round 22): the instructor, Karim Nassar, is two photographs from one session by one photographer (Khaled Elshamy). The hero (round 25) is a bright office photograph, cropped, with the maker's mark on the laptop lid painted out. The other photographs are separate Unsplash photographs, cropped; the skill cards sit under a dark overlay set in the section. The logo and its compass mark are drawn for the template.
+Digital Renaissance (round 22): the instructor, Karim Nassar, is two photographs from one session by one photographer (Khaled Elshamy). The hero (round 28, back to the round 23 photograph at the owner's request) is a shop owner typing on a laptop in his studio, cropped. The other photographs are separate Unsplash photographs, cropped; the skill cards sit under a dark overlay set in the section. The logo and its compass mark are drawn for the template.
 
 | renaissance | assets/renaissance-instructor.webp | https://images.unsplash.com/photo-1764545973653-94c40d993495 | Unsplash License |
 | renaissance | assets/renaissance-instructor-about.webp | https://images.unsplash.com/photo-1764546373114-2d7a87221733 | Unsplash License |
-| renaissance | assets/renaissance-hero.webp | https://images.unsplash.com/photo-1783094269325-4ba186e8e01b | Unsplash License |
+| renaissance | assets/renaissance-hero.webp | https://images.unsplash.com/photo-1764096534686-68091ce5ab45 | Unsplash License |
 | renaissance | assets/renaissance-calls.webp | https://images.unsplash.com/photo-1616587226960-4a03badbe8bf | Unsplash License |
 | renaissance | assets/renaissance-workshop.webp | https://images.unsplash.com/photo-1591115765373-5207764f72e7 | Unsplash License |
 | renaissance | assets/renaissance-shop.webp | https://images.unsplash.com/photo-1753161618037-e6a8f740fd47 | Unsplash License |
@@ -678,30 +678,30 @@ Running coach (coach folder, round 22): the coach, Amara Wells, is three photogr
 | coach (cover only) | scripts/theme-templates/products/coach/coach-monthly.webp | https://images.unsplash.com/photo-1726195221342-8676de2c5b86, black and white, logo painted out | Unsplash License |
 | coach (cover only) | scripts/theme-templates/products/coach/coach-form-review.webp | https://images.unsplash.com/photo-1695918425283-eb385c012b7a, black and white | Unsplash License |
 
-## VSL funnel (vslfunnel, Tempo)
+## VSL funnel (vslfunnel, Fullbook)
 
-VSL funnel (round 23, remade in round 25 and round 26): Tempo, an eight week chess course for adult improvers, taught by Lena Marsh, a sample teacher. The two teacher pictures are one Unsplash session of the same woman at a chessboard in a library (Lance Reis); the student at the board, the boards and the pieces are separate Unsplash photographs. The logo and the student initials are drawn for the template; the reviews are marked as samples on the page.
+VSL funnel (round 23, remade in round 25, round 26 and round 28): Fullbook, an eight week client acquisition program for freelancers and small studios, run by Daniel Brandt, a sample coach. Every photograph of the coach, on the pages and on the products, is one Unsplash session of the same man at his desk in a brick walled studio (Vitaly Gariev); the notebook and desk pictures are separate Unsplash photographs. The logo and the member initials are drawn for the template; the reviews are marked as samples on the page.
 
-| vslfunnel | assets/vslfunnel-poster.webp | https://images.unsplash.com/photo-1604948501466-4e9c339b9c24 | Unsplash License |
-| vslfunnel | assets/vslfunnel-teacher.webp | https://images.unsplash.com/photo-1679666715086-200c7dfccf98 | Unsplash License |
-| vslfunnel | assets/vslfunnel-teacher-portrait.webp | https://images.unsplash.com/photo-1679666715508-d2c1985c9f98 | Unsplash License |
-| vslfunnel | assets/vslfunnel-outdoors.webp | https://images.unsplash.com/photo-1606594914778-09d99f53ecf7 | Unsplash License |
-| vslfunnel | assets/vslfunnel-table.webp | https://images.unsplash.com/photo-1547444795-ad4270fa2885 | Unsplash License |
-| vslfunnel | assets/vslfunnel-table-wide.webp | https://images.unsplash.com/photo-1611195974226-a6a9be9dd763 | Unsplash License |
-| vslfunnel | assets/vslfunnel-finished.webp | https://images.unsplash.com/photo-1764105720662-8022d9569ba0 | Unsplash License |
-| vslfunnel | assets/vslfunnel-tin.webp | https://images.unsplash.com/photo-1586165368502-1bad197a6461 | Unsplash License |
+| vslfunnel | assets/vslfunnel-poster.webp | https://images.unsplash.com/photo-1713946598377-891884fa90de | Unsplash License |
+| vslfunnel | assets/vslfunnel-teacher.webp | https://images.unsplash.com/photo-1713947507130-227586ab3024 | Unsplash License |
+| vslfunnel | assets/vslfunnel-teacher-portrait.webp | https://images.unsplash.com/photo-1713946598467-fcf9332c56ea | Unsplash License |
+| vslfunnel | assets/vslfunnel-laptop.webp | https://images.unsplash.com/photo-1713946598401-6ca84c1b52b1 | Unsplash License |
+| vslfunnel | assets/vslfunnel-desk.webp | https://images.unsplash.com/photo-1713946598218-321ddd48ebd7 | Unsplash License |
+| vslfunnel | assets/vslfunnel-desk-wide.webp | https://images.unsplash.com/photo-1713946598432-9bb1f09acf9b | Unsplash License |
+| vslfunnel | assets/vslfunnel-call.webp | https://images.unsplash.com/photo-1713946598424-815b1dc09901 | Unsplash License |
+| vslfunnel | assets/vslfunnel-notebook.webp | https://images.unsplash.com/photo-1772588627479-06ac7a264916 | Unsplash License |
 | vslfunnel | assets/vslfunnel-logo.webp | Drawn for this template | Storelib |
 | vslfunnel | assets/vslfunnel-student-1.webp | Drawn for this template | Storelib |
 | vslfunnel | assets/vslfunnel-student-2.webp | Drawn for this template | Storelib |
 | vslfunnel | assets/vslfunnel-student-3.webp | Drawn for this template | Storelib |
 | vslfunnel | assets/vslfunnel-student-4.webp | Drawn for this template | Storelib |
 | vslfunnel | assets/vslfunnel-student-5.webp | Drawn for this template | Storelib |
-| vslfunnel (cover only) | scripts/theme-templates/products/vslfunnel/vslfunnel-course.webp | https://images.unsplash.com/photo-1695480542225-bc22cac128d0 | Unsplash License |
-| vslfunnel (cover only) | scripts/theme-templates/products/vslfunnel/vslfunnel-puzzles.webp | https://images.unsplash.com/photo-1580541832626-2a7131ee809f | Unsplash License |
-| vslfunnel (cover only) | scripts/theme-templates/products/vslfunnel/vslfunnel-review.webp | https://images.unsplash.com/photo-1523875194681-bedd468c58bf | Unsplash License |
-| vslfunnel (cover only) | scripts/theme-templates/products/vslfunnel/vslfunnel-post-check.webp | https://images.unsplash.com/photo-1560174038-da43ac74f01b | Unsplash License |
-| vslfunnel (cover only) | scripts/theme-templates/products/vslfunnel/vslfunnel-post-forks.webp | https://images.unsplash.com/photo-1529699211952-734e80c4d42b | Unsplash License |
-| vslfunnel (cover only) | scripts/theme-templates/products/vslfunnel/vslfunnel-post-endgame.webp | https://images.unsplash.com/photo-1625750331870-624de6fd3452 | Unsplash License |
+| vslfunnel (cover only) | scripts/theme-templates/products/vslfunnel/vslfunnel-program.webp | https://images.unsplash.com/photo-1713946598417-437a1fccf2c6 | Unsplash License |
+| vslfunnel (cover only) | scripts/theme-templates/products/vslfunnel/vslfunnel-scripts.webp | https://images.unsplash.com/photo-1599249300675-c39f1dd2d6be | Unsplash License |
+| vslfunnel (cover only) | scripts/theme-templates/products/vslfunnel/vslfunnel-audit.webp | https://images.unsplash.com/photo-1713947507107-2f5ec5770584 | Unsplash License |
+| vslfunnel (cover only) | scripts/theme-templates/products/vslfunnel/vslfunnel-post-first.webp | https://images.unsplash.com/photo-1569360556894-15dca0c6ff1a | Unsplash License |
+| vslfunnel (cover only) | scripts/theme-templates/products/vslfunnel/vslfunnel-post-follow.webp | https://images.unsplash.com/photo-1599249301066-2fde88763196 | Unsplash License |
+| vslfunnel (cover only) | scripts/theme-templates/products/vslfunnel/vslfunnel-post-prices.webp | https://images.unsplash.com/photo-1698843813652-2dc8b8d81f4c | Unsplash License |
 
 ## Outerwear label (outerwear, Strata)
 
@@ -786,12 +786,11 @@ Templates round 23, after the owner's streetwear reference. The lifestyle photog
 
 Templates round 24, renamed and remade in round 25 as Streetwear drop by Sixth Ward and in round 26 as Redline by Kurb Club (a red restyle after a streetwear store the owner sent; the Kurb Club wordmark, assets/rail-logo.webp, is set in Liberation Serif and Liberation Sans, SIL Open Font License, and drawn to an image), a sample streetwear label, after the owner's hanging rail video and store references (a hanging rail store, a real streetwear brand's home page). Every garment on the rail is a real Unsplash photograph of it on its hanger, cut out by machine (rembg, BiRefNet and IS-Net models) and cleaned by hand. One hanger for all: each photograph's own hanger is toned to the same natural wood, the white hoodie's plastic hanger recoloured as wood, and the charcoal long sleeve, whose hook was out of frame, given a drawn steel hook. The grey, oat, forest and charcoal hoodies are the white hoodie photograph tinted; they are not photographs of those colours. The side views on the rail (assets/rail-*-side.webp, round 25) are drawn for this template from each garment's own front cut-out: the sleeve, body and hood fabric are strips of that photograph resampled into a garment hanging side on, then shaded; they are not photographs of the garments from the side. The black long sleeve, the black tee and the charcoal long sleeve are the three garments of one photograph, each long sleeve's hidden sleeve edge mirrored from its other sleeve. The lifestyle and landscape pictures are Unsplash photographs, resized.
 
+Round 28: every sample product's first picture is now a real photograph of someone wearing that kind of piece in that colour (the photographs are of other people's clothes, chosen for the cut and colour), and its second is the garment alone: the hanger cut-out the rail hangs, the same transparent file as the rail's front view, so the focus view shows it once. The "Made heavy" banner, lookbook split, category tiles, @kurbclub grid and countdown were added to the home page; the brick, garage, sky, hills and tile pictures were removed.
+
 | Template | File | Source | Licence |
 | --- | --- | --- | --- |
-| rail | assets/rail-hills.webp | https://images.unsplash.com/photo-1693032521172-d997492d5107 | Unsplash License |
 | rail | assets/rail-look-hoodie.webp | https://images.unsplash.com/photo-1614699369594-3b9f06b085d3 | Unsplash License |
-| rail | assets/rail-tile-hoodies.webp | https://images.unsplash.com/photo-1556821840-3a63f95609a7 | Unsplash License |
-| rail | assets/rail-tile-tees.webp | https://images.unsplash.com/photo-1622519407650-3df9883f76a5 | Unsplash License |
 | rail | assets/rail-story.webp | https://images.unsplash.com/photo-1557600067-173369923ba5 | Unsplash License |
 | rail | assets/rail-loft.webp | https://images.unsplash.com/photo-1675282987833-43a33b7ac9c5 | Unsplash License |
 | rail | assets/rail-portrait.webp | https://images.unsplash.com/photo-1745427465819-7a2cdb8855f9 | Unsplash License |
@@ -799,30 +798,15 @@ Templates round 24, renamed and remade in round 25 as Streetwear drop by Sixth W
 | rail | assets/rail-walk.webp | https://images.unsplash.com/photo-1563129507-4dbc51f57681 | Unsplash License |
 | rail | assets/rail-pair.webp | https://images.unsplash.com/photo-1559697242-a465f2578a95 | Unsplash License |
 | rail | assets/rail-hoodie-white-front.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 | Unsplash License |
-| rail (sample products) | scripts/theme-templates/products/rail/rail-hoodie-white.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 (the cut-out set on one light grey) | Unsplash License |
-| rail (sample products) | scripts/theme-templates/products/rail/rail-hoodie-*.webp, rail-longsleeve-*.webp | Round 25: one picture each; the zoomed crops are gone and no honest second shot of these garments was found | as above |
 | rail | assets/rail-crew-black-front.webp | https://images.unsplash.com/photo-1618354691551-44de113f0164 | Unsplash License |
-| rail (sample products) | scripts/theme-templates/products/rail/rail-crew-black.webp | https://images.unsplash.com/photo-1618354691551-44de113f0164 (the cut-out set on one light grey) | Unsplash License |
-| rail (sample products, second picture) | scripts/theme-templates/products/rail/rail-crew-black-worn.webp | https://images.unsplash.com/photo-1593733926335-bdec7f12acfd, a plain white sweatshirt worn, recoloured black; a different photograph of the same kind of crewneck, not the first picture's | Unsplash License |
 | rail | assets/rail-longsleeve-black-front.webp | https://images.unsplash.com/photo-1610502778270-c5c6f4c7d575 | Unsplash License |
-| rail (sample products) | scripts/theme-templates/products/rail/rail-longsleeve-black.webp | https://images.unsplash.com/photo-1610502778270-c5c6f4c7d575 (the cut-out set on one light grey) | Unsplash License |
 | rail | assets/rail-tee-black-front.webp | https://images.unsplash.com/photo-1610502778270-c5c6f4c7d575 | Unsplash License |
-| rail (sample products) | scripts/theme-templates/products/rail/rail-tee-black.webp | https://images.unsplash.com/photo-1610502778270-c5c6f4c7d575 (the cut-out set on one light grey) | Unsplash License |
-| rail (sample products, second picture) | scripts/theme-templates/products/rail/rail-tee-black-worn.webp | https://images.unsplash.com/photo-1622445275463-afa2ab738c34, a plain white tee worn outdoors (Mediamodifier), recoloured black; a different photograph of the same kind of tee | Unsplash License |
 | rail | assets/rail-longsleeve-charcoal-front.webp | https://images.unsplash.com/photo-1610502778270-c5c6f4c7d575 | Unsplash License |
-| rail (sample products) | scripts/theme-templates/products/rail/rail-longsleeve-charcoal.webp | https://images.unsplash.com/photo-1610502778270-c5c6f4c7d575 (the cut-out set on one light grey) | Unsplash License |
 | rail | assets/rail-tee-white-front.webp | https://images.unsplash.com/photo-1778671394516-8270eac13c42 | Unsplash License |
-| rail (sample products) | scripts/theme-templates/products/rail/rail-tee-white.webp | https://images.unsplash.com/photo-1778671394516-8270eac13c42 (the cut-out set on one light grey) | Unsplash License |
-| rail (sample products, second picture) | scripts/theme-templates/products/rail/rail-tee-white-worn.webp | https://images.unsplash.com/photo-1622445275463-afa2ab738c34, a plain white tee worn outdoors (Mediamodifier); a different photograph of the same kind of tee | Unsplash License |
 | rail | assets/rail-hoodie-charcoal-front.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 | Unsplash License |
-| rail (sample products) | scripts/theme-templates/products/rail/rail-hoodie-charcoal.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 (the white hoodie cut out, tinted charcoal, set on one light grey) | Unsplash License |
 | rail | assets/rail-hoodie-grey-front.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 | Unsplash License |
-| rail (sample products) | scripts/theme-templates/products/rail/rail-hoodie-grey.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 (the white hoodie cut out, tinted grey, set on one light grey) | Unsplash License |
 | rail | assets/rail-hoodie-oat-front.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 | Unsplash License |
-| rail (sample products) | scripts/theme-templates/products/rail/rail-hoodie-oat.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 (the white hoodie cut out, tinted oat, set on one light grey) | Unsplash License |
 | rail | assets/rail-hoodie-forest-front.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 | Unsplash License |
-| rail (sample products) | scripts/theme-templates/products/rail/rail-hoodie-forest.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 (the white hoodie cut out, tinted forest, set on one light grey) | Unsplash License |
-| rail | assets/rail-sky.webp | https://images.unsplash.com/photo-1561151593-7059b6b4ff57 | Unsplash License |
 | rail | assets/rail-hoodie-charcoal-side.webp | Drawn for this template | Storelib |
 | rail | assets/rail-hoodie-grey-side.webp | Drawn for this template | Storelib |
 | rail | assets/rail-hoodie-oat-side.webp | Drawn for this template | Storelib |
@@ -834,14 +818,41 @@ Templates round 24, renamed and remade in round 25 as Streetwear drop by Sixth W
 | rail | assets/rail-tee-black-side.webp | Drawn for this template | Storelib |
 | rail | assets/rail-tee-white-side.webp | Drawn for this template | Storelib |
 | rail | assets/rail-logo.webp | Drawn for this template | Storelib |
-| rail | assets/rail-garage.webp | https://images.unsplash.com/photo-1677538537484-324385aff147 | Unsplash License |
-| rail | assets/rail-brick.webp | https://images.unsplash.com/photo-1673092147872-5ddb03194341 | Unsplash License |
 | rail (sample products) | scripts/theme-templates/products/rail/rail-graffiti-zip-hoodie.webp, rail-graffiti-sweatpants.webp | https://images.unsplash.com/photo-1732475530155-90158f3b5f79, the hoodie and the sweatpants cut out of the photograph (BiRefNet) onto the shop's grey | Unsplash License |
 | rail (sample products) | scripts/theme-templates/products/rail/rail-nylon-shorts-black.webp | https://images.unsplash.com/photo-1763750581767-b367bcd6c117, the shorts cut out onto the shop's grey, the printed logo painted out | Unsplash License |
 | rail (sample products) | scripts/theme-templates/products/rail/rail-wide-denim-black.webp | https://images.unsplash.com/photo-1768696082704-c4e5593d9f27, cut out onto the shop's grey | Unsplash License |
 | rail (sample products) | scripts/theme-templates/products/rail/rail-cargo-pants-stone.webp | https://images.unsplash.com/photo-1789938581278-4a28ff217f9c, cut out onto the shop's grey | Unsplash License |
 | base (round 26) | base/assets/ttl-sample-model-1..4.webp, ttl-sample-piece-*.webp (Try the look's sample looks, which Redline's looks use) | the four photographs above, background removed, cropped at the feet; look 2's logos painted out (credits in base/snippets/try-the-look-sample.liquid) | Unsplash License |
 | base (round 26) | base/assets/brail-sample-1..8-front.webp, -side.webp (Boutique Rail's sample garments) | this template's hoodie, tee, long sleeve and crew cut-outs above, the hooks trimmed (credits in base/snippets/boutique-rail-sample.liquid) | Unsplash License; side views drawn |
+| rail (sample products, round 28) | scripts/theme-templates/products/rail/rail-hoodie-white.webp | https://images.unsplash.com/photo-1738486260590-23c954cf29b8 (someone wearing a plain white hoodie, cropped 4:5) | Unsplash License |
+| rail (sample products, round 28) | scripts/theme-templates/products/rail/rail-hoodie-grey.webp | https://images.unsplash.com/photo-1556821840-3a63f95609a7 (a grey hoodie seen from the back, cropped) | Unsplash License |
+| rail (sample products, round 28) | scripts/theme-templates/products/rail/rail-hoodie-oat.webp | https://images.unsplash.com/photo-1564557287817-3785e38ec1f5 (a beige hoodie, cropped) | Unsplash License |
+| rail (sample products, round 28) | scripts/theme-templates/products/rail/rail-hoodie-forest.webp | https://images.unsplash.com/photo-1580079906050-84bb132e4c4f (a dark green hoodie, cropped) | Unsplash License |
+| rail (sample products, round 28) | scripts/theme-templates/products/rail/rail-hoodie-charcoal.webp | https://images.unsplash.com/photo-1615320876716-0fc796a5010f (a black hoodie, cropped) | Unsplash License |
+| rail (sample products, round 28) | scripts/theme-templates/products/rail/rail-crew-black.webp | https://images.unsplash.com/photo-1619457164717-b11dd65f7ef2 (a black crew sweatshirt, cropped) | Unsplash License |
+| rail (sample products, round 28) | scripts/theme-templates/products/rail/rail-longsleeve-black.webp | https://images.unsplash.com/photo-1614495039153-e9cd13240469 (a black long sleeve, cropped) | Unsplash License |
+| rail (sample products, round 28) | scripts/theme-templates/products/rail/rail-longsleeve-charcoal.webp | https://images.unsplash.com/photo-1726504960555-a8623e7b1a2d (a black long sleeve top, cropped) | Unsplash License |
+| rail (sample products, round 28) | scripts/theme-templates/products/rail/rail-longsleeve-slate.webp | https://images.unsplash.com/photo-1649879681508-e21645a743bc (a blue long sleeve tee, cropped) | Unsplash License |
+| rail (sample products, round 28) | scripts/theme-templates/products/rail/rail-tee-black.webp | https://images.unsplash.com/photo-1604897391146-c98ab268e252 (a black tee, cropped) | Unsplash License |
+| rail (sample products, round 28) | scripts/theme-templates/products/rail/rail-tee-white.webp | https://images.unsplash.com/photo-1622445275463-afa2ab738c34 (a white tee, cropped) | Unsplash License |
+| rail (sample products, round 28) | scripts/theme-templates/products/rail/rail-bomber-black.webp | https://images.unsplash.com/photo-1602525582399-7ef5f604ff7e (a black bomber, cropped) | Unsplash License |
+| rail (sample products, round 28) | scripts/theme-templates/products/rail/rail-bomber-olive.webp | https://images.unsplash.com/photo-1629353689974-af4d5c70440f (an olive jacket, cropped) | Unsplash License |
+| rail (sample products, round 28) | scripts/theme-templates/products/rail/rail-graffiti-worn.webp, rail-graffiti-pants-worn.webp | https://images.unsplash.com/photo-1732475530155-90158f3b5f79 (the graffiti set, two crops of one photograph) | Unsplash License |
+| rail (sample products, round 28) | scripts/theme-templates/products/rail/rail-nylon-shorts-worn.webp | https://images.unsplash.com/photo-1763750581767-b367bcd6c117 (cropped above the shoes; the printed logos on the tee and the shorts painted out) | Unsplash License |
+| rail (sample products, round 28) | scripts/theme-templates/products/rail/rail-wide-denim-worn.webp | https://images.unsplash.com/photo-1768696082704-c4e5593d9f27 (cropped above the shoes) | Unsplash License |
+| rail (sample products, round 28) | scripts/theme-templates/products/rail/rail-cargo-pants-worn.webp | https://images.unsplash.com/photo-1789938581278-4a28ff217f9c (cropped) | Unsplash License |
+| rail (round 28) | assets/rail-bomber-black-front.webp, rail-bomber-olive-front.webp | https://images.unsplash.com/photo-1591047139829-d91aecb6caea (one rust bomber on a hanger, cut out (rembg, IS-Net), the hand and arm removed, the plastic hanger toned to wood and steel, the label text painted out, and the jacket tinted black and olive; not photographs of those colours) | Unsplash License |
+| rail (round 28) | assets/rail-bomber-black-side.webp, rail-bomber-olive-side.webp, rail-longsleeve-slate-side.webp | Drawn for this template (side views built from the front cut-outs (as the round 25 side views)) | Storelib |
+| rail (round 28) | assets/rail-longsleeve-slate-front.webp | assets/rail-longsleeve-charcoal-front.webp (the charcoal long sleeve cut-out tinted slate; not a photograph of that colour) | Unsplash License |
+| rail (round 28) | assets/rail-made-garage.webp, rail-made-garage-m.webp | https://images.unsplash.com/photo-1677538537484-324385aff147 (two crops of one photograph) | Unsplash License |
+| rail (round 28) | assets/rail-lookbook-mural.webp | https://images.unsplash.com/photo-1773236237773-be5baa7945c8 (cropped) | Unsplash License |
+| rail (round 28) | assets/rail-cat-hoodies.webp, rail-cat-jackets.webp, rail-cat-tees.webp, rail-cat-bottoms.webp | the forest hoodie, olive jacket, white tee and cargo photographs above (cropped again for the category tiles) | Unsplash License |
+| rail (round 28) | assets/rail-ugc-1.webp | https://images.unsplash.com/photo-1578768079052-aa76e52ff62e (square crop) | Unsplash License |
+| rail (round 28) | assets/rail-ugc-2.webp | https://images.unsplash.com/photo-1508216310976-c518daae0cdc (square crop) | Unsplash License |
+| rail (round 28) | assets/rail-ugc-3.webp | https://images.unsplash.com/photo-1748642173861-3c26495a3c41 (square crop) | Unsplash License |
+| rail (round 28) | assets/rail-ugc-4.webp | https://images.unsplash.com/photo-1660486044177-45cd45bb5e99 (square crop) | Unsplash License |
+| rail (round 28) | assets/rail-ugc-5.webp | https://images.unsplash.com/photo-1664451735548-753802037b71 (square crop) | Unsplash License |
+| rail (round 28) | assets/rail-ugc-6.webp | https://images.unsplash.com/photo-1536443664265-46b42d043c2d (square crop) | Unsplash License |
 
 ## Personal trainer (trainer, Mateo Ruiz)
 
@@ -909,7 +920,7 @@ Personal trainer (round 25): Mateo Ruiz, a sample strength coach in Valencia and
 
 ## Sound packs (soundpacks, Lowmoth)
 
-Sound packs (round 25, redrawn in round 26): Lowmoth, a sample label made up for the template. Every pack cover is an illustration drawn for this template as SVG in a two and three colour screen print style (a night bus, a drum machine, piano keys, a wave, palms at sunset, a cassette, a skyline at sunrise, a snare under the moon), with no other brand on it; the sleeve and record pictures, the bundle pictures, the folder views and the moth logo are drawn for it too. The previews are synthesised for the template, one demo loop per pack and a few one shots, so they are free of anyone else's recordings. The producer at a pad controller, the mixing desk and the studio room are Unsplash photographs; small maker names on the studio's rack and an interface are blurred out and the room is cropped to leave out a branded amplifier. The faces on the sample reviews are Unsplash portraits, cropped round and marked on the page as sample reviews to replace.
+Sound packs (round 25, redrawn in rounds 26 and 28): Lowmoth, a sample label made up for the template. Round 28 redrew every pack cover as one label series, drawn for this template as HTML and SVG and rendered to images: an illustration in the top of each cover (bus windows in the rain, a drum head, blurred piano keys, wave lines, a sunset, tape reels, a sunrise, a moon) over a solid band with the pack name, genre, tempo and a catalogue number, with no other brand on it. The sleeve and record pictures, the bundle pictures, the folder views, the logo (a wordmark and a mark of eight bars shaped like wings) and the favicon are drawn for it too. The previews are synthesised for the template, one demo loop per pack and a few one shots, so they are free of anyone else's recordings. The producer at a pad controller, the mixing desk and the studio room are Unsplash photographs; small maker names on the studio's rack and an interface are blurred out and the room is cropped to leave out a branded amplifier. The faces on the sample reviews are Unsplash portraits, cropped round and marked on the page as sample reviews to replace.
 
 | Template | File | Source | License |
 | --- | --- | --- | --- |
@@ -936,6 +947,7 @@ Sound packs (round 25, redrawn in round 26): Lowmoth, a sample label made up for
 | soundpacks | assets/soundpacks-demo-soft-focus.mp4 | Synthesised for this template: a demo loop made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
 | soundpacks | assets/soundpacks-desk.webp | https://images.unsplash.com/photo-1483000805330-4eaf0a0d82da | Unsplash License |
 | soundpacks | assets/soundpacks-logo.webp | Drawn for this template | Storelib |
+| soundpacks | assets/soundpacks-mark.webp | Drawn for this template | Storelib |
 | soundpacks | assets/soundpacks-producer.webp | https://images.unsplash.com/photo-1757245684178-a0bdd25e56a5 | Unsplash License |
 | soundpacks | assets/soundpacks-shot-afterglow-pluck.mp4 | Synthesised for this template: a one shot made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
 | soundpacks | assets/soundpacks-shot-afterglow-stab.mp4 | Synthesised for this template: a one shot made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
@@ -958,27 +970,32 @@ Sound packs (round 25, redrawn in round 26): Lowmoth, a sample label made up for
 | soundpacks (sample products) | scripts/theme-templates/products/soundpacks/soundpacks-post-desk.webp | https://images.unsplash.com/photo-1477233534935-f5e6fe7c1159, two small maker names blurred | Unsplash License |
 | soundpacks (sample products) | scripts/theme-templates/products/soundpacks/soundpacks-post-mixer.webp | https://images.unsplash.com/photo-1518972559570-7cc1309f3229 | Unsplash License |
 
-## Digital studio (digistudio, Offcut)
+## Digital studio (digistudio, Wren Studio)
 
-<!-- digistudio (templates round 26): the studio, its maker and every product are made up. Each product picture is a mockup drawn as HTML for this template and rendered to an image, two different views per product (fonts set in open fonts standing in for the shop's own, riso brushes and paper textures drawn with SVG noise, a sample bakery brand for the brand kit and social posts). The Film Stock picture grades an Unsplash photograph, as do two social post tiles. The logo, mark and the hero still life (made from the same mockups) were drawn for it. The buyer portraits are Unsplash photographs, cropped; the notes beside them are marked as samples to replace. -->
+<!-- digistudio (templates round 26, rebuilt in round 28): Wren Studio, its maker Hana Lee and every product are made up. Each product picture is a device mockup drawn as HTML for this template and rendered to an image on one ground and one light: Notion pages, Canva posts and a brand kit, a Lightroom style editor with before and after, ebook covers and pages, planners and printables, and a course player. The UI in them is drawn for the template and carries no app maker's logo. Photographs inside the mockups are Unsplash photographs, some colour graded for the preset products. The logo and mark (a small bird) were drawn for it. The maker photo and the buyer portraits are Unsplash photographs; the reviews beside the portraits are marked on the page as samples to replace. -->
 
 | Template | File | Source | Licence |
 | --- | --- | --- | --- |
 | digistudio | assets/digistudio-logo.webp | Drawn for this template | Storelib |
 | digistudio | assets/digistudio-mark.webp | Drawn for this template | Storelib |
 | digistudio | assets/digistudio-hero.webp | Drawn for this template | Storelib |
-| digistudio | assets/digistudio-studio.webp | https://images.unsplash.com/photo-1768471126011-2e2002832826 | Unsplash License |
-| digistudio | assets/digistudio-studio-wide.webp | https://images.unsplash.com/photo-1768471125958-78556538fadc | Unsplash License |
-| digistudio | assets/digistudio-tablet.webp | https://images.unsplash.com/photo-1586717791821-3f44a563fa4c | Unsplash License |
-| digistudio | assets/digistudio-buyer-1.webp | https://images.unsplash.com/photo-1520813792240-56fc4a3765a7 | Unsplash License |
-| digistudio | assets/digistudio-buyer-2.webp | https://images.unsplash.com/photo-1535713875002-d1d0cf377fde | Unsplash License |
-| digistudio | assets/digistudio-buyer-3.webp | https://images.unsplash.com/photo-1566492031773-4f4e44671857 | Unsplash License |
-| digistudio | assets/digistudio-buyer-4.webp | https://images.unsplash.com/photo-1554151228-14d9def656e4 | Unsplash License |
-| digistudio | assets/digistudio-buyer-5.webp | https://images.unsplash.com/photo-1570295999919-56ceb5ecca61 | Unsplash License |
-| digistudio | assets/digistudio-buyer-6.webp | https://images.unsplash.com/photo-1619895862022-09114b41f16f | Unsplash License |
-| digistudio | assets/digistudio-buyer-7.webp | https://images.unsplash.com/photo-1547425260-76bcadfb4f2c | Unsplash License |
-| digistudio | assets/digistudio-buyer-8.webp | https://images.unsplash.com/photo-1492562080023-ab3db95bfbce | Unsplash License |
-| digistudio (sample products) | scripts/theme-templates/products/digistudio/digistudio-*.webp (fonts, presets, brushes, paper scans, brand kit, social posts, guide, course, palettes, bundles) | Drawn for this template | Storelib |
-| digistudio (sample products) | photographs inside the Film Stock, social post and brand kit mockups | https://images.unsplash.com/photo-1470770841072-f978cf4d019e, https://images.unsplash.com/photo-1507525428034-b723cf961d3e, https://images.unsplash.com/photo-1501785888041-af3ef285b470, https://images.unsplash.com/photo-1500530855697-b586d89ba3ee | Unsplash License |
-| digistudio (sample products) | scripts/theme-templates/products/digistudio/digistudio-post-pricing.webp | https://images.unsplash.com/photo-1432888498266-38ffec3eaf0a | Unsplash License |
-| digistudio (sample products) | scripts/theme-templates/products/digistudio/digistudio-post-type.webp | https://images.unsplash.com/photo-1581291518857-4e27b48ff24e | Unsplash License |
+| digistudio | assets/digistudio-cat-notion.webp | Drawn for this template | Storelib |
+| digistudio | assets/digistudio-cat-canva.webp | Drawn for this template | Storelib |
+| digistudio | assets/digistudio-cat-presets.webp | Drawn for this template | Storelib |
+| digistudio | assets/digistudio-cat-ebooks.webp | Drawn for this template | Storelib |
+| digistudio | assets/digistudio-cat-planners.webp | Drawn for this template | Storelib |
+| digistudio | assets/digistudio-cat-courses.webp | Drawn for this template | Storelib |
+| digistudio | assets/digistudio-creator.webp | https://images.unsplash.com/photo-1713947503588-8ff8196dc4a3 | Unsplash License |
+| digistudio | assets/digistudio-buyer-1.webp | https://images.unsplash.com/photo-1580489944761-15a19d654956 | Unsplash License |
+| digistudio | assets/digistudio-buyer-2.webp | https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d | Unsplash License |
+| digistudio | assets/digistudio-buyer-3.webp | https://images.unsplash.com/photo-1438761681033-6461ffad8d80 | Unsplash License |
+| digistudio | assets/digistudio-buyer-4.webp | https://images.unsplash.com/photo-1566492031773-4f4e44671857 | Unsplash License |
+| digistudio | assets/digistudio-buyer-5.webp | https://images.unsplash.com/photo-1520813792240-56fc4a3765a7 | Unsplash License |
+| digistudio | assets/digistudio-buyer-6.webp | https://images.unsplash.com/photo-1500648767791-00dcc994a43e | Unsplash License |
+| digistudio | assets/digistudio-buyer-7.webp | https://images.unsplash.com/photo-1554151228-14d9def656e4 | Unsplash License |
+| digistudio | assets/digistudio-buyer-8.webp | https://images.unsplash.com/photo-1539571696357-5a69c17a67c6 | Unsplash License |
+| digistudio (sample products) | scripts/theme-templates/products/digistudio/digistudio-*.webp (every product mockup, two views each) | Drawn for this template | Storelib |
+| digistudio (sample products) | photographs shown inside the mockups (Notion covers, post templates, preset before and after, brand kit, ebook covers) | https://images.unsplash.com/photo-1470770841072-f978cf4d019e, https://images.unsplash.com/photo-1507525428034-b723cf961d3e, https://images.unsplash.com/photo-1500530855697-b586d89ba3ee, https://images.unsplash.com/photo-1523906834658-6e24ef2386f9, https://images.unsplash.com/photo-1496747611176-843222e1e57c, https://images.unsplash.com/photo-1509042239860-f550ce710b93, https://images.unsplash.com/photo-1502082553048-f009c37129b9, https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1, https://images.unsplash.com/photo-1495474472287-4d71bcdd2085, https://images.unsplash.com/photo-1586023492125-27b2c045efd7, https://images.unsplash.com/photo-1540189549336-e6e99c3679fe, https://images.unsplash.com/photo-1485955900006-10f4d324d411, https://images.unsplash.com/photo-1490750967868-88aa4486c946, https://images.unsplash.com/photo-1505693416388-ac5ce068fe85, https://images.unsplash.com/photo-1515886657613-9f3515b0c78f, https://images.unsplash.com/photo-1713947503588-8ff8196dc4a3 | Unsplash License |
+| digistudio (sample products) | scripts/theme-templates/products/digistudio/digistudio-post-plan.webp | https://images.unsplash.com/photo-1587614382346-4ec70e388b28 | Unsplash License |
+| digistudio (sample products) | scripts/theme-templates/products/digistudio/digistudio-post-notion.webp | https://images.unsplash.com/photo-1499951360447-b19be8fe80f5 | Unsplash License |
+| digistudio (sample products) | scripts/theme-templates/products/digistudio/digistudio-post-presets.webp | https://images.unsplash.com/photo-1470770841072-f978cf4d019e, colour graded | Unsplash License |

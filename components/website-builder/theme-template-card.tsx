@@ -81,6 +81,7 @@ import { tt } from "@/lib/i18n/text"
 import { ThemeCover, coverSpecFromDefinition } from "@/components/website-builder/theme-cover"
 import { getThemeDefinition } from "@/lib/website-builder/theme-registry"
 import { tierLabel, type ThemeListing } from "@/lib/themes/marketplace-shared"
+import { WARM_AFTER_MS, warmTemplatePreview } from "@/lib/themes/warm-template-preview"
 import { SITE_PICTURE_QUALITY, isOptimizableImage, optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 
 /** Pixels a second the page slides at: about a screen of a long page in a second and a half. */
@@ -277,6 +278,12 @@ export const ThemeTemplateCard = React.memo(function ThemeTemplateCard({
   const slide = React.useRef<Animation | null>(null)
   /** The mouse is over the cover: a blur does not take the hover away from under it. */
   const inside = React.useRef(false)
+  /* Round 28: the wait before a resting pointer fetches the template's website (warmTemplatePreview). */
+  const warmTimer = React.useRef(0)
+  React.useEffect(() => {
+    const timer = warmTimer
+    return () => window.clearTimeout(timer.current)
+  }, [])
   const [broken, setBroken] = React.useState(false)
   const picture = !broken ? pictureOf(listing) : null
   const def = listing.builtinThemeId ? getThemeDefinition(listing.builtinThemeId) : null
@@ -387,11 +394,17 @@ export const ThemeTemplateCard = React.memo(function ThemeTemplateCard({
           if (e.pointerType !== "mouse") return
           inside.current = true
           hover(true)
+          /* Round 28: a pointer resting on the card fetches the template's website, so Preview opens on files already here. */
+          if (onPreview) {
+            window.clearTimeout(warmTimer.current)
+            warmTimer.current = window.setTimeout(() => warmTemplatePreview(listing), WARM_AFTER_MS)
+          }
         }}
         onPointerLeave={(e) => {
           if (e.pointerType !== "mouse") return
           inside.current = false
           hover(false)
+          window.clearTimeout(warmTimer.current)
         }}
       >
         <span aria-hidden data-template-lift="" className={LIFT_SHADOW} style={HOVER_TIMING} />
@@ -405,6 +418,10 @@ export const ThemeTemplateCard = React.memo(function ThemeTemplateCard({
             aria-haspopup="dialog"
             aria-label={tt("Preview {name}", { name: listing.name })}
             data-template-preview=""
+            /* A finger on the cover: the website is fetched from the press, a moment before the click. */
+            onPointerDown={(e) => {
+              if (e.pointerType !== "mouse") warmTemplatePreview(listing)
+            }}
             onClick={(e) => onPreview(e.currentTarget)}
             /* A key's focus shows what a mouse's hover does; a click's focus changes nothing. */
             onFocus={(e) => {

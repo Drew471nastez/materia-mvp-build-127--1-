@@ -1,4 +1,4 @@
-/* Templates round 26: who makes the files, how buying works, buyer notes and the monthly email. */
+/* Templates round 28: the maker, how instant download works, buyer reviews and the monthly email. */
 {
   "sections": {
     "heading": {
@@ -16,7 +16,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "page_title": "About Offcut",
+            "page_title": "About Wren Studio",
             "header_size": "large",
             "vertical_gap": 10
           }
@@ -24,7 +24,7 @@
         "description_2": {
           "type": "description",
           "settings": {
-            "description": "<p>A small design studio in Porto that sells what it makes for its own work.</p>"
+            "description": "<p>A one person shop of templates, presets and guides, made by Hana Lee.</p>"
           }
         }
       },
@@ -34,179 +34,147 @@
       ]
     },
     "story": {
-      "type": "dual-image-with-text",
+      "type": "Image-and-video-text",
       "settings": {
         "color_scheme": "default",
         "section_width": "container",
-        "reset_spacing": true,
         "image_position": "left",
-        "text_column_width": 44,
+        "image": "shopify://shop_images/digistudio-creator.webp",
+        "image_alt": "Hana at her desk by the window, typing on a laptop beside a plant and a notebook",
+        "aspect_w": 4,
+        "aspect_h": 3,
+        "image_fit": "cover",
+        "image_radius": 10,
+        "text_column_width": 42,
         "content_align": "left",
         "content_gap": 18,
-        "aspect_ratio_w": 5,
-        "aspect_ratio_h": 5,
-        "show_dots": false,
-        "gap_desktop": 80,
+        "gap_desktop": 72,
         "padding_top_desktop": 56,
-        "padding_bottom_desktop": 88,
+        "padding_bottom_desktop": 72,
         "side_padding_desktop": 0,
-        "content_align_mobile": "left",
-        "mobile_order": "media_first",
-        "gap_mobile": 32,
         "padding_top_mobile": 56,
         "padding_bottom_mobile": 56,
-        "side_padding_mobile": 16
+        "side_padding_mobile": 16,
+        "mobile_order": "media_first"
       },
       "blocks": {
-        "main_image_1": {
-          "type": "main_image",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "image": "shopify://shop_images/digistudio-studio-wide.webp",
-            "alt": "Ines drawing at her desk in the studio, between an easel and a pinboard of prints",
-            "anchor": "top_left",
-            "size": 82,
-            "fit": "cover",
-            "position_x": 62,
-            "radius": 4,
-            "shadow": false
+            "text": "Made by Hana Lee"
           }
         },
-        "accent_image_2": {
-          "type": "accent_image",
-          "settings": {
-            "image": "shopify://shop_images/digistudio-tablet.webp",
-            "alt": "Sketching page layouts on a tablet with a pencil",
-            "anchor": "bottom_right",
-            "size": 44,
-            "fit": "cover",
-            "radius": 4,
-            "shadow": true,
-            "border_width": 8,
-            "enable_custom_style": true,
-            "border_color": "#ffffff",
-            "size_mobile": 46
-          }
-        },
-        "heading_3": {
+        "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Made by Ines, in a small studio in Porto",
+            "text": "How Wren Studio started",
             "tag": "h2",
             "size_desktop": 40,
             "size_mobile": 30
           }
         },
-        "subheading_4": {
+        "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>I spent ten years designing for clients: identities, packaging, a lot of menus. Offcut started with the leftovers, the fonts, brushes and files I kept making for that work and wanted to use again.</p><p>Everything here is something I use myself. When a file changes, I update it for everyone who bought it.</p>"
+            "text": "<p>I spent eight years designing for small businesses: cafés, studios, a few shops. Every client asked for the same things, a content plan, social posts that looked like them, a way to keep track of it all.</p><p>Wren Studio sells those files, cleaned up and tested on the free plan of every app they are for. New products come out a few times a year and every update is free for everyone who bought.</p>",
+            "size_desktop": 17,
+            "size_mobile": 15
           }
         }
       },
       "block_order": [
-        "main_image_1",
-        "accent_image_2",
-        "heading_3",
-        "subheading_4"
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3"
       ]
     },
     "how": {
-      "type": "feature-timeline",
+      "type": "text-columns",
       "settings": {
         "color_scheme": "scheme-5f1c0a2e-7b44-4d0e-9a51-0ffc0c7d2a01",
-        "section_width": "full_width",
-        "show_section_on": "all",
+        "section_width": "container",
         "reset_spacing": true,
-        "layout": "alternate",
-        "text_align": "center",
-        "content_max_width": 820,
-        "head_gap": 40,
-        "item_gap_desktop": 36,
-        "image_ratio": "landscape",
-        "marker_style": "dot",
-        "marker_size": 12,
-        "line_thickness": 1,
+        "content_alignment": "left",
+        "columns_desktop": 4,
+        "columns_tablet": 2,
+        "column_gap": 32,
+        "header_gap": 40,
+        "show_dividers": true,
         "enable_custom_style": true,
-        "line_color": "#d6d4ce",
-        "marker_color": "#17181a",
-        "label_color": "#e2552b",
-        "title_color": "#17181a",
-        "text_color": "#4a4c50",
-        "fill_on_scroll": false,
-        "padding_top_desktop": 88,
-        "padding_bottom_desktop": 88,
-        "item_gap_mobile": 28,
+        "label_color": "#1e4a3b",
+        "item_heading_color": "#17171a",
+        "item_heading_size": 20,
+        "item_heading_size_mobile": 19,
+        "padding_top": 88,
+        "padding_bottom": 88,
         "padding_top_mobile": 56,
-        "padding_bottom_mobile": 56
+        "padding_bottom_mobile": 56,
+        "mobile_layout": "stack"
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "How buying here works",
-            "enable_custom_style": false,
+            "text": "How instant download works",
             "size_enable": true,
             "size_desktop": 40,
-            "size_mobile": 30,
-            "line_height": 1.15
+            "size_mobile": 30
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>No account to make first, no waiting for an email with a key.</p>"
+            "text": "<p>No account to make first and no waiting for a key.</p>"
           }
         },
-        "item_3": {
-          "type": "item",
+        "column_3": {
+          "type": "column",
           "settings": {
-            "label": "01",
-            "title": "Buy",
-            "text": "<p>Pay by card, Apple Pay, Google Pay or PayPal. Prices include the standard licence.</p>"
+            "label": "Step 1",
+            "heading": "Pay at checkout",
+            "text": "<p>Card, Apple Pay, Google Pay or PayPal. Free products check out at $0.</p>",
+            "link_label": "",
+            "link": ""
           }
         },
-        "item_4": {
-          "type": "item",
+        "column_4": {
+          "type": "column",
           "settings": {
-            "label": "02",
-            "title": "Download",
-            "text": "<p>The links are on the confirmation page straight away and in your email a minute later. Zip files, named so you can find them.</p>"
+            "label": "Step 2",
+            "heading": "Download straight away",
+            "text": "<p>The links are on the confirmation page and in your email a minute later.</p>",
+            "link_label": "",
+            "link": ""
           }
         },
-        "item_5": {
-          "type": "item",
+        "column_5": {
+          "type": "column",
           "settings": {
-            "label": "03",
-            "title": "Use it",
-            "text": "<p>Client work, products you sell, print and social. One person, unlimited projects. The licence fits on one page.</p>"
+            "label": "Step 3",
+            "heading": "Open it in your app",
+            "text": "<p>Duplicate into Notion, open in Canva, import into Lightroom or open the PDF.</p>",
+            "link_label": "",
+            "link": ""
           }
         },
-        "item_6": {
-          "type": "item",
+        "column_6": {
+          "type": "column",
           "settings": {
-            "label": "04",
-            "title": "Get updates",
-            "text": "<p>When a file changes you get an email and the new version waits in your account, free.</p>"
-          }
-        },
-        "button_7": {
-          "type": "button",
-          "settings": {
-            "label": "Read the licence",
-            "link": "/pages/licence",
-            "style": "secondary",
-            "use_theme_button": true
+            "label": "Step 4",
+            "heading": "Keep every update",
+            "text": "<p>When a product changes, the new version is in your account, free.</p>",
+            "link_label": "",
+            "link": ""
           }
         }
       },
       "block_order": [
         "heading_1",
         "subheading_2",
-        "item_3",
-        "item_4",
-        "item_5",
-        "item_6",
-        "button_7"
+        "column_3",
+        "column_4",
+        "column_5",
+        "column_6"
       ]
     },
     "reviews": {
@@ -221,29 +189,29 @@
         "columns": 3,
         "column_gap": 20,
         "header_alignment": "left",
-        "card_style": "outline",
+        "card_style": "boxed",
         "card_align": "left",
         "card_padding": 28,
-        "card_content_gap": 16,
-        "card_radius": 6,
+        "card_content_gap": 18,
+        "card_radius": 10,
         "avatar_shape": "circle",
         "avatar_size": 48,
         "show_arrow": false,
         "carousel_pagination": "show",
         "pagination_style": "line",
         "pagination_position": "center",
-        "pagination_spacing": 24,
+        "pagination_spacing": 28,
         "enable_custom_colors": true,
         "card_bg": "#ffffff",
-        "card_border_color": "#e4e3df",
-        "quote_color": "#17181a",
+        "card_border_color": "rgba(0,0,0,0)",
+        "quote_color": "#17171a",
         "enable_custom_typography": true,
         "quote_size": 17,
         "autoplay": false,
         "infinite": false,
         "reveal": false,
-        "padding_top": 88,
-        "padding_bottom": 88,
+        "padding_top": 96,
+        "padding_bottom": 96,
         "header_spacing_desktop": 36,
         "columns_mobile": 1,
         "header_spacing_mobile": 24
@@ -253,7 +221,7 @@
           "type": "heading",
           "settings": {
             "enabled": true,
-            "text": "What people made with them",
+            "text": "What buyers say",
             "enable_custom_typography": true,
             "font_size_desktop": 40,
             "font_size_mobile": 30,
@@ -264,86 +232,86 @@
           "type": "subheading",
           "settings": {
             "enabled": true,
-            "text": "<p>Sample reviews in the layout this section shows. Replace them with what your own buyers say.</p>"
+            "text": "<p>Sample reviews in the layout this section shows. Replace them with what your own buyers write.</p>"
           }
         },
         "testimonial_3": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Field Grotesk is the first paid font I have bought. It works for everything at my studio, from the website to the menu boards.</p>",
+            "quote": "<p>The first Notion setup I have kept for more than a month. Today, habits and the budget on one page is exactly enough.</p>",
             "rating": 5,
-            "name": "Lena Hartmann",
-            "role": "Field Grotesk",
+            "name": "Sofia Marin",
+            "role": "Life Planner for Notion",
             "avatar": "shopify://shop_images/digistudio-buyer-1.webp"
           }
         },
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Twelve presets and I use eight of them all the time. They are subtle, which is what I wanted.</p>",
+            "quote": "<p>I changed the colours to my bakery's once and all sixty posts followed. Two months of posts planned in a weekend.</p>",
             "rating": 5,
-            "name": "Tom Becker",
-            "role": "Film Stock Presets",
+            "name": "Daniel Reyes",
+            "role": "Instagram Post Templates",
             "avatar": "shopify://shop_images/digistudio-buyer-2.webp"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The brand kit saved me two days on the first client I used it for. The colour page alone is worth it.</p>",
+            "quote": "<p>Warm without turning skin orange, which is what every other pack did. Golden 03 is on almost every photo now.</p>",
             "rating": 5,
-            "name": "Marcus Owusu",
-            "role": "Brand Kit for Figma",
+            "name": "Emma Clarke",
+            "role": "Golden Hour Presets",
             "avatar": "shopify://shop_images/digistudio-buyer-3.webp"
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The riso brushes have a real grain to them, not a filter on top. Prints look like prints.</p>",
+            "quote": "<p>The product page prompts alone paid for it. I rewrote forty listings in an afternoon and edited the best answers myself.</p>",
             "rating": 5,
-            "name": "Clara Novak",
-            "role": "Riso Grain Brushes",
+            "name": "Marcus Bell",
+            "role": "The AI Prompt Playbook",
             "avatar": "shopify://shop_images/digistudio-buyer-4.webp"
           }
         },
         "testimonial_7": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I raised my prices after chapter three. Two clients said yes without a question.</p>",
+            "quote": "<p>Planner, posts and brand kit for less than two of them. Everything matched from the first day.</p>",
             "rating": 5,
-            "name": "Jonas Lind",
-            "role": "Pricing Your Design Work",
+            "name": "Lucia Ortega",
+            "role": "Creator Starter Bundle",
             "avatar": "shopify://shop_images/digistudio-buyer-5.webp"
           }
         },
         "testimonial_8": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Downloaded in a minute, installed in two. The licence page answered my question before I had to ask.</p>",
+            "quote": "<p>The tabs link properly in GoodNotes, which is rarer than it should be. Clean pages, nothing cute.</p>",
             "rating": 5,
-            "name": "Ruth Abrams",
-            "role": "Harbour Serif",
+            "name": "Tom Becker",
+            "role": "2027 Digital Planner",
             "avatar": "shopify://shop_images/digistudio-buyer-6.webp"
           }
         },
         "testimonial_9": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Lesson three on pairing fonts made our newsletter look like it was made by a designer. It was made by me.</p>",
+            "quote": "<p>Chapter three changed how I plan. One afternoon a month instead of panicking every morning.</p>",
             "rating": 5,
-            "name": "Diego Ferreira",
-            "role": "Type for Non-Designers",
+            "name": "Nina Kowalski",
+            "role": "Grow on Instagram",
             "avatar": "shopify://shop_images/digistudio-buyer-7.webp"
           }
         },
         "testimonial_10": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The bundle had everything for a new client: the font, the guide and the posts. One download.</p>",
+            "quote": "<p>Short lessons that get to the point. The practice files make you actually do it instead of just watching.</p>",
             "rating": 5,
-            "name": "Sam Rahman",
-            "role": "Brand Starter Bundle",
+            "name": "Leo Martin",
+            "role": "Canva Design Basics",
             "avatar": "shopify://shop_images/digistudio-buyer-8.webp"
           }
         }
@@ -367,15 +335,15 @@
         "color_scheme": "scheme-9d3e6b10-2a7c-4f55-8e19-6c0b1d4e3f02",
         "section_width": "full_width",
         "reset_spacing": true,
-        "heading": "New files, once a month",
+        "heading": "",
         "email_label": "Email address",
         "email_placeholder": "name@email.com",
         "btn_text": "Subscribe",
-        "note": "One email a month with what is new and one free file. Unsubscribe any time.",
+        "note": "One email a month. Unsubscribe any time.",
         "subscribed_button_text": "Subscribed",
-        "success_text": "Thanks, you are on the list.",
+        "success_text": "Thanks, the first one is on its way.",
         "header_alignment": "center",
-        "form_layout": "vertical",
+        "form_layout": "horizontal",
         "show_icon": false,
         "show_content_background": false,
         "button_style": "primary",
@@ -390,7 +358,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "New files, once a month",
+            "text": "A free template every month",
             "tag": "h2",
             "size_enable": true,
             "size_desktop": 40,
@@ -400,7 +368,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>What we made, what we updated and a free file for subscribers. Nothing else.</p>"
+            "text": "<p>Subscribers get one free file on the first of the month and hear about new products first.</p>"
           }
         }
       },

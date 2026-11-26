@@ -572,19 +572,39 @@ Shopify.formatMoney = function (cents, format) {
   }
   return formatString.replace(placeholderRegex, value);
 };
+/* The browser's scrollbar width, measured once and kept (round 28): every
+   popup and drawer asked for it as it opened, and the measuring element
+   forced the whole page's style and layout in the frame the panel started
+   to move. Measured again only after a resize or a zoom. */
 var getScrollBarWidth = (function () {
+  var known = null;
+  function measure() {
+    var scrollDiv = document.createElement("div");
+    scrollDiv.style.width = "100px";
+    scrollDiv.style.height = "100px";
+    scrollDiv.style.overflow = "scroll";
+    scrollDiv.style.position = "absolute";
+    scrollDiv.style.top = "-9999px";
+    document.body.appendChild(scrollDiv);
+    var scrollbarWidth = scrollDiv.offsetWidth - scrollDiv.clientWidth;
+    document.body.removeChild(scrollDiv);
+    return scrollbarWidth;
+  }
+  var width = window.innerWidth, later = 0;
+  function warm() { if (known === null && document.body) known = measure(); }
+  window.addEventListener("resize", function () {
+    if (window.innerWidth === width) return;
+    width = window.innerWidth;
+    known = null;
+    clearTimeout(later);
+    later = setTimeout(warm, 300);
+  }, { passive: true });
+  if (document.readyState === "complete") setTimeout(warm, 0);
+  else window.addEventListener("load", function () { (window.requestIdleCallback || setTimeout)(warm); }, { once: true });
   return {
     init: function () {
-      var scrollDiv = document.createElement("div");
-      scrollDiv.style.width = "100px";
-      scrollDiv.style.height = "100px";
-      scrollDiv.style.overflow = "scroll";
-      scrollDiv.style.position = "absolute";
-      scrollDiv.style.top = "-9999px";
-      document.body.appendChild(scrollDiv);
-      var scrollbarWidth = scrollDiv.offsetWidth - scrollDiv.clientWidth;
-      document.body.removeChild(scrollDiv);
-      return scrollbarWidth;
+      if (known === null) known = measure();
+      return known;
     },
   };
 })();

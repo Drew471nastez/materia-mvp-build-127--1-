@@ -270,6 +270,31 @@ sticky-add-cart {
   font-family: var(--body-font, inherit);
   font-size: var(--body-font-size, 15px);
 }
+/* The bar's row always keeps the page's side padding, whatever the
+   section's width (a Full width product section drew the select and the
+   button against the screen's edges, cut by a phone's rounded corners).
+   Round 28: one rule for every template. */
+sticky-add-cart > div {
+  box-sizing: border-box;
+  width: 100%;
+  margin-inline: auto;
+  padding-inline: clamp(16px, var(--container-gutter, 20px), 40px) !important;
+}
+sticky-add-cart > :is(.full_width, .stretch_width) { max-width: none; }
+sticky-add-cart .sticky__item-info,
+sticky-add-cart .sticky__item-info > *,
+sticky-add-cart .product-detail__buy-buttons :is(.product__submit-form, product-form, form, .product-form__buttons, .product__submit-form-cart, .button_buy-now) { min-width: 0; max-width: 100%; }
+sticky-add-cart :is(.product-form__submit, .product_submit_button) { max-width: 100%; min-width: 0; overflow: hidden; }
+sticky-add-cart :is(.product-form__submit, .product_submit_button) :is(.btn-label, .mt-sticky-price) { white-space: nowrap; }
+sticky-add-cart :is(.product-form__submit, .product_submit_button) .btn-label { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+@media (max-width: 767.98px) {
+  sticky-add-cart :is(.product-form__submit, .product_submit_button) { padding-inline: 14px !important; }
+}
+/* A narrow phone or a long price: the price in the button gives way first
+   (the select shows the choice; the page shows the price). */
+@media (max-width: 359.98px) {
+  sticky-add-cart:not(.no-picker) .mt-sticky-price { display: none !important; }
+}
 /* The phone navigation bar already clears the home indicator. */
 sticky-add-cart.has-nav-below { padding-bottom: var(--sticky-pad-y); }
 @media (max-width: 767.98px) {
@@ -354,9 +379,11 @@ sticky-add-cart .mt-sticky-price { display: none; }
 @media (max-width: 767.98px) {
   sticky-add-cart .sticky__item-info { display: flex; gap: 10px; width: 100%; }
   sticky-add-cart .sticky__item-info .product-detail__variant-picker { flex: 1 1 0; width: auto; }
-  sticky-add-cart .sticky__item-info .product-detail__buy-buttons { flex: 0 0 auto; width: auto; max-width: 60%; }
+  /* Round 28: the button may take all but 100px; the select gives way first. */
+  sticky-add-cart .sticky__item-info .product-detail__buy-buttons { flex: 0 1 auto; width: auto; max-width: calc(100% - 100px); }
+  sticky-add-cart .sticky__item-info .product-detail__variant-picker { min-width: 90px; }
   sticky-add-cart.no-picker .sticky__item-info .product-detail__buy-buttons { flex: 1 1 auto; max-width: none; }
-  sticky-add-cart .product-form__submit { min-height: 48px !important; padding-inline: 16px !important; white-space: nowrap; gap: 0; }
+  sticky-add-cart :is(.product-form__submit, .product_submit_button) { min-height: 48px !important; padding-inline: 14px !important; white-space: nowrap; gap: 0; }
   sticky-add-cart .product-form__submit .btn-label { overflow: hidden; text-overflow: ellipsis; }
   sticky-add-cart .mt-sticky-price { display: inline; }
 }

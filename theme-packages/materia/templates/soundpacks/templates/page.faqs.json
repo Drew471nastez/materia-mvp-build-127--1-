@@ -19,12 +19,12 @@
         "enable_custom_style": true,
         "section_bg": "#0b0b0c",
         "tabs_track_bg": "#18181c",
-        "tab_active_bg": "#c6f432",
-        "tab_active_color": "#10120a",
+        "tab_active_bg": "#f2f0eb",
+        "tab_active_color": "#0b0b0c",
         "tab_inactive_color": "#a3a3ab",
         "divider_color": "#26262a",
         "q_color": "#f3f3f4",
-        "plus_color": "#c6f432",
+        "plus_color": "#f2f0eb",
         "a_color": "#a3a3ab",
         "tab_size": 14,
         "tab_weight": "700",
@@ -45,7 +45,7 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "Questions? Answers.",
+            "text": "Questions and answers",
             "tag": "h1",
             "size_enable": true,
             "size_desktop": 56,
@@ -197,7 +197,7 @@
         "col_bpm": "BPM",
         "col_key": "Key",
         "bpm_suffix": true,
-        "accent": "#c6f432",
+        "accent": "#f2f0eb",
         "panel_color": "#141416",
         "use_theme_radius": false,
         "panel_radius": 28,
@@ -362,7 +362,7 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "A free pack every month.",
+            "text": "A free pack every month",
             "tag": "h2",
             "size_enable": true,
             "size_desktop": 44,
@@ -418,7 +418,7 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "A person answers within a day.",
+            "text": "A person answers within a day",
             "enable_custom_style": true,
             "size_d": 32,
             "size_m": 26,

@@ -28,7 +28,7 @@
         "description_tLPCVn": {
           "type": "description",
           "settings": {
-            "description": "<p>The ebook in every edition, the audiobook, the training cards and a short guide to crate training.</p>",
+            "description": "<p>The ebook in every edition, the audiobook, the post prompts and a short guide to your profile.</p>",
             "description_color": "#57575e",
             "enable_custom_style": true,
             "description_font_size": 15

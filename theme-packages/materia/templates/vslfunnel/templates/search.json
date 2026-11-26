@@ -9,7 +9,7 @@
         "reset_spacing": true,
         "heading": "Search",
         "sorting": true,
-        "empty_text": "Nothing matched. Try course, puzzles or review.",
+        "empty_text": "Nothing matched. Try program, scripts or audit.",
         "empty_link_label": "See everything",
         "empty_link_url": "/collections/all",
         "enable_filtering": false,
@@ -30,8 +30,8 @@
       "type": "products-grid",
       "settings": {
         "color_scheme": "default",
-        "heading": "The course and the extras",
-        "text": "<p>The full course, the puzzle sheets on their own, and a game review call.</p>",
+        "heading": "The program and the extras",
+        "text": "<p>The full program, the outreach scripts on their own, and an audit call.</p>",
         "items_to_show": 4,
         "items_per_row": 4,
         "show_add_to_cart": true,
@@ -44,28 +44,28 @@
       "type": "newsletter-split",
       "settings": {
         "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "image": "shopify://shop_images/vslfunnel-tin.webp",
-        "image_alt": "A wooden chess set mid game on a dark table",
+        "image": "shopify://shop_images/vslfunnel-notebook.webp",
+        "image_alt": "A notebook and pen on a dark desk",
         "image_position": "left",
         "image_ratio": "landscape",
         "image_width": 50,
         "form_layout": "horizontal",
-        "btn_text": "Send me the sheets",
+        "btn_text": "Send me the scripts",
         "email_placeholder": "Your email",
         "note": "One email a month at most. Leave whenever you like.",
-        "success_text": "Done. The puzzle sheets are on their way to your inbox."
+        "success_text": "Done. The outreach scripts are on their way to your inbox."
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Get the puzzle sheets free"
+            "text": "Get the outreach scripts free"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Forty puzzles from module three as a PDF: forks, pins, skewers and discovered attacks, with the answers on the back page.</p>"
+            "text": "<p>Twelve short messages from module four as a PDF: first messages, follow ups and asking past clients for an introduction, with notes on when to use each.</p>"
           }
         }
       },

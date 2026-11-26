@@ -267,75 +267,104 @@
   }
 
   /* Focus view */
-  /* Storelib: the focus view's background is its own layer (solid or frosted, in the colours chosen under
-     Focus view), so it can fade while the garment flies from its hanger. Opening and closing are one set of
-     animations played forwards and then backwards (see motion()), so closing is the exact reverse.
+  /* Storelib (round 28): the focus view wears a colour scheme (Focus view > Colour scheme, or the section's),
+     so its background, words, links, pills, quantity and buttons (with their hover states) are the theme's,
+     set in Theme settings. The two colour pickers still override the background and the words.
+     Its background is its own layer, so it can fade while the garment flies from its hanger. It opens in
+     about a third of a second and closes in about a fifth: transform and opacity only, nothing waits.
+     The picture area is neutral (no border, shadow, line or tint), so any product photo sits in it cleanly,
+     and a product with several pictures swipes like the theme's product gallery, with dots and arrows.
      It scrolls on a small screen, with no scroll bar showing. */
-  #shopify-section-{{ sid }} .brail__focus { position: fixed; inset: 0; z-index: 60; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; color: var(--bf-text, var(--color-text)); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; -ms-overflow-style: none; }
+  #shopify-section-{{ sid }} .brail__focus { position: fixed; inset: 0; z-index: 60; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; outline: 0; background: transparent; color: var(--color-text); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; -ms-overflow-style: none; }
   #shopify-section-{{ sid }} .brail__focus::-webkit-scrollbar { display: none; width: 0; height: 0; }
   #shopify-section-{{ sid }} .brail__focus::backdrop { background: transparent; }
-  #shopify-section-{{ sid }} .brail__focus[style*='--bf-text'] .bf__title, #shopify-section-{{ sid }} .brail__focus[style*='--bf-text'] .bf__price, #shopify-section-{{ sid }} .brail__focus[style*='--bf-text'] .bf__more a, #shopify-section-{{ sid }} .brail__focus[style*='--bf-text'] .bf__val, #shopify-section-{{ sid }} .brail__focus[style*='--bf-text'] .bf__nav, #shopify-section-{{ sid }} .brail__focus[style*='--bf-text'] .bf__close { color: var(--bf-text); }
-  #shopify-section-{{ sid }} .bf__bg { position: fixed; inset: 0; z-index: 0; background: var(--bf-bg, var(--color-background)); pointer-events: none; }
-  #shopify-section-{{ sid }} .brail__focus[data-glass] .bf__bg { background: color-mix(in srgb, var(--bf-bg, var(--color-background)) var(--bf-glass, 82%), transparent); -webkit-backdrop-filter: blur(24px) saturate(1.1); backdrop-filter: blur(24px) saturate(1.1); }
+  #shopify-section-{{ sid }} .bf__bg { position: fixed; inset: 0; z-index: 0; background: var(--color-background); pointer-events: none; }
+  #shopify-section-{{ sid }} .brail__focus[data-glass] .bf__bg { background: color-mix(in srgb, var(--color-background) var(--bf-glass, 82%), transparent); -webkit-backdrop-filter: blur(24px) saturate(1.1); backdrop-filter: blur(24px) saturate(1.1); }
   #shopify-section-{{ sid }} .brail__focus.is-closing { pointer-events: none; }
-  #shopify-section-{{ sid }} .bf__fly { position: fixed; left: 0; top: 0; z-index: 3; margin: 0; pointer-events: none; transform-origin: 0 0; will-change: transform; filter: drop-shadow(0 18px 22px rgb(0 0 0 / .14)); }
-  #shopify-section-{{ sid }} .bf__media.is-flying img { visibility: hidden; }
-  #shopify-section-{{ sid }} .bf__ghost { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
-  #shopify-section-{{ sid }} .bf__with { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
-  #shopify-section-{{ sid }} .bf__with[hidden] { display: none; }
-  #shopify-section-{{ sid }} .bf__with-h { margin: 0; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; opacity: .6; }
-  #shopify-section-{{ sid }} .bf__pair { display: grid; grid-template-columns: 56px minmax(0, 1fr) 40px; align-items: center; gap: 14px; padding: 8px 10px 8px 8px; border: 1px solid var(--line); border-radius: var(--card-radius, 8px); }
-  #shopify-section-{{ sid }} .bf__pair img { width: 56px; height: 64px; object-fit: contain; border-radius: 4px; background: color-mix(in srgb, currentColor 4%, transparent); }
-  #shopify-section-{{ sid }} .bf__pair a { display: block; color: var(--bf-text, var(--color-heading)); font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #shopify-section-{{ sid }} .bf__pair span { display: block; font-size: 13px; opacity: .7; }
-  #shopify-section-{{ sid }} .bf__plus { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: none; color: inherit; cursor: pointer; transition: background-color .2s ease, color .2s ease, border-color .2s ease; }
-  #shopify-section-{{ sid }} .bf__plus svg { transition: transform .3s var(--ease); }
-  #shopify-section-{{ sid }} .bf__plus.is-done { background: var(--bf-text, var(--color-heading)); border-color: var(--bf-text, var(--color-heading)); color: var(--bf-bg, var(--color-background)); }
-  #shopify-section-{{ sid }} .bf__plus.is-done svg { transform: rotate(45deg) scale(0); }
-  #shopify-section-{{ sid }} .bf__plus.is-done::after { content: ''; position: absolute; width: 12px; height: 7px; border: solid currentColor; border-width: 0 0 2px 2px; rotate: -45deg; translate: 0 -2px; }
-  #shopify-section-{{ sid }} .bf__plus { position: relative; }
-  #shopify-section-{{ sid }} .bf__plus[aria-busy='true'] { opacity: .5; pointer-events: none; }
-  #shopify-section-{{ sid }} .bf__atc.is-added { pointer-events: none; }
-  #shopify-section-{{ sid }} .bf__cart { font-size: 13px; color: inherit; }
-  #shopify-section-{{ sid }} .bf__cart[hidden] { display: none; }
+  #shopify-section-{{ sid }} .bf__fly { position: fixed; left: 0; top: 0; z-index: 3; margin: 0; border: 0; pointer-events: none; transform-origin: 0 0; will-change: transform, opacity; object-fit: contain; }
+  #shopify-section-{{ sid }} .bf__media.is-flying .bf__slide:first-child img { visibility: hidden; }
+  #shopify-section-{{ sid }} .bf__ghost { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
   #shopify-section-{{ sid }} .bf { position: relative; z-index: 1; min-height: 100%; display: grid; grid-template-columns: 1fr; align-items: center; gap: 24px; padding: 64px 20px calc(28px + env(safe-area-inset-bottom, 0px)); }
   @media (min-width: 990px) { #shopify-section-{{ sid }} .bf { grid-template-columns: minmax(0, 1.25fr) minmax(320px, 420px); gap: clamp(32px, 6vw, 110px); padding: 56px clamp(32px, 7vw, 120px); } }
-  #shopify-section-{{ sid }} .bf__media { position: relative; display: grid; place-items: center; height: min(70svh, 720px); }
-  @media (max-width: 989px) { #shopify-section-{{ sid }} .bf__media { height: 48svh; } }
-  #shopify-section-{{ sid }} .bf__media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: 50% 0; transition: opacity .35s ease, transform .5s var(--ease); filter: drop-shadow(0 18px 22px rgb(0 0 0 / .14)); }
-  #shopify-section-{{ sid }} .bf__media.is-photo img { inset: 0; margin: auto; width: auto; height: auto; max-width: 100%; max-height: 100%; object-position: 50% 50%; border-radius: 10px; filter: none; box-shadow: 0 24px 50px -28px rgb(0 0 0 / .45); }
-  #shopify-section-{{ sid }} .bf__media img[hidden] { display: block; opacity: 0; transform: scale(.98); pointer-events: none; }
-  #shopify-section-{{ sid }} .bf__hook { position: absolute; top: -64px; left: 50%; width: 1.5px; height: 68px; background: #8c8c8c; translate: -50% 0; }
-  #shopify-section-{{ sid }} .bf__media.is-photo .bf__hook { display: none; }
+
+  /* The pictures: a row that scrolls sideways and snaps, one picture at a time (a swipe on a phone, the arrows,
+     the dots or a trackpad on a computer). No frame of its own: whatever the photo's background is, it shows as it is. */
+  #shopify-section-{{ sid }} .bf__media { position: relative; height: min(70svh, 720px); min-width: 0; border: 0; outline: 0; background: none; box-shadow: none; }
+  @media (max-width: 989px) { #shopify-section-{{ sid }} .bf__media { height: 50svh; margin-inline: -20px; } }
+  #shopify-section-{{ sid }} .bf__slides { display: flex; height: 100%; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scroll-behavior: auto; overscroll-behavior-x: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; outline: 0; }
+  #shopify-section-{{ sid }} .bf__slides::-webkit-scrollbar { display: none; }
+  #shopify-section-{{ sid }} .bf__slide { position: relative; flex: 0 0 100%; height: 100%; scroll-snap-align: center; scroll-snap-stop: always; margin: 0; }
+  #shopify-section-{{ sid }} .bf__slide img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: 50% 50%; border: 0; border-radius: var(--bf-media-r, 0); box-shadow: none; filter: none; background: none; -webkit-user-drag: none; user-select: none; }
+  #shopify-section-{{ sid }} .bf__media--cut .bf__slide:first-child img { object-position: 50% 0; }
+  #shopify-section-{{ sid }} .bf__inav { position: absolute; top: 50%; z-index: 2; display: grid; place-items: center; width: 40px; height: 40px; margin-top: -20px; padding: 0; border: max(1px, var(--btn-border-width, 1px)) solid var(--color-border); border-radius: 50%; background: var(--color-background); color: var(--color-heading); cursor: pointer; opacity: 0; transition: opacity .2s ease, border-color .2s ease, background-color .2s ease, color .2s ease; }
+  #shopify-section-{{ sid }} .bf__inav--prev { left: 8px; } #shopify-section-{{ sid }} .bf__inav--next { right: 8px; }
+  #shopify-section-{{ sid }} .bf__inav[hidden] { display: none; }
+  #shopify-section-{{ sid }} .bf__inav:disabled { opacity: 0 !important; pointer-events: none; }
+  @media (hover: hover) {
+    #shopify-section-{{ sid }} .bf__media:hover .bf__inav, #shopify-section-{{ sid }} .bf__inav:focus-visible { opacity: 1; }
+    #shopify-section-{{ sid }} .bf__inav:hover { border-color: var(--color-heading); background: var(--color-heading); color: var(--color-background); }
+  }
+  #shopify-section-{{ sid }} .bf__dots { position: absolute; left: 50%; bottom: 4px; z-index: 2; translate: -50% 0; display: flex; gap: 6px; margin: 0; padding: 6px 8px; }
+  #shopify-section-{{ sid }} .bf__dots[hidden] { display: none; }
+  #shopify-section-{{ sid }} .bf__dot { width: 6px; height: 6px; padding: 0; border: 0; border-radius: 99px; background: color-mix(in srgb, var(--color-heading) 25%, transparent); cursor: pointer; transition: width .3s var(--ease), background-color .25s ease; }
+  #shopify-section-{{ sid }} .bf__dot[aria-current='true'] { width: 20px; background: var(--color-heading); }
+  #shopify-section-{{ sid }} .bf__dot::before { content: ''; position: absolute; inset: -10px -4px; }
+  #shopify-section-{{ sid }} .bf__dot { position: relative; }
+
   #shopify-section-{{ sid }} .bf__info { display: flex; flex-direction: column; gap: 14px; max-width: 420px; width: 100%; justify-self: center; }
   #shopify-section-{{ sid }} .bf__count { font-size: 11px; letter-spacing: .14em; opacity: .55; font-variant-numeric: tabular-nums; }
   #shopify-section-{{ sid }} .bf__title { margin: 0; font-size: clamp(22px, 2.4vw, 30px); line-height: 1.15; color: var(--color-heading); }
-  #shopify-section-{{ sid }} .bf__price { display: flex; gap: 10px; align-items: baseline; font-size: 16px; font-weight: 600; color: var(--color-heading); }
+  #shopify-section-{{ sid }} .bf__price { display: flex; gap: 10px; align-items: baseline; margin: 0; font-size: 16px; font-weight: 600; color: var(--color-heading); }
   #shopify-section-{{ sid }} .bf__price s { font-weight: 400; opacity: .55; font-size: 14px; }
-  #shopify-section-{{ sid }} .bf__tabs { display: flex; gap: 18px; font-size: 13px; }
-  #shopify-section-{{ sid }} .bf__tabs[hidden] { display: none; }
-  #shopify-section-{{ sid }} .bf__tab { padding: 0 0 4px; border: 0; background: none; color: inherit; cursor: pointer; opacity: .5; border-bottom: 1px solid transparent; transition: opacity .2s ease, border-color .2s ease; }
-  #shopify-section-{{ sid }} .bf__tab[aria-pressed='true'] { opacity: 1; border-color: currentColor; }
-  #shopify-section-{{ sid }} .bf__opt { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-  #shopify-section-{{ sid }} .bf__opt legend { padding: 0; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; opacity: .6; margin-bottom: 8px; }
+  #shopify-section-{{ sid }} .bf__opt { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+  #shopify-section-{{ sid }} .bf__opt legend { padding: 0; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; opacity: .65; margin-bottom: 8px; }
   #shopify-section-{{ sid }} .bf__vals { display: flex; flex-wrap: wrap; gap: 8px; }
-  #shopify-section-{{ sid }} .bf__val { min-width: 40px; height: 40px; padding: 0 12px; border-radius: 99px; border: 1px solid var(--line); background: transparent; color: var(--color-heading); font: inherit; font-size: 13px; cursor: pointer; transition: background-color .2s ease, color .2s ease, border-color .2s ease; }
-  #shopify-section-{{ sid }} .bf__val[aria-pressed='true'] { background: var(--color-heading); border-color: var(--color-heading); color: var(--color-background); }
+  /* Pills: the theme's button corners and border width; the chosen one is the scheme's primary button. */
+  #shopify-section-{{ sid }} .bf__val { min-width: 44px; height: 44px; padding: 0 14px; border-radius: var(--pill-radius, var(--btn-radius, 99px)); border: max(1px, var(--btn-border-width, 1px)) solid var(--color-border); background: transparent; color: var(--color-heading); font: inherit; font-size: 13px; cursor: pointer; transition: background-color .2s ease, color .2s ease, border-color .2s ease; }
+  @media (hover: hover) { #shopify-section-{{ sid }} .bf__val:hover { border-color: var(--color-heading); } }
+  #shopify-section-{{ sid }} .bf__val[aria-pressed='true'] { background: var(--btn-primary-bg-color, var(--color-heading)); border-color: var(--btn-primary-bg-color, var(--color-heading)); color: var(--btn-primary-color, var(--color-background)); }
   #shopify-section-{{ sid }} .bf__val.is-off { opacity: .4; text-decoration: line-through; }
-  #shopify-section-{{ sid }} .bf__atc { width: 100%; min-height: 52px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; }
+  #shopify-section-{{ sid }} .bf__val:focus-visible, #shopify-section-{{ sid }} .bf__dot:focus-visible, #shopify-section-{{ sid }} .bf__close:focus-visible, #shopify-section-{{ sid }} .bf__nav:focus-visible, #shopify-section-{{ sid }} .bf__inav:focus-visible, #shopify-section-{{ sid }} .bf__plus:focus-visible { outline: 2px solid color-mix(in srgb, var(--color-heading) 55%, transparent); outline-offset: 2px; }
+  /* Quantity and Add to cart on one row: the theme's quantity box (its colours, border and corners from Theme settings) and the theme's primary button. */
+  #shopify-section-{{ sid }} .bf__buy { display: flex; gap: 10px; align-items: stretch; }
+  #shopify-section-{{ sid }} .bf__buy .quantity { flex: none; min-height: 52px; }
+  #shopify-section-{{ sid }} .bf__buy .quantity > button, #shopify-section-{{ sid }} .bf__buy .quantity > input { height: 50px !important; }
+  #shopify-section-{{ sid }} .bf__buy .quantity > button { flex-basis: 40px; width: 40px !important; min-width: 40px; }
+  #shopify-section-{{ sid }} .bf__buy .quantity svg { width: 12px; height: 12px; }
+  #shopify-section-{{ sid }} .bf__atc { flex: 1 1 auto; width: 100%; min-height: 52px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; margin: 0; }
   #shopify-section-{{ sid }} .bf__atc[aria-busy='true'] { opacity: .6; pointer-events: none; }
   #shopify-section-{{ sid }} .bf__atc[aria-busy='true']::before { content: ''; width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: brailSpin .7s linear infinite; }
-  @keyframes brailSpin { to { rotate: 360deg; } }
+  #shopify-section-{{ sid }} .bf__atc.is-added { pointer-events: none; }
   #shopify-section-{{ sid }} .bf__msg { min-height: 1.2em; margin: 0; font-size: 13px; }
-  #shopify-section-{{ sid }} .bf__more { display: flex; justify-content: space-between; gap: 16px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 13px; }
-  #shopify-section-{{ sid }} .bf__more a { color: var(--color-heading); }
+  #shopify-section-{{ sid }} .bf__msg:empty { min-height: 0; margin-top: -14px; }
+  #shopify-section-{{ sid }} .bf__cart, #shopify-section-{{ sid }} .bf__more a { color: var(--color-link, var(--color-heading)); text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 35%, transparent); text-underline-offset: 4px; transition: color .2s ease, text-decoration-color .2s ease; }
+  @media (hover: hover) { #shopify-section-{{ sid }} .bf__cart:hover, #shopify-section-{{ sid }} .bf__more a:hover { color: var(--color-link-hover, var(--color-heading)); text-decoration-color: currentColor; } }
+  #shopify-section-{{ sid }} .bf__cart { font-size: 13px; align-self: flex-start; }
+  #shopify-section-{{ sid }} .bf__cart[hidden] { display: none; }
+  #shopify-section-{{ sid }} .bf__with { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+  #shopify-section-{{ sid }} .bf__with[hidden] { display: none; }
+  #shopify-section-{{ sid }} .bf__with-h { margin: 0; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; opacity: .65; }
+  #shopify-section-{{ sid }} .bf__pair { display: grid; grid-template-columns: 56px minmax(0, 1fr) 40px; align-items: center; gap: 14px; padding: 8px 10px 8px 8px; border: 1px solid var(--color-border); border-radius: var(--card-radius, 8px); }
+  #shopify-section-{{ sid }} .bf__pair img { width: 56px; height: 64px; object-fit: contain; border-radius: 4px; background: color-mix(in srgb, var(--color-text) 5%, var(--color-background)); }
+  #shopify-section-{{ sid }} .bf__pair a { display: block; color: var(--color-heading); font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  @media (hover: hover) { #shopify-section-{{ sid }} .bf__pair a:hover { text-decoration: underline; text-underline-offset: 3px; } }
+  #shopify-section-{{ sid }} .bf__pair span { display: block; font-size: 13px; opacity: .7; }
+  #shopify-section-{{ sid }} .bf__plus { position: relative; display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--btn-radius, 50%); border: max(1px, var(--btn-border-width, 1px)) solid var(--color-border); background: none; color: var(--color-heading); cursor: pointer; transition: background-color .2s ease, color .2s ease, border-color .2s ease; }
+  @media (hover: hover) { #shopify-section-{{ sid }} .bf__plus:hover { border-color: var(--color-heading); } }
+  #shopify-section-{{ sid }} .bf__plus svg { transition: transform .3s var(--ease); }
+  #shopify-section-{{ sid }} .bf__plus.is-done { background: var(--btn-primary-bg-color, var(--color-heading)); border-color: var(--btn-primary-bg-color, var(--color-heading)); color: var(--btn-primary-color, var(--color-background)); }
+  #shopify-section-{{ sid }} .bf__plus.is-done svg { transform: rotate(45deg) scale(0); }
+  #shopify-section-{{ sid }} .bf__plus.is-done::after { content: ''; position: absolute; width: 12px; height: 7px; border: solid currentColor; border-width: 0 0 2px 2px; rotate: -45deg; translate: 0 -2px; }
+  #shopify-section-{{ sid }} .bf__plus[aria-busy='true'] { opacity: .5; pointer-events: none; }
+  #shopify-section-{{ sid }} .bf__plus:disabled { opacity: .4; cursor: default; }
+  #shopify-section-{{ sid }} .bf__more { display: flex; justify-content: space-between; gap: 16px; padding-top: 14px; border-top: 1px solid var(--color-border); font-size: 13px; }
   #shopify-section-{{ sid }} .bf__more a[hidden] { display: none; }
-  #shopify-section-{{ sid }} .bf__close, #shopify-section-{{ sid }} .bf__nav { position: absolute; z-index: 2; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--color-background); color: var(--color-heading); cursor: pointer; }
+  #shopify-section-{{ sid }} .bf__close, #shopify-section-{{ sid }} .bf__nav { position: absolute; z-index: 2; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border-radius: 50%; border: max(1px, var(--btn-border-width, 1px)) solid var(--color-border); background: var(--color-background); color: var(--color-heading); cursor: pointer; transition: border-color .2s ease, background-color .2s ease, color .2s ease, transform .3s var(--ease); }
+  @media (hover: hover) { #shopify-section-{{ sid }} .bf__close:hover { border-color: var(--color-heading); background: var(--color-heading); color: var(--color-background); } }
   #shopify-section-{{ sid }} .bf__close { top: 14px; right: 14px; }
-  /* Arrows at the sides (desktop), at the top on phones */
-  #shopify-section-{{ sid }} .bf__nav { top: 14px; border: 0; background: transparent; width: 52px; height: 52px; transition: transform .3s var(--ease), opacity .2s ease; }
-  #shopify-section-{{ sid }} .bf__nav svg { width: 26px; height: 26px; }
-  #shopify-section-{{ sid }} .bf__nav--prev { left: 8px; } #shopify-section-{{ sid }} .bf__nav--next { left: 60px; }
+  #shopify-section-{{ sid }} .bf__nav { top: 14px; border-color: transparent; background: transparent; width: 48px; height: 48px; }
+  #shopify-section-{{ sid }} .bf__nav svg { width: 24px; height: 24px; }
+  #shopify-section-{{ sid }} .bf__nav--prev { left: 8px; } #shopify-section-{{ sid }} .bf__nav--next { left: 56px; }
   #shopify-section-{{ sid }} .bf__nav[hidden] { display: none; }
   @media (min-width: 990px) {
     #shopify-section-{{ sid }} .bf__nav { top: 50%; translate: 0 -50%; }
@@ -343,7 +372,8 @@
     #shopify-section-{{ sid }} .bf__nav--next { left: auto; right: clamp(12px, 2vw, 32px); }
     #shopify-section-{{ sid }} .bf__nav--prev:hover { transform: translateX(-4px); } #shopify-section-{{ sid }} .bf__nav--next:hover { transform: translateX(4px); }
   }
-  html.brail-lock { overflow: hidden; }
+  @keyframes brailSpin { to { rotate: 360deg; } }
+  html.brail-lock { overflow: hidden; scrollbar-gutter: stable; }
   @media (prefers-reduced-motion: reduce) {
     #shopify-section-{{ sid }} .brail * { transition: none !important; animation: none !important; }
     #shopify-section-{{ sid }} [data-drop] .brail__g { opacity: 1; transform: none; }
@@ -544,6 +574,55 @@
                       "with": [{%- if bs.wear_with != blank -%}{%- for w in bs.wear_with limit: 3 -%}{%- assign wv = w.selected_or_first_available_variant -%}{"title": {{ w.title | json }}, "url": {{ w.url | json }}, "price": {{ wv.price | money | json }}, "variant": {{ wv.id | json }}, "available": {{ wv.available | json }}, "option": {% if w.has_only_default_variant %}""{% else %}{{ wv.title | json }}{% endif %}, "image": {% if w.featured_image %}{{ w.featured_image | image_url: width: 160 | json }}{% else %}null{% endif %}}{% unless forloop.last %},{% endunless %}{%- endfor -%}{%- endif -%}],
                       "front": {% if front_img != blank %}{{ front_img | image_url: width: focus_w | json }}{% else %}null{% endif %},
                       "back": {% if back_img != blank %}{{ back_img | image_url: width: focus_w | json }}{% else %}null{% endif %},
+                      {%- comment -%} Storelib (round 28): every picture the focus view swipes through: the garment's front and back, then the product's own photos (Focus view > Pictures), each once (a photo with the same file name as one already in is skipped). {%- endcomment -%}
+                      {%- liquid
+                        assign seen = '|'
+                        assign img_json = ''
+                        for im in (1..2)
+                          if im == 1
+                            assign one = front_img
+                          else
+                            assign one = back_img
+                          endif
+                          if one != blank
+                            assign one_url = one | image_url: width: focus_w
+                            # The file's own name, from a plain address (.../name.webp?v=1&width=1200) or an image service's (...?url=%2F__media%2Fname.webp&w=1200)
+                            assign one_key = one_url | replace: '%2F', '/' | split: '&' | first
+                            if one_key contains 'url='
+                              assign one_key = one_key | split: 'url=' | last
+                            endif
+                            assign one_key = one_key | split: '?' | first | split: '/' | last
+                            unless seen contains one_key
+                              assign seen = seen | append: one_key | append: '|'
+                              if img_json != blank
+                                assign img_json = img_json | append: ','
+                              endif
+                              assign one_q = one_url | json
+                              assign img_json = img_json | append: one_q
+                            endunless
+                          endif
+                        endfor
+                        if st.focus_images != 'garment'
+                          for one in p.images limit: 10
+                            assign one_url = one | image_url: width: focus_w
+                            # The file's own name, from a plain address (.../name.webp?v=1&width=1200) or an image service's (...?url=%2F__media%2Fname.webp&w=1200)
+                            assign one_key = one_url | replace: '%2F', '/' | split: '&' | first
+                            if one_key contains 'url='
+                              assign one_key = one_key | split: 'url=' | last
+                            endif
+                            assign one_key = one_key | split: '?' | first | split: '/' | last
+                            unless seen contains one_key
+                              assign seen = seen | append: one_key | append: '|'
+                              if img_json != blank
+                                assign img_json = img_json | append: ','
+                              endif
+                              assign one_q = one_url | json
+                              assign img_json = img_json | append: one_q
+                            endunless
+                          endfor
+                        endif
+                      -%}
+                      "images": [{{ img_json }}],
                       "options": {{ p.options_with_values | map: 'name' | json }},
                       "variants": [{%- for v in p.variants -%}{"id": {{ v.id | json }}, "available": {{ v.available | json }}, "price": {{ v.price | money | json }}, "compare": {% if v.compare_at_price > v.price %}{{ v.compare_at_price | money | json }}{% else %}null{% endif %}, "options": {{ v.options | json }}}{% unless forloop.last %},{% endunless %}{%- endfor -%}]
                     }
@@ -588,26 +667,43 @@
   </div>
 
   {%- if st.focus_view -%}
-    {%- capture bf_style -%}{%- if st.focus_color != blank and st.focus_color != 'rgba(0,0,0,0)' -%}--bf-bg: {{ st.focus_color }};{%- endif -%}{%- if st.focus_text != blank and st.focus_text != 'rgba(0,0,0,0)' -%}--bf-text: {{ st.focus_text }};{%- endif -%}--bf-glass: {{ st.focus_glass_opacity | default: 82 }}%{%- endcapture -%}
-    <dialog class="brail__focus" data-focus-dialog aria-label="{{ label_1 | default: st.eyebrow | default: section.name | escape }}" style="{{ bf_style }}"{% if st.focus_background == 'glass' %} data-glass{% endif %}>
+    {%- liquid
+      # Storelib (round 28): the focus view's colour scheme is the section's unless Focus view > Use its own colour scheme is on.
+      assign focus_scheme = color_scheme
+      if st.focus_own_scheme and st.focus_color_scheme != blank
+        assign focus_scheme = st.focus_color_scheme.id | default: st.focus_color_scheme
+      endif
+    -%}
+    {%- capture bf_style -%}{%- if st.focus_color != blank and st.focus_color != 'rgba(0,0,0,0)' -%}--color-background: {{ st.focus_color }}; --bf-bg: {{ st.focus_color }};{%- endif -%}{%- if st.focus_text != blank and st.focus_text != 'rgba(0,0,0,0)' -%}--color-text: {{ st.focus_text }}; --color-heading: {{ st.focus_text }}; --color-link: {{ st.focus_text }}; --bf-text: {{ st.focus_text }};{%- endif -%}--bf-glass: {{ st.focus_glass_opacity | default: 82 }}%; --bf-media-r: {{ st.focus_media_radius | default: 0 }}px{%- endcapture -%}
+    <dialog class="brail__focus color-{{ focus_scheme }}" data-focus-dialog aria-label="{{ label_1 | default: st.eyebrow | default: section.name | escape }}" style="{{ bf_style }}"{% if st.focus_background == 'glass' %} data-glass{% endif %}>
       <span class="bf__bg" data-f-bg aria-hidden="true"></span>
       <div class="bf">
         <button type="button" class="bf__nav bf__nav--prev" data-f-prev aria-label="{{ 'accessibility.previous' | t }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5"/><path d="m11 6-6 6 6 6"/></svg></button>
         <button type="button" class="bf__nav bf__nav--next" data-f-next aria-label="{{ 'accessibility.next' | t }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15"/><path d="m13 6 6 6-6 6"/></svg></button>
         <button type="button" class="bf__close" data-f-close aria-label="{{ 'accessibility.close' | t }}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="m1 1 12 12M13 1 1 13"/></svg></button>
-        <div class="bf__media" data-f-media><span class="bf__hook" aria-hidden="true"></span><img data-f-front alt="" width="1200" height="1500"><img data-f-back alt="" width="1200" height="1500" hidden></div>
+        <div class="bf__media" data-f-media>
+          <div class="bf__slides" data-f-slides tabindex="-1"><figure class="bf__slide"><img data-f-front alt="" width="1200" height="1500" draggable="false"></figure></div>
+          <button type="button" class="bf__inav bf__inav--prev" data-f-iprev aria-label="{{ 'accessibility.ui.previous_slide' | t }}" hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></button>
+          <button type="button" class="bf__inav bf__inav--next" data-f-inext aria-label="{{ 'accessibility.ui.next_slide' | t }}" hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
+          <div class="bf__dots" data-f-dots hidden></div>
+        </div>
         <div class="bf__info">
           <span class="bf__count" data-f-count></span>
           <h3 class="bf__title" data-f-title></h3>
           <p class="bf__price" data-f-price></p>
-          <div class="bf__tabs" data-f-tabs>
-            <button type="button" class="bf__tab" data-f-view="front" aria-pressed="true">{{ st.front_label | escape }}</button>
-            <button type="button" class="bf__tab" data-f-view="back" aria-pressed="false">{{ st.back_label | escape }}</button>
-          </div>
           <div data-f-options></div>
-          <button type="button" class="btn btn-primary bf__atc" data-f-atc>{{ 'products.product.add_to_cart' | t }}</button>
+          <div class="bf__buy">
+            {%- if st.focus_quantity -%}
+              <quantity-input class="quantity bf__qty" data-f-qty>
+                <button type="button" name="minus"><span class="visually-hidden">{{ 'products.product.quantity.decrease' | t: product: '' | escape }}</span><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2 6h8"/></svg></button>
+                <input type="number" name="quantity" value="1" min="1" step="1" inputmode="numeric" aria-label="{{ 'general.cart.headings.quantity' | t | escape }}">
+                <button type="button" name="plus"><span class="visually-hidden">{{ 'products.product.quantity.increase' | t: product: '' | escape }}</span><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2 6h8M6 2v8"/></svg></button>
+              </quantity-input>
+            {%- endif -%}
+            <button type="button" class="btn btn-primary bf__atc" data-f-atc data-sl-button data-button-role="primary" data-theme-button="primary">{{ 'products.product.add_to_cart' | t }}</button>
+          </div>
           <p class="bf__msg" role="status" aria-live="polite" data-f-msg></p>
-          <a class="bf__cart link" href="{{ routes.cart_url }}" data-f-cart hidden>{{ 'general.cart.viewcart' | t }}</a>
+          <a class="bf__cart" href="{{ routes.cart_url }}" data-f-cart hidden>{{ 'general.cart.viewcart' | t }}</a>
           <div class="bf__with" data-f-with hidden>{%- if st.with_heading != blank -%}<p class="bf__with-h">{{ st.with_heading | escape }}</p>{%- endif -%}<div data-f-pairs></div></div>
           <div class="bf__more"><span data-f-name></span><a href="#" data-f-link></a></div>
         </div>
@@ -790,15 +886,33 @@
         this.f('prev').addEventListener('click', () => this.step(-1));
         this.f('next').addEventListener('click', () => this.step(1));
         d.addEventListener('cancel', e => { e.preventDefault(); this.close(); });
-        d.addEventListener('keydown', e => { if (e.key === 'ArrowLeft') this.step(-1); if (e.key === 'ArrowRight') this.step(1); });
-        d.querySelectorAll('[data-f-view]').forEach(b => b.addEventListener('click', () => this.view(b.dataset.fView)));
+        // A press on the background itself (outside the picture and the words) closes it too.
+        d.addEventListener('click', e => { if ((e.target === d || e.target.classList.contains('bf')) && matchMedia('(min-width: 990px)').matches) this.close(); });
+        d.addEventListener('keydown', e => { if (e.target.closest('input')) return; if (e.key === 'ArrowLeft') this.step(-1); if (e.key === 'ArrowRight') this.step(1); });
         this.f('atc').addEventListener('click', () => this.add());
-        // Swipe between garments on phones
+        // The pictures: a native scroll-snap row (a swipe tracks the finger 1:1 and glides with its own momentum);
+        // the dots and the arrows follow where it is, and move it.
+        const sl = this.f('slides');
+        this.slideAt = () => (sl.clientWidth ? Math.round(sl.scrollLeft / sl.clientWidth) : 0);
+        this.goSlide = (k, smooth = true) => { const n = sl.children.length; k = Math.max(0, Math.min(n - 1, k)); sl.scrollTo({ left: k * sl.clientWidth, behavior: smooth && !this.calm() ? 'smooth' : 'auto' }); };
+        let sraf = 0;
+        sl.addEventListener('scroll', () => { if (!sraf) sraf = requestAnimationFrame(() => { sraf = 0; this.paintSlides(); }); }, { passive: true });
+        this.f('iprev').addEventListener('click', () => this.goSlide(this.slideAt() - 1));
+        this.f('inext').addEventListener('click', () => this.goSlide(this.slideAt() + 1));
+        this.f('dots').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b) this.goSlide(+b.dataset.k); });
+        sl.addEventListener('keydown', e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.stopPropagation(); e.preventDefault(); this.goSlide(this.slideAt() + (e.key === 'ArrowRight' ? 1 : -1)); } });
+        // With one picture, a sideways swipe on it steps to the next garment instead.
         let x0 = null, y0 = 0;
         const media = this.f('media');
-        media.addEventListener('pointerdown', e => { x0 = e.clientX; y0 = e.clientY; });
+        media.addEventListener('pointerdown', e => { x0 = sl.children.length > 1 ? null : e.clientX; y0 = e.clientY; });
         media.addEventListener('pointerup', e => { if (x0 == null) return; const dx = e.clientX - x0, dy = e.clientY - y0; x0 = null; if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) this.step(dx < 0 ? 1 : -1); });
         media.addEventListener('pointercancel', () => { x0 = null; });
+        // Quantity: the theme's <quantity-input>; if the theme's script is not on the page, its buttons still count.
+        const qty = this.f('qty');
+        if (qty) qty.addEventListener('click', e => {
+          const b = e.target.closest('button'); if (!b || customElements.get('quantity-input')) return; const inp = qty.querySelector('input');
+          inp.value = String(Math.max(1, (parseInt(inp.value, 10) || 1) + (b.name === 'plus' ? 1 : -1)));
+        });
       }
       // Only garments that are products can be shown in focus; samples are skipped.
       shoppable() { return this.items.map((li, i) => li._data ? i : -1).filter(i => i > -1); }
@@ -818,14 +932,17 @@
         this._opening = true;
         this.from = from;
         this.index = null; this.show(i, 0);
-        // The first frame must be ready, so the garment leaves its hanger at once: wait for the picture (a moment at most).
+        // The picture the rail already shows is decoded, so it flies at once. Only a picture still loading is waited for, briefly.
         const front = this.f('front');
-        if (front.decode) await Promise.race([front.decode().catch(() => {}), new Promise(r => setTimeout(r, 260))]);
+        if (!(front.complete && front.naturalWidth) && front.decode) await Promise.race([front.decode().catch(() => {}), new Promise(r => setTimeout(r, 160))]);
         this.dialog.classList.remove('is-closing');
-        this.dialog.showModal(); document.documentElement.classList.add('brail-lock');
+        this.dialog.showModal();
         this.dialog.scrollTop = 0;
         this._opening = false;
-        await this.motion(true);
+        // The page's scroll is locked once the garment has landed: locking it re-lays out the whole page, which
+        // would hold up the first frame of the flight. While it flies, the view itself holds the wheel and the finger (overscroll-behavior).
+        await this.motion();
+        if (this.dialog.open && !this.dialog.classList.contains('is-closing')) document.documentElement.classList.add('brail-lock');
       }
       close() {
         const d = this.dialog; if (!d || !d.open || d.classList.contains('is-closing')) return;
@@ -847,44 +964,54 @@
           if (li) requestAnimationFrame(() => requestAnimationFrame(() => li.classList.remove('is-facing')));
           this.from && this.from.focus({ preventScroll: true });
         };
-        // Closed while it is still opening: the same animations turn round where they are.
-        if (this._runOpening && this._anims && this._anims.length) {
-          this._runOpening = false; const run = this._run = {};
-          this._anims.forEach(a => a.reverse());
-          Promise.all(this._anims.map(a => a.finished.catch(() => {}))).then(() => { if (this._run === run) end(); });
-          return;
-        }
-        this.motion(false).then(end);
+        this.closeMotion(li).then(end);
       }
       clearMotion() {
         (this._anims || []).forEach(a => a.cancel()); this._anims = [];
+        // A close that began mid-open held some parts where they were (inline): let them go.
+        this.dialog.querySelectorAll('.bf__info, .bf__close, .bf__nav, .bf__dots, .bf__inav, .bf__media, [data-f-bg], .bf__info > *').forEach(el => { el.style.removeProperty('opacity'); el.style.removeProperty('transform'); });
         this.dialog.querySelectorAll('.bf__fly').forEach(x => x.remove());
         this.f('media').classList.remove('is-flying');
       }
       /*
-        One set of animations, played forwards to open and backwards to close, each part starting
-        in close as late as it ended in open: the exact reverse. The garment itself flies between
-        its hanger and the focus view; the background fades; the words rise in one after another.
+        Open: the background fades in (240 ms) while the garment flies from its hanger to the picture
+        area (380 ms) and the words rise in just behind it. Close is its own, shorter movement (about
+        220 ms) that starts at once from wherever things are, also mid-open: the words and the
+        background fade, and the garment flies back onto its hanger. Transform and opacity only.
       */
-      motion(opening) {
+      motion() {
         this.clearMotion(); this._run = null;
         const d = this.dialog, li = this.items[this.index];
-        if (this.calm() || !d.animate) { if (li) li.classList.toggle('is-lifted', opening); return Promise.resolve(); }
+        if (li) li.classList.add('is-lifted');
+        if (this.calm() || !d.animate) return Promise.resolve();
         const E = 'cubic-bezier(.22, 1, .36, 1)';
         const parts = [...d.querySelectorAll('.bf__info > :not([hidden]), .bf__close, .bf__nav:not([hidden])')];
-        const plan = [];
-        plan.push({ el: this.f('bg'), kf: [{ opacity: 0 }, { opacity: 1 }], delay: 0, duration: 420, easing: 'cubic-bezier(.4, 0, .2, 1)' });
+        const anims = [this.f('bg').animate([{ opacity: 0 }, { opacity: 1 }], { duration: 240, easing: 'cubic-bezier(.2, 0, 0, 1)', fill: 'both' })];
         const fly = this.flight(li);
-        if (fly) plan.push({ el: fly.el, kf: fly.kf, delay: 0, duration: 620, easing: E });
-        else plan.push({ el: this.f('media'), kf: [{ opacity: 0, transform: 'translateY(24px) scale(.97)' }, { opacity: 1, transform: 'none' }], delay: 60, duration: 560, easing: E });
-        parts.forEach((el, k) => plan.push({ el, kf: [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], delay: 90 + 28 * Math.min(k, 8), duration: 400, easing: E }));
-        const total = Math.max(...plan.map(p => p.delay + p.duration));
-        this._anims = plan.map(p => p.el.animate(p.kf, { duration: p.duration, easing: p.easing, fill: 'both', direction: opening ? 'normal' : 'reverse', delay: opening ? p.delay : total - p.delay - p.duration }));
-        // The hanger is empty while its garment is in the focus view.
-        if (li) li.classList.add('is-lifted');
-        // Only this run tidies up after itself: a close that starts mid-open owns the animations from then on.
-        const run = this._run = {}; this._runOpening = opening;
-        return Promise.all(this._anims.map(a => a.finished.catch(() => {}))).then(() => { if (this._run === run) this._runOpening = false; if (opening && this._run === run) this.clearMotion(); });
+        if (fly) anims.push(fly.el.animate(fly.kf, { duration: 380, easing: E, fill: 'both' }));
+        else anims.push(this.f('media').animate([{ opacity: 0, transform: 'translateY(16px)' }, { opacity: 1, transform: 'none' }], { duration: 300, easing: E, fill: 'both' }));
+        parts.forEach((el, k) => anims.push(el.animate([{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 260, delay: 40 + 16 * Math.min(k, 6), easing: E, fill: 'both' })));
+        this._anims = anims;
+        const run = this._run = {};
+        return Promise.all(anims.map(a => a.finished.catch(() => {}))).then(() => { if (this._run === run) this.clearMotion(); });
+      }
+      closeMotion(li) {
+        const d = this.dialog;
+        if (this.calm() || !d.animate) return Promise.resolve();
+        // Mid-open: everything is held where it is now, and the close starts from there.
+        const flying = d.querySelector('.bf__fly');
+        (this._anims || []).forEach(a => { try { a.commitStyles(); } catch (_) {} a.cancel(); });
+        this._anims = []; this._run = null;
+        const parts = [...d.querySelectorAll('.bf__info, .bf__close, .bf__nav:not([hidden]), .bf__dots, .bf__inav')];
+        const out = { duration: 120, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' };
+        const anims = [this.f('bg').animate([{ opacity: 0 }], { duration: 200, easing: 'cubic-bezier(.4, 0, .2, 1)', fill: 'forwards' })];
+        parts.forEach(el => anims.push(el.animate([{ opacity: 0 }], out)));
+        // The garment flies back when the first picture (the one that hangs) is showing; another picture just fades with the rest.
+        const back = li && this.slideAt() === 0 ? this.flight(li, flying) : null;
+        if (back) anims.push(back.el.animate(back.el === flying ? [back.kf[0]] : [back.kf[1], back.kf[0]], { duration: 220, easing: 'cubic-bezier(.3, 0, .2, 1)', fill: 'forwards' }));
+        else { if (flying) flying.remove(); anims.push(this.f('media').animate([{ opacity: 0 }], out)); if (li) li.classList.remove('is-lifted'); }
+        this._anims = anims;
+        return Promise.all(anims.map(a => a.finished.catch(() => {})));
       }
       // Where the garment's picture is drawn: its box, the picture's own size and how it is placed (object-fit: contain).
       drawn(box, img) {
@@ -893,34 +1020,61 @@
         const top = /(^|\s)0(%|px)?$/.test(getComputedStyle(img).objectPosition.trim());
         return { x: box.left + (box.width - w) / 2, y: box.top + (top ? 0 : (box.height - h) / 2), w, h };
       }
-      // The flight: a copy of the focus picture that starts where the garment hangs and lands in the focus view.
-      flight(li) {
-        const front = this.f('front'); if (!li || front.hidden || !front.naturalWidth) return null;
+      // The flight: a copy of the focus picture between where the garment hangs and the picture area.
+      // keep: the copy already flying (a close that starts mid-open flies it back from where it is).
+      flight(li, keep) {
+        const front = this.f('front'); if (!li || !front.naturalWidth) return null;
         const pic = li.querySelector('.brail__pic'), rimg = li.querySelector('.brail__front') || li.querySelector('img');
         if (!pic || !rimg || !rimg.naturalWidth) return null;
         const pr = pic.getBoundingClientRect();
         const from = this.drawn({ left: pr.left + rimg.offsetLeft, top: pr.top + rimg.offsetTop, width: rimg.offsetWidth, height: rimg.offsetHeight }, rimg);
         const to = this.drawn(front.getBoundingClientRect(), front);
-        if (!from || !to || from.y + from.h < 0 || from.y > innerHeight || from.x + from.w < 0 || from.x > innerWidth) return null;
-        const el = document.createElement('img'); el.className = 'bf__fly'; el.alt = ''; el.decoding = 'sync';
-        el.src = front.currentSrc || front.src;
-        el.style.width = to.w + 'px'; el.style.height = to.h + 'px';
-        if (getComputedStyle(front).filter === 'none') el.style.filter = 'none';
-        this.dialog.appendChild(el); this.f('media').classList.add('is-flying');
+        if (!from || !to || from.y + from.h < 0 || from.y > innerHeight || from.x + from.w < 0 || from.x > innerWidth) { if (keep) keep.remove(); return null; }
+        let el = keep;
+        if (!el) {
+          el = document.createElement('img'); el.className = 'bf__fly'; el.alt = '';
+          // The rail's own picture is already decoded: the copy draws on its first frame.
+          el.decoding = 'async'; el.src = front.currentSrc || front.src;
+          el.style.width = to.w + 'px'; el.style.height = to.h + 'px';
+          this.dialog.appendChild(el);
+        }
+        this.f('media').classList.add('is-flying');
         const s = from.h / to.h, fx = from.x + from.w / 2 - (to.w * s) / 2;
         const facing = li.classList.contains('is-hot') || li.classList.contains('is-facing');
-        return { el, kf: [{ transform: 'translate(' + fx + 'px,' + from.y + 'px) scale(' + s + ')', opacity: facing ? 1 : 0.35 }, { transform: 'translate(' + to.x + 'px,' + to.y + 'px) scale(1)', opacity: 1 }] };
+        const kf = [{ transform: 'translate(' + fx + 'px,' + from.y + 'px) scale(' + s + ')', opacity: facing ? 1 : 0.35 }, { transform: 'translate(' + to.x + 'px,' + to.y + 'px) scale(1)', opacity: 1 }];
+        return { el, kf };
+      }
+      // The pictures of this garment: the first is the focus picture (and the flight's), the rest load as they come into view.
+      slides(g) {
+        const sl = this.f('slides'), front = this.f('front'), first = front.parentElement;
+        const list = (g.images && g.images.length ? g.images : [g.front, g.back]).filter(Boolean);
+        [...sl.children].forEach(c => { if (c !== first) c.remove(); });
+        list.slice(1).forEach((src, k) => {
+          const fig = document.createElement('figure'); fig.className = 'bf__slide';
+          const im = document.createElement('img'); im.alt = g.title + ' (' + (k + 2) + '/' + list.length + ')'; im.loading = 'lazy'; im.decoding = 'async'; im.draggable = false; im.width = 1200; im.height = 1500; im.src = src;
+          fig.appendChild(im); sl.appendChild(fig);
+        });
+        sl.scrollLeft = 0;
+        const n = list.length, dots = this.f('dots');
+        dots.hidden = n < 2; this.f('iprev').hidden = this.f('inext').hidden = n < 2;
+        dots.innerHTML = n > 1 ? list.map((_, k) => '<button type="button" class="bf__dot" data-k="' + k + '" aria-label="' + (k + 1) + ' / ' + n + '"></button>').join('') : '';
+        this.paintSlides();
+      }
+      paintSlides() {
+        const sl = this.f('slides'), n = sl.children.length, k = this.slideAt();
+        [...this.f('dots').children].forEach((b, j) => b.setAttribute('aria-current', String(j === k)));
+        this.f('iprev').disabled = k <= 0; this.f('inext').disabled = k >= n - 1;
       }
       show(i, dir) {
         const li = this.items[i]; if (!li || !li._data) return;
         const list = this.shoppable(), d = this.dialog, moving = dir && d.open && d.animate && !this.calm();
         const E = 'cubic-bezier(.22, 1, .36, 1)', media = this.f('media');
-        // Between garments: the one in view slides out and fades as the next slides in from the arrow's side.
+        // Between garments: the picture in view slides out and fades as the next slides in from the arrow's side.
         if (moving) {
-          const cur = [this.f('front'), this.f('back')].find(x => !x.hidden && x.currentSrc);
-          if (cur) {
-            const gh = cur.cloneNode(); gh.removeAttribute('data-f-front'); gh.removeAttribute('data-f-back'); gh.hidden = false; gh.className = 'bf__ghost'; media.appendChild(gh);
-            gh.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateX(' + (-dir * 64) + 'px)' }], { duration: 360, easing: 'cubic-bezier(.4, 0, .2, 1)', fill: 'forwards' }).finished.then(() => gh.remove(), () => gh.remove());
+          const sl = this.f('slides'), cur = sl.children[this.slideAt()] && sl.children[this.slideAt()].querySelector('img');
+          if (cur && cur.currentSrc) {
+            const gh = document.createElement('img'); gh.className = 'bf__ghost'; gh.alt = ''; gh.src = cur.currentSrc; media.appendChild(gh);
+            gh.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateX(' + (-dir * 48) + 'px)' }], { duration: 240, easing: 'cubic-bezier(.4, 0, .2, 1)', fill: 'forwards' }).finished.then(() => gh.remove(), () => gh.remove());
           }
           if (this.index != null) this.items[this.index]?.classList.remove('is-lifted');
           li.classList.add('is-lifted');
@@ -931,21 +1085,19 @@
         this.f('prev').hidden = this.f('next').hidden = list.length < 2;
         this.f('title').textContent = g.title; this.f('name').textContent = g.title;
         const link = this.f('link'); link.href = g.url; link.textContent = g.linkText || ''; link.hidden = !g.linkText;
-        media.classList.toggle('is-photo', !!g.photo);
-        const front = this.f('front'), back = this.f('back');
+        media.classList.toggle('bf__media--cut', !g.photo);
+        const front = this.f('front');
         // The picture the rail already shows comes first (it is loaded), the focus view's sharper one as soon as it is ready.
         const railFront = li.querySelector('.brail__front');
         const ready = li._pre && li._pre[0] && li._pre[0].complete && li._pre[0].naturalWidth;
         front.src = ready || !railFront || !railFront.currentSrc ? (g.front || '') : railFront.currentSrc;
         front.alt = g.title;
         if (!ready && g.front && front.src !== g.front) { this.preload(li); const hi = li._pre[0], at = i; const swap = () => { if (this.index === at && hi.naturalWidth) front.src = g.front; }; if (hi.complete) swap(); else hi.addEventListener('load', swap, { once: true }); }
+        this.slides(g);
         if (moving) {
-          front.animate([{ opacity: 0, transform: 'translateX(' + (dir * 64) + 'px)' }, { opacity: 1, transform: 'none' }], { duration: 520, delay: 40, easing: E, fill: 'backwards' });
-          d.querySelector('.bf__info').animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 380, easing: E });
+          this.f('slides').animate([{ opacity: 0, transform: 'translateX(' + (dir * 48) + 'px)' }, { opacity: 1, transform: 'none' }], { duration: 300, delay: 30, easing: E, fill: 'backwards' });
+          d.querySelector('.bf__info').animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: E });
         }
-        back.removeAttribute('src'); back.alt = g.title; // the back view loads only when asked for
-        this.f('tabs').hidden = !g.back;
-        this.view('front');
         // Options as pills; the first available variant is chosen
         this.variant = g.variants.find(v => v.available) || g.variants[0];
         const box = this.f('options'); box.innerHTML = '';
@@ -961,6 +1113,11 @@
             });
             box.appendChild(fs);
           });
+        }
+        const qty = this.f('qty');
+        if (qty) {
+          const inp = qty.querySelector('input'); inp.value = '1'; inp.dispatchEvent(new Event('change'));
+          qty.querySelectorAll('button .visually-hidden').forEach(sp => { sp.dataset.t = sp.dataset.t || sp.textContent.trim(); sp.textContent = sp.dataset.t + ' ' + g.title; });
         }
         this.f('msg').textContent = '';
         this.f('cart').hidden = true;
@@ -1006,17 +1163,12 @@
         const atc = this.f('atc'); atc.disabled = !v.available; atc.classList.remove('is-added'); clearTimeout(this._added);
         atc.textContent = v.available ? {{ 'products.product.add_to_cart' | t | json }} : {{ 'products.product.sold_out' | t | json }};
       }
-      view(which) {
-        const front = this.f('front'), back = this.f('back');
-        if (which === 'back' && this.g.back && !back.getAttribute('src')) back.src = this.g.back;
-        front.hidden = which === 'back'; back.hidden = which !== 'back';
-        this.dialog.querySelectorAll('[data-f-view]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.fView === which)));
-      }
       async add() {
         const atc = this.f('atc'), msg = this.f('msg'), stay = this.dataset.afterAdd !== 'drawer';
+        const qty = this.f('qty'), n = Math.max(1, parseInt(qty ? qty.querySelector('input').value : '1', 10) || 1);
         atc.setAttribute('aria-busy', 'true'); msg.textContent = '';
         try {
-          await window.MateriaAddItems([{ id: this.variant.id, quantity: 1 }], { open: !stay });
+          await window.MateriaAddItems([{ id: this.variant.id, quantity: n }], { open: !stay });
           if (stay) {
             atc.classList.add('is-added'); atc.textContent = {{ 'accessibility.added' | t | json }};
             this.f('cart').hidden = false;
@@ -1397,13 +1549,13 @@
     {
       "type": "text",
       "id": "front_label",
-      "label": "Front tab",
+      "label": "Name of the front picture",
       "default": "Front"
     },
     {
       "type": "text",
       "id": "back_label",
-      "label": "Back tab",
+      "label": "Name of the back picture",
       "default": "Back"
     },
     {
@@ -1426,13 +1578,13 @@
       "type": "color",
       "id": "focus_color",
       "label": "Focus view background colour",
-      "info": "Empty: the section's colour scheme."
+      "info": "Empty: the colour scheme's background."
     },
     {
       "type": "color",
       "id": "focus_text",
       "label": "Focus view text colour",
-      "info": "Empty: the section's colour scheme."
+      "info": "Empty: the colour scheme's text and heading colours."
     },
     {
       "type": "range",
@@ -1443,6 +1595,46 @@
       "step": 5,
       "unit": "%",
       "default": 82
+    },
+    {
+      "type": "select",
+      "id": "focus_images",
+      "label": "Pictures in the focus view",
+      "default": "all",
+      "options": [
+        { "value": "all", "label": "The garment's pictures, then the product's photos" },
+        { "value": "garment", "label": "Only the garment's pictures (front and back)" }
+      ],
+      "info": "With more than one picture the focus view swipes through them, with dots and arrows. A photo with the same file name as the garment's picture is shown once."
+    },
+    {
+      "type": "range",
+      "id": "focus_media_radius",
+      "label": "Picture corners",
+      "min": 0,
+      "max": 24,
+      "step": 2,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "checkbox",
+      "id": "focus_quantity",
+      "label": "Show quantity",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "focus_own_scheme",
+      "label": "Focus view uses its own colour scheme",
+      "default": false,
+      "info": "Off: the section's colour scheme. Pills, quantity, links and buttons follow the scheme and Theme settings."
+    },
+    {
+      "type": "color_scheme",
+      "id": "focus_color_scheme",
+      "label": "Focus view colour scheme",
+      "default": "default"
     },
     {
       "type": "select",

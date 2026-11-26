@@ -6,7 +6,7 @@
       "settings": {
         "color_scheme": "default",
         "image": "shopify://shop_images/authorbook-author.webp",
-        "image_alt": "Tess Moran",
+        "image_alt": "Hanna Reyes",
         "image_position": "left",
         "aspect_w": 4,
         "aspect_h": 5,
@@ -23,14 +23,14 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Tess Moran",
+            "text": "Hanna Reyes",
             "tag": "h1"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Tess got her first dog, a collie, at twenty two and made every mistake in this book. Then she helped at a local puppy class, started her own and spent nine years answering the same questions every Saturday.</p><p>She now writes a short letter about training every other week. This is sample text. Replace it with your own story.</p>"
+            "text": "<p>Hanna went freelance at twenty eight and spent a year posting long updates nobody read. Then she picked one thing, wrote about it three times a week and started getting messages from people she had never met.</p><p>She now runs workshops and writes a short note every other week. This is sample text. Replace it with your own story.</p>"
           }
         },
         "button_4": {
@@ -53,7 +53,7 @@
       "settings": {
         "color_scheme": "default",
         "image": "shopify://shop_images/authorbook-home.webp",
-        "image_alt": "A young dog resting on its bed in a bright living room",
+        "image_alt": "Hanna Reyes writing at a long table in a cafe, laptop open",
         "image_position": "right",
         "aspect_w": 1,
         "aspect_h": 1,
@@ -69,13 +69,13 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "The book she wanted with her first puppy"
+            "text": "The book she wanted in her first year"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Most puppy advice is a list of forty rules and a different answer on every forum. Sit, Stay, Settle picks the handful that matter, in the order to learn them, with what to do when a dog still struggles.</p>"
+            "text": "<p>Most LinkedIn advice is a list of forty hacks and a different rule every month. Known For It picks the handful that matter, in the order to learn them, with what to do when a post gets no reply.</p>"
           }
         }
       },
@@ -103,24 +103,24 @@
           "type": "column",
           "settings": {
             "label": "01",
-            "heading": "Routine comes first",
-            "text": "<p>A puppy that knows what comes next settles faster than any trick can teach.</p>"
+            "heading": "One thing first",
+            "text": "<p>People remember one thing about you. Choose it before you write.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
             "label": "02",
-            "heading": "Reward the moment",
-            "text": "<p>A treat two seconds late teaches the wrong thing.</p>"
+            "heading": "Useful beats clever",
+            "text": "<p>A post that helps one reader beats one written to impress everyone.</p>"
           }
         },
         "column_4": {
           "type": "column",
           "settings": {
             "label": "03",
-            "heading": "Five minutes wins",
-            "text": "<p>Two short sessions a day beat one long one, every time.</p>"
+            "heading": "Three a week wins",
+            "text": "<p>Three posts you can keep beat seven you cannot, every time.</p>"
           }
         }
       },
@@ -162,27 +162,27 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "body": "We followed the week one routine to the letter. By day ten there were no more accidents.",
-            "name": "Maya A.",
-            "role": "First puppy, a Labrador",
+            "body": "I rewrote my headline with the fifteen word test. The next client quoted it back to me.",
+            "name": "Priya N.",
+            "role": "Freelance designer",
             "rating": 5
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "body": "The loose lead chapter alone was worth it. Walks are a pleasure again.",
+            "body": "The twenty minute post chapter alone was worth it. I stopped rewriting drafts for days.",
             "name": "Daniel A.",
-            "role": "Rescue dog, two years old",
+            "role": "Accountant, small practice",
             "rating": 5
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "body": "I live in a flat with no garden. Chapter three had a plan for that.",
+            "body": "I hated selling myself. Chapter three showed me how to write about the work instead.",
             "name": "Lena M.",
-            "role": "Flat, no garden",
+            "role": "Looking for a new role",
             "rating": 5
           }
         }
@@ -201,14 +201,14 @@
       "settings": {
         "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
         "image": "shopify://shop_images/authorbook-spread-week.webp",
-        "image_alt": "Two open pages from chapter two of Sit, Stay, Settle",
+        "image_alt": "Two open pages from chapter two of Known For It",
         "image_position": "left",
         "image_ratio": "landscape",
         "image_width": 50,
         "form_layout": "horizontal",
         "btn_text": "Send it to me",
         "email_placeholder": "Your email",
-        "note": "You also get the puppy letter every other week. Leave whenever you like.",
+        "note": "You also get the Friday note every other week. Leave whenever you like.",
         "success_text": "Done. Chapter two is in your inbox."
       },
       "blocks": {
@@ -221,7 +221,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Your first week at home, as a PDF: the daily routine, where your puppy sleeps and the five minute rule for house training.</p>"
+            "text": "<p>Pick what you want to be known for, as a PDF: the one line headline, a week of posts and the fifteen word test.</p>"
           }
         }
       },

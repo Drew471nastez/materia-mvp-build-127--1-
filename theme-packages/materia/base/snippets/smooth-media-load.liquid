@@ -57,6 +57,9 @@
     if (el.getAttribute('fetchpriority') === 'high') return false;
     var cn = (typeof el.className === 'string') ? el.className : '';
     if (cn && SKIP.test(cn)) return false;
+    // A dialog's own gallery (the quick view) shows its pictures itself: no
+    // fade, and no layout read here while the dialog moves.
+    if (el.closest && el.closest('[data-mt-instant]')) return false;
     return true;
   }
 
@@ -116,7 +119,7 @@
     var list = (ctx.tagName === 'IMG') ? [ctx] : (ctx.querySelectorAll ? ctx.querySelectorAll('img[loading="lazy"]') : []);
     for (var i = 0; i < list.length; i++) {
       var img = list[i];
-      if (img.getAttribute('loading') === 'lazy' && !img.complete) ahead.observe(img);
+      if (img.getAttribute('loading') === 'lazy' && !img.complete && !(img.closest && img.closest('[data-mt-instant]'))) ahead.observe(img);
     }
   }
   function startAhead() {

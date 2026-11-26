@@ -241,7 +241,7 @@
       <div
         id="GalleryViewer-{{ section.id }}"
         class="grid grid-cols gap grid_scroll"
-        style="{%- if desktop_layout == 'grid_1_column' -%}--col-number: {{ mg_per_view }};--col-desktop: 1;--col-tablet: 1;--col-gap: 10px;{%- else -%}--col-number: {{ mg_per_view }};--col-tablet: 2;--col-desktop: 2;--col-gap: 10px;{%- endif -%}"
+        style="{%- comment -%} One picture in Grid, two columns fills the column instead of sitting in its left half (round 28, Redline). {%- endcomment -%}{%- if desktop_layout == 'grid_1_column' or images.size == 1 -%}--col-number: {{ mg_per_view }};--col-desktop: 1;--col-tablet: 1;--col-gap: 10px;{%- else -%}--col-number: {{ mg_per_view }};--col-tablet: 2;--col-desktop: 2;--col-gap: 10px;{%- endif -%}"
       >
         {% render 'product-media-layout',
           product: product,

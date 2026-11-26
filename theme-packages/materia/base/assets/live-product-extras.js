@@ -88,13 +88,14 @@
     out.push([r, '--rp-heading-color', hc], [r, '--rp-text-color', tc], [r, '--rp-bg', bg], [r, '@data-rp-bg', !!bg]);
     out.push([r, '--rp-heading-font', hf], [r, '--rp-body-font', bf]);
     out.push([width, 'grp:container|fluid_container|stretch_width|full_width', s.section_width || 'fluid_container']);
-    out.push([header, 'grp:text-left|text-center|text-right', 'text-' + (s.header_alignment || 'left')], [header, 'cls:px-20', s.section_width === 'full_width'], [header, '@data-rp-hidden', blank(heading) && blank(description)]);
+    out.push([header, 'grp:text-left|text-center|text-right', 'text-' + (s.header_alignment || 'left')], [header, 'cls:px-20', false], [header, '@data-rp-hidden', blank(heading) && blank(description)]);
     out.push([hm, '@data-rp-hidden', blank(heading)], [h2, 'rich', heading], [h2, 'grp:h3|h1-size', s.header_size === 'small' ? 'h3' : s.header_size === 'large' ? 'h1-size' : ''], [h2, 'grp:mb-10|mb-0', blank(description) ? 'mb-0' : 'mb-10'], [h2, '@data-own-font', !!hf]);
     out.push([des, 'rich', description], [des, '@data-own-font', !!bf], [des, '@data-rp-hidden', blank(description)]);
     if (grid) {
       const d = num(s.items_per_row, 4), m = num(s.items_per_row_mobile, 2), g = num(s.column_gap, 30);
       out.push([grid, '--col-desktop', String(d)], [grid, '--col-number', String(m)], [grid, '--col-mobile', String(m)], [grid, '--col-tablet', String(d > 3 ? 3 : d)]);
-      out.push([grid, '--col-gap', (g < 15 ? g : 15) + 'px'], [grid, '--col-gap-desktop', g < 15 ? '' : g + 'px']);
+      /* under 4px: the theme's card gap, as sections/related-products draws it (round 28) */
+      out.push([grid, '--col-gap', g < 4 ? 'var(--grid-gap, 12px)' : (g < 15 ? g : 15) + 'px'], [grid, '--col-gap-desktop', g < 4 ? 'var(--grid-gap, 20px)' : g < 15 ? '' : g + 'px']);
       out.push([grid, 'cls:row-gap-20', g < 31], [grid, 'cls:row-gap-md-30', g < 31], [grid, 'cls:grid_scroll', m > 1 && m < 2], [grid, '@data-free-scroll', m > 1 && m < 2 ? 'true' : false]);
     }
     return out;

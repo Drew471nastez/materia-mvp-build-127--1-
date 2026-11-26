@@ -1,0 +1,593 @@
+/* Materia Themes. Developed By Materia Themes. */
+/* ==========================================================================
+   Search overlay (Theme settings > Search > Search type)
+
+   #search-form and .overlay_search are manual popovers: while open they sit
+   in the browser's top layer, above the header, the announcement bar, the
+   mobile navigation bar and every z-index on the page, and the scrim sits
+   right under the panel. Closed, they stay laid out but hidden, so opening
+   costs no layout of the panel's content; until this file loads the
+   browser's own [popover] rule keeps them out of view (no unstyled flash).
+
+   Popup: the panel starts at the top of the screen, full width, and its bar
+   covers the announcement and top bars and the header. theme.js measures
+   the bottom of the header as it opens and sets --sh-height on
+   #search-form; the field sits in that bar and the trending and results
+   open below it. The panel itself is always opaque and slides down from
+   the top, so nothing shows through it; the Open and close animation
+   setting moves its content.
+   Drawer: a full height sheet from the side with its own scroll.
+   Only opacity and transform (and filter for the Blur animation) move.
+   ========================================================================== */
+#search-form.search-overlay,
+.overlay_search {
+  /* Undo the browser's [popover] box. */
+  margin: 0;
+  border: 0;
+  padding: 0;
+  max-width: none;
+  max-height: none;
+  color: inherit;
+  overflow: visible;
+}
+#search-form.search-overlay {
+  --search-dur: var(--mt-panel-out, 320ms);
+  --search-ease: var(--mt-panel-ease-out, cubic-bezier(.22,.61,.36,1));
+  display: block;
+  position: fixed;
+  z-index: 1000;
+  visibility: hidden;
+  pointer-events: none;
+  background: var(--color-background, #fff);
+  color: var(--color-text, inherit);
+  transition: opacity var(--search-dur) var(--search-ease),
+    transform var(--search-dur) var(--search-ease),
+    filter var(--search-dur) var(--search-ease),
+    visibility 0s linear var(--search-dur);
+}
+#search-form.search-overlay.open {
+  --search-dur: var(--mt-panel-in, 320ms);
+  --search-ease: var(--mt-panel-ease-in, cubic-bezier(.22,.61,.36,1));
+  visibility: visible;
+  pointer-events: auto;
+  transition-delay: 0s;
+}
+
+/* ---- Scrim ---- */
+.overlay_search {
+  display: block;
+  position: fixed;
+  inset: 0;
+  width: auto;
+  height: auto;
+  z-index: 999;
+  background-color: var(--overlay-bg, rgba(0, 0, 0, 0.5));
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  cursor: url(/theme-previews/_base/a/cursor-close.4bf1416d0cf8.png), pointer;
+  transition: opacity 250ms cubic-bezier(0.7, 0, 0.2, 1), visibility 0s linear 250ms;
+}
+.overlay_search.open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition-delay: 0s;
+}
+.overlay_search::backdrop,
+#search-form.search-overlay::backdrop {
+  background: transparent;
+}
+
+/* ---- Popup: from the top of the screen, over the header and the bars above it ---- */
+#search-form.search-overlay--popup {
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: auto;
+  width: auto;
+  height: auto;
+  min-height: var(--sh-height, 72px);
+  max-height: 100vh;
+  max-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 0;
+  box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.28);
+  transform: translateY(-100%);
+}
+#search-form.search-overlay--popup.open {
+  transform: none;
+}
+/* The content inside: the creator's Open and close animation. */
+#search-form.search-overlay--popup > * {
+  opacity: 0;
+  transform-origin: 50% 0;
+  transition: opacity var(--search-dur) var(--search-ease),
+    transform var(--search-dur) var(--search-ease),
+    filter var(--search-dur) var(--search-ease);
+}
+#search-form.search-overlay--popup.open > * {
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+#search-form.search-overlay--popup.search__popup-anim--slide-down:not(.open) > * {
+  transform: translateY(-12px);
+}
+#search-form.search-overlay--popup.search__popup-anim--zoom:not(.open) > * {
+  transform: scale(0.97);
+}
+#search-form.search-overlay--popup.search__popup-anim--blur:not(.open) > * {
+  filter: blur(8px);
+}
+/* The rendered popup content is one column: the bar, then whatever is below
+   it, which scrolls on its own when it is taller than the screen. */
+#search-form.search-overlay--popup > :is(.search__type-popup, .search__type-basic) {
+  position: static;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+  color: inherit;
+}
+#search-form.search-overlay--popup > * > :is(.container, .fluid_container) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding-inline: var(--bs-gutter-x, 1.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+#search-form.search-overlay--popup .search-title {
+  display: none !important;
+}
+#search-form.search-overlay--popup .search__type-popup-bar {
+  flex: none;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: var(--sh-height, 72px);
+  margin: 0 auto;
+  background: inherit;
+}
+#search-form.search-overlay--popup .search-modal__form {
+  margin: 0;
+}
+#search-form.search-overlay--popup .search__type-popup-input.search__input {
+  height: clamp(40px, calc(var(--sh-height, 72px) - 16px), 52px);
+  background: transparent;
+  border: 1.5px solid var(--color-border, rgba(0, 0, 0, 0.15));
+}
+#search-form.search-overlay--popup .search__type-popup-input.search__input:focus {
+  border-color: var(--color-heading);
+}
+#search-form.search-overlay--popup :is(#quick-search, #predictive-search, .search__loading-state) {
+  position: static;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+#search-form.search-overlay--popup :is(#quick-search, .search-empty) {
+  max-width: 598px;
+  padding: 4px 58px 20px 0;
+}
+@media screen and (max-width: 1199.98px) {
+  #search-form.search-overlay--popup :is(#quick-search, .search-empty) { max-width: 529px; }
+}
+@media screen and (max-width: 991.98px) {
+  #search-form.search-overlay--popup :is(#quick-search, .search-empty) { max-width: 483px; }
+}
+@media screen and (max-width: 767.98px) {
+  #search-form.search-overlay--popup :is(#quick-search, .search-empty) { max-width: none; padding-right: 0; }
+}
+#search-form.search-overlay--popup #predictive-search:has(.search-list-item) {
+  padding-bottom: 24px;
+}
+#search-form.search-overlay--popup #predictive-search:not(:has(.search-list-item)) {
+  display: none;
+}
+
+/* ---- Loading: what is on screen stays, dimmed, with the spinner in the
+   field. No skeleton swapped in and out, so the panel never collapses and
+   grows again between two queries. ---- */
+#search-form.search-overlay #predictive-search.loading > [data-predictive-search],
+#search-form.search-overlay #quick-search:not(.hidden):has(+ #predictive-search.loading) {
+  display: block !important;
+}
+#search-form.search-overlay #predictive-search.loading + .search__loading-state,
+#search-form.search-overlay .search__loading-state {
+  display: none !important;
+}
+#search-form.search-overlay #predictive-search > [data-predictive-search],
+#search-form.search-overlay #quick-search {
+  transition: opacity 180ms ease;
+}
+#search-form.search-overlay #predictive-search > [data-predictive-search] > .search-list-item {
+  transition: opacity 180ms ease;
+}
+#search-form.search-overlay #predictive-search.loading > [data-predictive-search],
+#search-form.search-overlay #predictive-search.loading.is-empty .search-list-item,
+#search-form.search-overlay #quick-search:has(+ #predictive-search.loading) {
+  opacity: 0.55;
+}
+
+/* ---- No results: the message first, then trending and the suggested
+   collection, as they were before typing. The results box steps aside
+   (display: contents) so the three line up in that order. ---- */
+#search-form.search-overlay :is(.fluid_container, .container, .search-modal__content):has(> #predictive-search.is-empty) {
+  display: flex;
+  flex-direction: column;
+}
+#search-form.search-overlay .search__type-popup-bar {
+  order: -2;
+}
+#search-form.search-overlay #predictive-search.is-empty,
+#search-form.search-overlay #predictive-search.is-empty > [data-predictive-search] {
+  display: contents !important;
+}
+#search-form.search-overlay #predictive-search.is-empty .search-list-item {
+  order: 1;
+  width: 100%;
+  margin: 0 auto;
+  padding-bottom: 24px;
+}
+#search-form.search-overlay #predictive-search.is-empty .search-list-item:has(> .search-empty) {
+  order: -1;
+  padding-bottom: 0;
+}
+#search-form.search-overlay--popup #predictive-search.is-empty .search-list-item {
+  max-width: 960px;
+}
+#search-form.search-overlay--drawer #predictive-search.is-empty .search-list-item {
+  padding-inline: 3rem;
+}
+#search-form.search-overlay .search-empty {
+  margin: 0 auto;
+  padding: 4px 0 20px;
+  color: var(--color-heading);
+  overflow-wrap: anywhere;
+  animation: search-results-in 200ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+#search-form.search-overlay--drawer .search-empty {
+  padding: 0 0 24px;
+}
+/* Results that arrive fade in below the bar instead of popping. */
+#search-form.search-overlay #predictive-search.results [data-predictive-search] > * {
+  animation: search-results-in 200ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@keyframes search-results-in {
+  from { opacity: 0; transform: translateY(-4px); }
+}
+
+/* ---- Drawer: a full height sheet above everything ---- */
+#search-form.search-overlay--drawer {
+  --search-dur: var(--mt-panel-out, 320ms);
+  top: 0;
+  bottom: 0;
+  right: 0;
+  left: auto;
+  width: 100%;
+  max-width: min(var(--drawer-width, 48rem), 100vw);
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  transform: translateX(100%);
+  box-shadow: -12px 0 40px -24px rgba(0, 0, 0, 0.35);
+}
+#search-form.search-overlay--drawer.search-overlay--rtl {
+  right: auto;
+  left: 0;
+  padding-right: 0;
+  padding-left: env(safe-area-inset-left, 0px);
+  transform: translateX(-100%);
+}
+#search-form.search-overlay--drawer.open {
+  transform: none;
+}
+#search-form.search-overlay--drawer > .search___drawer {
+  height: 100%;
+  min-height: 0;
+}
+#search-form.search-overlay--drawer .search-modal__content {
+  min-height: 0;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Close buttons are full size tap targets. */
+#search-form.search-overlay .btn-search-close {
+  min-width: 44px;
+  min-height: 44px;
+}
+#search-form.search-overlay .btn-search-close:focus-visible,
+#search-form.search-overlay .search__type-popup-submit:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #search-form.search-overlay,
+  .overlay_search {
+    --search-dur: 1ms;
+    transition-duration: 1ms;
+  }
+  #search-form.search-overlay:not(.open),
+  #search-form.search-overlay--popup:not(.open) > * {
+    transform: none;
+    filter: none;
+  }
+  #search-form.search-overlay #predictive-search.results [data-predictive-search] > * {
+    animation: none;
+  }
+}
+
+/* ---- Results inside the panels ---- */
+/* The cards are the theme's own product card (Theme settings > Product
+   cards: style, image ratio, vendor, badges, hover); on a phone they line
+   up as a list, the picture at the start and the details beside it. */
+@media screen and (max-width: 767.98px) {
+  .header_search .product-item__wrapper,
+  #search-form .product-item > .product-item__wrapper.product-grid {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 15px;
+    height: auto;
+    --product-item__price-top: 3px;
+    --col-width: 8rem;
+  }
+  .header_search .product-item__information,
+  #search-form .product-item > .product-item__wrapper > .product-item__information {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin-top: 0;
+    text-align: start;
+    align-items: flex-start;
+    align-self: center;
+  }
+  .header_search .product-item__inner,
+  #search-form .product-item > .product-item__wrapper > .product-item__inner {
+    flex: 0 0 7rem;
+    width: 7rem;
+  }
+  .header_search .product-item:not(:last-child) {
+    border-bottom: 1px dashed var(--color-border);
+    padding-bottom: 1.5rem;
+  }
+  .header_search .product-item .product-item__price {
+    justify-content: flex-start;
+  }
+  .search-type-default .search__button.light-dark-grey {
+    color: var(--color-heading);
+  }
+}
+
+/* Basic type: the popup shell without suggestions or results. */
+.search__type-basic .search-suggestions,
+.search__type-basic .predictive-search,
+.search__type-basic .search-results,
+.search__type-basic [data-predictive-search-results],
+.search__type-basic .collection-suggestion,
+.search__type-basic .search-trending-keywords {
+  display: none !important;
+}
+
+/* ---- Popup search bar: icon inside right, close outside right ---- */
+.search__type-popup-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  max-width: 598px;
+  margin: 0 auto;
+  position: relative;
+}
+@media screen and (max-width: 1199.98px) {
+  .search__type-popup-bar {
+    max-width: 529px;
+  }
+}
+@media screen and (max-width: 991.98px) {
+  .search__type-popup-bar {
+    max-width: 483px;
+  }
+}
+@media screen and (max-width: 767.98px) {
+  .search__type-popup-bar {
+    max-width: 100%;
+    gap: 8px;
+  }
+}
+.search__type-popup-bar--rtl {
+  flex-direction: row-reverse;
+}
+.search__type-popup-form {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+.search__type-popup-field {
+  position: relative;
+  display: flex;
+  width: 100%;
+}
+.search__type-popup-input.search__input {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 52px;
+  padding: 0 56px 0 22px;
+  font-size: 16px;
+  line-height: 1.4;
+  border-radius: var(--search-input-radius, 999px) !important;
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.14));
+  background: var(--color-white, #fff);
+  color: var(--color-heading, #111);
+  box-shadow: none;
+  outline: none;
+  transition: border-color 0.2s cubic-bezier(0.2, 0.7, 0.2, 1);
+  -webkit-appearance: none;
+  appearance: none;
+}
+.search__type-popup-bar--rtl .search__type-popup-input.search__input {
+  padding: 0 22px 0 52px;
+}
+.search__type-popup-input.search__input::placeholder {
+  color: rgba(var(--color-heading-rgb, 17, 17, 17), 0.55);
+  opacity: 1;
+}
+.search__type-popup-input.search__input:focus,
+.search__type-popup-input.search__input:focus-visible {
+  outline: none;
+  border-color: var(--color-heading, #111);
+  box-shadow: none;
+}
+.search__type-popup-submit {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: 0;
+  color: var(--color-heading, #111);
+  opacity: 0.72;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: opacity 0.2s cubic-bezier(0.2, 0.7, 0.2, 1), background-color 0.2s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.search__type-popup-bar--rtl .search__type-popup-submit {
+  right: auto;
+  left: 6px;
+}
+.search__type-popup-submit:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--color-heading) 8%, transparent);
+}
+.search__type-popup-submit svg {
+  width: 17px;
+  height: 17px;
+  display: block;
+}
+.search__type-popup-loading {
+  position: absolute;
+  top: 50%;
+  right: 52px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  visibility: hidden;
+  pointer-events: none;
+}
+.search__type-popup-bar--rtl .search__type-popup-loading {
+  right: auto;
+  left: 52px;
+}
+/* The spinner turns only while a search is loading (hidden, it kept spinning on every page). */
+.search__type-popup-loading,
+.search__type-popup-loading * { animation-play-state: paused !important; }
+#search_mini_form.loading .search__type-popup-loading {
+  visibility: visible;
+}
+#search_mini_form.loading .search__type-popup-loading,
+#search_mini_form.loading .search__type-popup-loading * { animation-play-state: running !important; }
+.search__type-popup-close.btn-search-close {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  color: var(--color-heading, #111);
+  opacity: 0.75;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: opacity 0.2s cubic-bezier(0.2, 0.7, 0.2, 1), background-color 0.2s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.2s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.search__type-popup-close.btn-search-close:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--color-heading) 8%, transparent);
+  transform: scale(1.05);
+}
+.search__type-popup-close.btn-search-close svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+@media screen and (max-width: 767.98px) {
+  .search__type-popup-input.search__input {
+    font-size: 16px; /* 16px keeps iOS from zooming into the field */
+    padding: 0 46px 0 16px;
+  }
+  .search__type-popup-bar--rtl .search__type-popup-input.search__input {
+    padding: 0 16px 0 46px;
+  }
+  .search__type-popup-loading {
+    right: 46px;
+  }
+  .search__type-popup-bar--rtl .search__type-popup-loading {
+    left: 46px;
+  }
+}
+
+/* Trending / quick search pills */
+.quick-search .quick-url {
+  border-radius: var(--pill-radius, 999px);
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  padding: 8px 16px;
+  min-height: 36px;
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.12));
+  background: transparent;
+  color: var(--color-heading);
+  display: inline-flex;
+  align-items: center;
+  transition: background-color 0.3s cubic-bezier(0.2, 0.7, 0.2, 1),
+    color 0.3s cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1),
+    border-color 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.quick-search .quick-url:hover {
+  transform: translateY(-1px);
+  background: var(--color-primary);
+  color: var(--color-btn-primary, var(--color-white, #fff));
+  border-color: var(--color-primary);
+}
+
+/* One close button: the browser's own clear (x) inside a search field is
+   hidden, so the field shows only the search icon and the panel its close. */
+.search__input::-webkit-search-cancel-button,
+.search__input::-webkit-search-decoration,
+.search__input::-webkit-search-results-button,
+.search__input::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}

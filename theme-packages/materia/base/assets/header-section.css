@@ -241,6 +241,21 @@ html body .h-count.is-count-bump:not(.header-action-text .h-count) {
   }
 }
 
+/* Dropdowns and mega menus paint the header colour scheme's real background
+   (--hs-mnav-bg, sections/header), not the header's current one: over a
+   transparent or pill header the panel took the header's transparent
+   background the moment the pointer left, so the panel vanished at once and
+   its links and pictures faded out alone over the page (round 28). A panel
+   with its own colour scheme class keeps it; glass and tinted panels keep
+   their own rules. */
+@media screen and (min-width: 1025px) {
+  .header:not(.glass-enabled) .navigation.horizontal :is(.menu-parent > .submenu, .dropdown-menu .sub-children-menu):not([class*="color-"]) {
+    --color-background: var(--hs-mnav-bg, #ffffff);
+    --gradient-background: var(--hs-mnav-bg, #ffffff);
+    background: var(--hs-mnav-bg, #ffffff);
+  }
+}
+
 /* Tinted dropdown background (Header > Tinted dropdown background): a soft
    tint of the header's heading colour over its real background, with or
    without glass. The repeated attribute keeps it above the glass rules. */

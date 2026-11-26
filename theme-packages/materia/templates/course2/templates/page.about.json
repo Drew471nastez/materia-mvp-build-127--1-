@@ -10,19 +10,19 @@
         "line_color": "#e5e0d8",
         "anchor": "",
         "image": "shopify://shop_images/course2-teacher.webp",
-        "image_alt": "Tom Ashby at the bench in his workshop",
-        "name": "Tom Ashby",
-        "role": "Furniture maker and teacher",
+        "image_alt": "Clara Lind smiling at the camera in her studio",
+        "name": "Clara Lind",
+        "role": "Brand designer and teacher",
         "main_heading": true,
         "eyebrow": "Your teacher",
-        "heading": "Hi, I'm Tom. I teach the way I wish I had been taught",
-        "text": "<p>I learned in a cabinet shop full of machines and spent years thinking you needed all of them. You do not. Most of what I make now starts with a saw, a plane and a chisel.</p><p>I have taught evening classes for twelve years. This course is the order I teach in, filmed over the bench so you see every cut.</p>",
+        "heading": "Hi, I'm Clara. I teach the rules I use for paying clients",
+        "text": "<p>I have spent twelve years designing brands for small businesses, and most of them still made their own posts afterwards. The good ones followed a few simple rules. The rest guessed.</p><p>This course is those rules, in the order I teach them in workshops, recorded on screen so you see every click.</p>",
         "fact_1_value": "12 years",
-        "fact_1_label": "Teaching evening classes",
+        "fact_1_label": "Designing for small brands",
         "fact_2_value": "1:1",
-        "fact_2_label": "Feedback on your joints",
+        "fact_2_label": "Feedback on your designs",
         "fact_3_value": "Every month",
-        "fact_3_label": "New workshop notes",
+        "fact_3_label": "New templates and notes",
         "button_label": "Start learning",
         "button_link": "/#buy",
         "youtube": "https://www.youtube.com",
@@ -61,49 +61,49 @@
         "word_1": {
           "type": "word",
           "settings": {
-            "text": "Sawing to a line"
+            "text": "Brand kits"
           }
         },
         "word_2": {
           "type": "word",
           "settings": {
-            "text": "Planing"
+            "text": "Layout"
           }
         },
         "word_3": {
           "type": "word",
           "settings": {
-            "text": "Sharpening"
+            "text": "Type"
           }
         },
         "word_4": {
           "type": "word",
           "settings": {
-            "text": "Housing joints"
+            "text": "Colour"
           }
         },
         "word_5": {
           "type": "word",
           "settings": {
-            "text": "Mortise and tenon"
+            "text": "Carousels"
           }
         },
         "word_6": {
           "type": "word",
           "settings": {
-            "text": "Dovetails"
+            "text": "Thumbnails"
           }
         },
         "word_7": {
           "type": "word",
           "settings": {
-            "text": "Glue ups"
+            "text": "Print"
           }
         },
         "word_8": {
           "type": "word",
           "settings": {
-            "text": "Oil finishes"
+            "text": "Slides"
           }
         }
       },
@@ -126,8 +126,8 @@
         "image_position": "left",
         "image_width_pct": 48,
         "gap_desktop": 72,
-        "image": "shopify://shop_images/course2-planing.webp",
-        "image_alt": "Tom planing a board flat, shavings curling off the bench",
+        "image": "shopify://shop_images/course2-call.webp",
+        "image_alt": "Clara talking through a layout on a video call from her desk",
         "image_aspect_desktop": "4 / 5",
         "image_aspect": "4 / 5",
         "image_radius": 16,
@@ -158,7 +158,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "One evening a week, in the right order",
+            "text": "Two hours a week, in the right order",
             "tag": "h2",
             "size_desktop": 46,
             "size_mobile": 32
@@ -167,7 +167,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Most beginners stall because they buy tools before they know what to make. The course gives you one project at a time and the few tools it needs.</p>",
+            "text": "<p>Most people open Canva, pick a template and end up with posts that look like everyone else's. The course gives you a few rules and one project at a time.</p>",
             "size": 16
           }
         },
@@ -175,28 +175,28 @@
           "type": "step",
           "settings": {
             "title": "Watch a short lesson",
-            "description": "<p>Five to ten minutes, filmed over the bench so you see the tool, both hands and the line.</p>"
+            "description": "<p>Five to ten minutes, recorded on screen so you see every click, with Clara explaining why.</p>"
           }
         },
         "step_2": {
           "type": "step",
           "settings": {
-            "title": "Practise on offcuts",
-            "description": "<p>Every lesson ends with a drill on scrap wood. Ten saw cuts before you touch the real board.</p>"
+            "title": "Redo a real design",
+            "description": "<p>Every lesson ends with a short exercise: take a messy post and fix one thing, then compare with the answer.</p>"
           }
         },
         "step_3": {
           "type": "step",
           "settings": {
-            "title": "Build the project",
-            "description": "<p>Each module ends with a piece you keep: a cutting board, a shelf, a stool, a box, a side table.</p>"
+            "title": "Make the project",
+            "description": "<p>Each project is something your business uses: a brand kit, a poster, a carousel, a thumbnail set, a price guide.</p>"
           }
         },
         "step_4": {
           "type": "step",
           "settings": {
-            "title": "Send a photo, get feedback",
-            "description": "<p>With feedback, send photos of your joint and Tom replies with a short video on what to change.</p>"
+            "title": "Send a design, get feedback",
+            "description": "<p>With feedback, share a link to your design and Clara replies with a short screen recording on what to change.</p>"
           }
         },
         "button_1": {
@@ -267,7 +267,7 @@
           "type": "heading",
           "settings": {
             "enabled": true,
-            "text": "What students build in the first month"
+            "text": "What students make in the first month"
           }
         },
         "subheading_1": {
@@ -280,17 +280,17 @@
         "testimonial_1": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I bought a saw at forty and it sat in a drawer for a year. Two months in, the shelf is on the kitchen wall.</p>",
+            "quote": "<p>I had a Canva account for two years and used the same three templates. Now my posts look like one brand.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Started at 40",
+            "role": "Runs a bakery",
             "avatar": "shopify://shop_images/course2-student-1.webp"
           }
         },
         "testimonial_2": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The offcut drills are the trick. Ten cuts on scrap and the real one goes straight.</p>",
+            "quote": "<p>The before and after exercises are the trick. Fix one thing, compare, and the next post is already better.</p>",
             "rating": 5,
             "name": "Sample name",
             "role": "Complete beginner",
@@ -300,17 +300,17 @@
         "testimonial_3": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>My first mortise was a mess. The fix in module six worked and the stool does not wobble.</p>",
+            "quote": "<p>My thumbnails were unreadable on a phone. Module six fixed that in one evening.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Self taught, came back",
+            "role": "YouTube channel",
             "avatar": "shopify://shop_images/course2-student-3.webp"
           }
         },
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>One evening a week in the spare room. The projects tell me what to do next, so I just do it.</p>",
+            "quote": "<p>Two hours on a Sunday. The projects tell me what to do next, so I just do it.</p>",
             "rating": 5,
             "name": "Sample name",
             "role": "Three months in",
@@ -320,7 +320,7 @@
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The feedback was worth it. Tom spotted why my saw drifts from one photo.</p>",
+            "quote": "<p>The feedback was worth it. Clara spotted why my carousel felt crowded in one look.</p>",
             "rating": 5,
             "name": "Sample name",
             "role": "With feedback",
@@ -330,7 +330,7 @@
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The side table is in the living room. Nobody believes I made it.</p>",
+            "quote": "<p>The price guide is on the counter and in every email. Customers ask who designed it.</p>",
             "rating": 5,
             "name": "Sample name",
             "role": "Finished the course",
@@ -401,29 +401,29 @@
         "faq_item_1": {
           "type": "faq_item",
           "settings": {
-            "question": "Do I need a workshop?",
-            "answer": "<p>No. A sturdy table in a spare room or a shed is enough for every project. Hand tools are quiet, so flats work too.</p>"
+            "question": "Do I need Canva Pro?",
+            "answer": "<p>No. Every project works on the free plan. Where a Pro feature saves time, the lesson shows it and a free way to do the same thing.</p>"
           }
         },
         "faq_item_2": {
           "type": "faq_item",
           "settings": {
-            "question": "Which tools do I need?",
-            "answer": "<p>Eleven hand tools, listed with prices in the first lesson. Second hand is fine for most of them, and we show you what to look for.</p>"
+            "question": "I have never designed anything. Is that a problem?",
+            "answer": "<p>No. The course starts with the brand kit and the basics of layout, and most students have never opened a design app before.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "How long until I build something?",
-            "answer": "<p>The cutting board is the end of module two. With one evening a week, most people get there in the second or third week.</p>"
+            "question": "How long until I make something?",
+            "answer": "<p>The brand kit is the end of module one. With two hours a week, most people have it in the first week and a poster in the second.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "I am left handed. Will it work?",
-            "answer": "<p>Yes. The lessons show which hand does what, and the drawings note where a left hander works from the other side.</p>"
+            "question": "Can I follow along on a tablet?",
+            "answer": "<p>Yes. The lessons are recorded on a laptop, and a short lesson shows where things are in the tablet and phone apps.</p>"
           }
         }
       },
@@ -439,8 +439,8 @@
     "cta": {
       "type": "course2-cta",
       "settings": {
-        "heading": "Make your first cut tonight",
-        "text": "<p>The first lesson takes eight minutes. Fifty six lessons, five projects and a 30 day refund, for one payment.</p>",
+        "heading": "Design your first post tonight",
+        "text": "<p>The first lesson takes nine minutes. Fifty six lessons, five projects and a 30 day refund, for one payment.</p>",
         "button_label": "Start learning",
         "to_checkout": true,
         "button_link": "/collections/all",

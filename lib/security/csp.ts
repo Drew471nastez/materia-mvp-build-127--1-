@@ -93,9 +93,13 @@ const DIRECTIVES: [string, string[]][] = [
   ["form-action", ["'self'"]],
   /*
     'self' rather than 'none' because the builder previews a site in an
-    iframe of the same origin. X-Frame-Options: DENY is still set alongside
-    this and is the stricter of the two, so if a preview ever does break,
-    that header is the one to look at first.
+    iframe of the same origin. Where this is enforced (/app, /admin, sign in:
+    ENFORCED_FIRST_SEGMENTS) it is the rule a browser follows: a page that
+    sends frame-ancestors has vercel.json's X-Frame-Options: DENY ignored
+    (CSP Level 2, in Chrome, Firefox and Safari alike), so those pages may be
+    framed by storelib.com itself and by nobody else. Round 28 measured it on
+    www.storelib.com/app/website-builder. A frame that "refused to connect"
+    on storelib.com is a response with X-Frame-Options and no frame-ancestors.
   */
   ["frame-ancestors", ["'self'"]],
 
@@ -185,6 +189,8 @@ const DIRECTIVES: [string, string[]][] = [
   /* Stripe's own frames, and the embed providers the sanitiser allows. */
   ["frame-src", [
     "'self'",
+    /* The templates' websites in the marketplace's Preview and a theme's page, framed from www on storelib.com (round 28, lib/themes/marketplace-shared.ts templatePreviewFrame). */
+    "https://www.storelib.com",
     "https://js.stripe.com",
     "https://connect-js.stripe.com",
     "https://hooks.stripe.com",

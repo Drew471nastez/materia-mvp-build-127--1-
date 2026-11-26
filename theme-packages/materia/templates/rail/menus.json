@@ -7,12 +7,24 @@
         "url": "/collections/all",
         "links": [
           {
-            "title": "Hoodies and sweats",
-            "url": "/collections/sweats"
+            "title": "New arrivals",
+            "url": "/collections/new-arrivals"
+          },
+          {
+            "title": "Hoodies",
+            "url": "/collections/hoodies"
+          },
+          {
+            "title": "Jackets",
+            "url": "/collections/jackets"
           },
           {
             "title": "Tees",
             "url": "/collections/tees"
+          },
+          {
+            "title": "Bottoms",
+            "url": "/collections/bottoms"
           },
           {
             "title": "Everything",
@@ -38,16 +50,24 @@
     "title": "Shop",
     "links": [
       {
-        "title": "Everything",
-        "url": "/collections/all"
+        "title": "New arrivals",
+        "url": "/collections/new-arrivals"
       },
       {
-        "title": "Hoodies and sweats",
-        "url": "/collections/sweats"
+        "title": "Hoodies",
+        "url": "/collections/hoodies"
+      },
+      {
+        "title": "Jackets",
+        "url": "/collections/jackets"
       },
       {
         "title": "Tees",
         "url": "/collections/tees"
+      },
+      {
+        "title": "Bottoms",
+        "url": "/collections/bottoms"
       },
       {
         "title": "Lookbook",

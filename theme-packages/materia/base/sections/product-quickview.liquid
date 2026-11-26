@@ -67,7 +67,7 @@
       endif
     -%}
     <div class="qv__media" style="--qv-ratio: {{ qv_ratio }};">
-      <div class="qv__track" data-qv-track>
+      <div class="qv__track" data-qv-track data-mt-instant>
         {%- for media in qv_media limit: 10 -%}
           <div class="qv__slide" data-media-id="{{ media.id }}">
             {%- if forloop.first -%}
@@ -83,7 +83,12 @@
       {%- if qv_media.size > 1 -%}
         <button type="button" class="qv__nav qv__nav--prev" data-qv-prev aria-label="{{ 'accessibility.previous' | t }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
         <button type="button" class="qv__nav qv__nav--next" data-qv-next aria-label="{{ 'accessibility.next' | t }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
-        <span class="qv__count" aria-hidden="true"><span data-qv-index>1</span> / {{ qv_media.size | at_most: 10 }}</span>
+        {%- comment -%} One dot per picture, as on the product page's gallery: the current one is longer. {%- endcomment -%}
+        <div class="qv__dots" data-qv-dots aria-hidden="true">
+          {%- for media in qv_media limit: 10 -%}
+            <button type="button" class="qv__dot" tabindex="-1" data-qv-dot="{{ forloop.index0 }}"{% if forloop.first %} aria-current="true"{% endif %}></button>
+          {%- endfor -%}
+        </div>
       {%- endif -%}
     </div>
 
@@ -231,7 +236,17 @@
                   </label>
                 </cart-terms>
               {%- endif -%}
-              <div class="qv__dynamic"{% if st.qv_show_terms %} id="{{ qv_terms_id }}-buy" data-requires-terms="quickview" aria-disabled="true"{% endif %} data-qv-dynamic>{{ form | payment_button }}</div>
+              {%- comment -%}
+                Buy it now is the theme's secondary button, as on the product
+                page (snippets/buy-buttons, Buy now style: Theme button): its
+                colours, hover, font, size and corners are Theme settings >
+                Buttons. The website sends it to checkout (data-storelib-buy-now).
+              {%- endcomment -%}
+              <div class="qv__dynamic"{% if st.qv_show_terms %} id="{{ qv_terms_id }}-buy" data-requires-terms="quickview" aria-disabled="true"{% endif %} data-qv-dynamic>
+                <div class="shopify-payment-button" data-shopify="payment-button">
+                  <button type="submit" name="checkout" value="1" formnovalidate class="shopify-payment-button__button shopify-payment-button__button--unbranded qv__buy-now" data-storelib-buy-now data-sl-button data-button-role="secondary" data-theme-button="secondary"{% unless qv_variant.available %} disabled{% endunless %}><span class="btn-label">{{ 'products.product.buy_it_now' | t }}</span></button>
+                </div>
+              </div>
             </div>
           {%- endif -%}
         {%- endform -%}
@@ -264,6 +279,8 @@
       {%- endif -%}
       <script type="application/json" data-qv-variants>{{ product.variants | json }}</script>
     </div>
+    {%- comment -%} A thin scrollbar for the details column (desktop): the native one is hidden, this one is drawn from the column's own scroll. {%- endcomment -%}
+    <div class="qv__bar" data-qv-bar aria-hidden="true"><span class="qv__thumb" data-qv-thumb></span></div>
   </div>
   <script>
     (function boot(tries) {
@@ -284,14 +301,68 @@
 
       var track = root.querySelector('[data-qv-track]'), counter = root.querySelector('[data-qv-index]');
       var prev = root.querySelector('[data-qv-prev]'), next = root.querySelector('[data-qv-next]');
-      function index() { return track ? Math.round(track.scrollLeft / Math.max(1, track.clientWidth)) : 0; }
-      function go(i, instant) { if (track) track.scrollTo({ left: i * track.clientWidth, behavior: reduce || instant ? 'auto' : 'smooth' }); }
-      var painted = -1;
-      function paintNav() { var i = index(), n = track ? track.children.length : 0; if (i === painted) return; painted = i; if (counter) counter.textContent = i + 1; if (prev) prev.disabled = i <= 0; if (next) next.disabled = i >= n - 1; }
-      if (track) { track.addEventListener('scroll', function () { requestAnimationFrame(paintNav); }, { passive: true }); paintNav(); }
+      var dots = [].slice.call(root.querySelectorAll('[data-qv-dot]'));
+      {%- comment -%} The slide's width is read once and again only when the box changes size: a scroll frame reads scrollLeft only. {%- endcomment %}
+      var slideW = 0;
+      function width() { return slideW || (slideW = track ? Math.max(1, track.clientWidth) : 1); }
+      if (track && window.ResizeObserver) new ResizeObserver(function (e) { slideW = Math.max(1, Math.round(e[0].contentRect.width)) || 0; }).observe(track);
+      function index() { return track ? Math.round(track.scrollLeft / width()) : 0; }
+      function go(i, instant) { if (!track) return; var n = track.children.length; i = Math.max(0, Math.min(n - 1, i)); track.scrollTo({ left: i * width(), behavior: reduce || instant ? 'auto' : 'smooth' }); }
+      var painted = 0, queued = 0;
+      function paintNav() {
+        queued = 0;
+        var i = index(), n = track ? track.children.length : 0; if (i === painted) return; painted = i;
+        if (counter) counter.textContent = i + 1;
+        if (prev) prev.disabled = i <= 0; if (next) next.disabled = i >= n - 1;
+        dots.forEach(function (d, k) { if (k === i) d.setAttribute('aria-current', 'true'); else d.removeAttribute('aria-current'); });
+      }
+      {%- comment -%} First picture: the arrows' state is written without reading the layout (no forced style pass while the dialog opens). {%- endcomment %}
+      if (prev) prev.disabled = true;
+      if (next) next.disabled = !track || track.children.length < 2;
+      if (track) track.addEventListener('scroll', function () { if (!queued) queued = requestAnimationFrame(paintNav); }, { passive: true });
       if (prev) prev.addEventListener('click', function () { go(index() - 1); });
       if (next) next.addEventListener('click', function () { go(index() + 1); });
+      dots.forEach(function (d) { d.addEventListener('click', function () { go(Number(d.dataset.qvDot)); }); });
       if (track) track.addEventListener('keydown', function (e) { if (e.key === 'ArrowLeft') go(index() - 1); if (e.key === 'ArrowRight') go(index() + 1); });
+
+      {%- comment -%}
+        The details column's thin scrollbar (desktop). Its length is set when
+        the column or its content changes size (ResizeObserver, after layout:
+        nothing is read in the open frame); a scroll moves it with transform.
+        It shows while the column scrolls and while the pointer is over it.
+      {%- endcomment %}
+      var info = root.querySelector('.qv__info'), bar = root.querySelector('[data-qv-bar]'), thumb = root.querySelector('[data-qv-thumb]');
+      if (info && bar && thumb && window.ResizeObserver) {
+        var view = 0, full = 0, len = 0, room = 0, hideT = 0, frame = 0;
+        var place = function () { frame = 0; if (!room) return; var y = full > view ? (info.scrollTop / (full - view)) * room : 0; thumb.style.transform = 'translate3d(0,' + Math.round(y * 10) / 10 + 'px,0)'; };
+        var size = function () {
+          view = info.clientHeight; full = info.scrollHeight;
+          var rail = Math.max(0, view - 72); {%- comment -%} .qv__bar: top 56px, bottom 16px (product-card.css) {%- endcomment -%}
+          var on = full > view + 1;
+          if (bar.classList.contains('is-on') !== on) bar.classList.toggle('is-on', on);
+          if (!on) { room = 0; return; }
+          len = Math.max(32, Math.round(rail * view / full)); room = rail - len;
+          thumb.style.height = len + 'px';
+          place();
+        };
+        var ro = new ResizeObserver(function () { size(); });
+        ro.observe(info); if (info.firstElementChild) [].forEach.call(info.children, function (c) { ro.observe(c); });
+        info.addEventListener('scroll', function () {
+          if (!frame) frame = requestAnimationFrame(place);
+          bar.classList.add('is-moving'); clearTimeout(hideT); hideT = setTimeout(function () { bar.classList.remove('is-moving'); }, 700);
+        }, { passive: true });
+        {%- comment -%} Pressing and dragging the thumb scrolls the column. {%- endcomment %}
+        thumb.addEventListener('pointerdown', function (e) {
+          if (e.button !== 0 || !room) return;
+          e.preventDefault();
+          var y0 = e.clientY, s0 = info.scrollTop, k = (full - view) / room;
+          try { thumb.setPointerCapture(e.pointerId); } catch (err) {}
+          bar.classList.add('is-dragging');
+          var mv = function (ev) { info.scrollTop = s0 + (ev.clientY - y0) * k; };
+          var up = function () { thumb.removeEventListener('pointermove', mv); thumb.removeEventListener('pointerup', up); thumb.removeEventListener('pointercancel', up); bar.classList.remove('is-dragging'); };
+          thumb.addEventListener('pointermove', mv); thumb.addEventListener('pointerup', up); thumb.addEventListener('pointercancel', up);
+        });
+      }
 
       var qty = root.querySelector('input[name="quantity"]');
       root.querySelectorAll('[data-qv-qty]').forEach(function (b) { b.addEventListener('click', function () { qty.value = Math.max(1, (parseInt(qty.value, 10) || 1) + Number(b.dataset.qvQty)); }); });
@@ -335,6 +406,7 @@
         if (label) label.textContent = v.available ? T.add : T.sold;
         if (stock) stock.hidden = v.available;
         if (express) express.hidden = !v.available;
+        var buyNow = root.querySelector('.qv__buy-now'); if (buyNow) buyNow.disabled = !v.available;
         if (moveImage && v.featured_media && track) { var slide = track.querySelector('[data-media-id="' + v.featured_media.id + '"]'); if (slide) go([].indexOf.call(track.children, slide)); }
       }
       groups.forEach(function (g) {

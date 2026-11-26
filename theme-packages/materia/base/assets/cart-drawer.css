@@ -2597,19 +2597,19 @@ body[data-btn-style='underline'] #minicart_wrapper.open_drawer :is(.drawer-botto
 /* Opening and closing the drawer: it moves in the same frame as the click,
    eases out on the way in and accelerates away on the way out. */
 #minicart_wrapper.open_drawer .minicart__wrapper.bls__drawer {
-  transition: transform .4s cubic-bezier(.4, 0, .2, 1) !important;
+  transition: transform var(--mt-panel-out, .4s) var(--mt-panel-ease-out, cubic-bezier(.4, 0, .2, 1)) !important;
 }
 #minicart_wrapper.open_drawer .minicart__wrapper.bls__drawer.open {
   --tw-translate-x: 0;
-  transition: transform .5s cubic-bezier(.22, 1, .36, 1) !important;
+  transition: transform var(--mt-panel-in, .5s) var(--mt-panel-ease-in, cubic-bezier(.22, 1, .36, 1)) !important;
   will-change: transform;
 }
 cart-notification#minicart_wrapper.open ~ .overlayminicart::after {
   opacity: 1; visibility: visible; pointer-events: auto;
-  transition: opacity .45s ease, visibility 0s !important;
+  transition: opacity var(--mt-panel-in, .45s) ease-out, visibility 0s !important;
 }
 cart-notification#minicart_wrapper:not(.open) ~ .overlayminicart::after {
-  transition: opacity .35s ease, visibility 0s linear .35s !important;
+  transition: opacity var(--mt-panel-out, .35s) ease-in, visibility 0s linear var(--mt-panel-out, .35s) !important;
 }
 @media (prefers-reduced-motion: reduce) {
   #minicart_wrapper.open_drawer .minicart__wrapper.bls__drawer,

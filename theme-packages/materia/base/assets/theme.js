@@ -682,7 +682,7 @@ function HoverIntent(exitTime, elements, userConfig) {
     // The drawer slides shut first, then the page unlocks and the levels go
     // back to the top, so nothing jumps while it is still on screen.
     if (immediate || reduced.matches || !wasOpen) settle();
-    else settleTimer = setTimeout(settle, 580);
+    else settleTimer = setTimeout(settle, 340);
     if (focusInside) {
       try { visibleToggle()?.focus({ preventScroll: true }); } catch (e) {}
     }
@@ -1271,7 +1271,7 @@ let BlsMainMenuShopify = (function () {
         },
         {
           ease: [0.7, 0, 0.2, 1],
-          duration: 0.35,
+          duration: 0.24,
         }
       );
 
@@ -1340,7 +1340,7 @@ let BlsMainMenuShopify = (function () {
             },
             {
               ease: [0.7, 0, 0.2, 1],
-              duration: 0.35,
+              duration: 0.24,
             }
           );
           targetItem.classList.add("visible");
@@ -1372,7 +1372,7 @@ let BlsMainMenuShopify = (function () {
         },
         {
           ease: [0.7, 0, 0.2, 1],
-          duration: 0.4,
+          duration: 0.24,
         }
       );
 
@@ -5845,9 +5845,15 @@ class QuickView extends PopupBase {
   constructor() {
     super();
     this.html = null;
+    // Opens without touching <html>/<body> until it has opened (PopupBase).
+    this.lightOpen = true;
     // Card quick view: the section is asked for as the pointer comes near
-    // (Section Rendering API), so the click opens without a wait.
-    const warm = () => QuickView.fetchSection(this.url || this.dataset.url).then(QuickView.preloadImage).catch(() => {});
+    // (Section Rendering API), and read into a node then too, so the click
+    // only copies it into the dialog: no wait, no parsing in the open frame.
+    const warm = () => {
+      const url = this.url || this.dataset.url;
+      QuickView.fetchSection(url).then((text) => { QuickView.preloadImage(text); QuickView.parsed(url, text); }).catch(() => {});
+    };
     this.addEventListener("pointerenter", warm, { passive: true });
     this.addEventListener("focusin", warm);
   }
@@ -5863,6 +5869,19 @@ class QuickView extends PopupBase {
     if (attr("sizes")) img.sizes = attr("sizes");
     if (attr("srcset")) img.srcset = attr("srcset");
     img.src = attr("src");
+  }
+
+  // The quick view's content, read from the section's HTML once per answer;
+  // each open takes a copy.
+  static parsed(url, text) {
+    QuickView.nodes = QuickView.nodes || new Map();
+    const hit = QuickView.nodes.get(url);
+    if (hit && hit.text === text) return hit.node;
+    const node = parser
+      .parseFromString(text, "text/html")
+      .querySelector("#shopify-section-product-quickview .product-quickview__content");
+    QuickView.nodes.set(url, { text, node });
+    return node;
   }
 
   static fetchSection(url) {
@@ -5903,20 +5922,18 @@ class QuickView extends PopupBase {
       .then((text) => {
         clearTimeout(skeletonTimer);
         if (this.openToken !== token) return;
-        this.html = parser
-          .parseFromString(text, "text/html")
-          .querySelector(
-            "#shopify-section-product-quickview .product-quickview__content"
-          );
+        const node = QuickView.parsed(url, text);
+        this.html = node ? node.cloneNode(true) : null;
         if (!this.html) { if (shown && this.modal) this.modal.close(); return; }
         if (shown) {
           // Closed while loading: leave it closed.
           const wrap = this.modal && this.modal.modal;
           if (!wrap || !wrap.isConnected || wrap.classList.contains("remove-loading")) return;
         }
-        // Load scripts in the HTML content
-        this.loadScripts(this.html);
         this.html.classList.remove("hidden");
+        // Every write first (the dialog, its content, its script's first
+        // pass), then one read (focus): the page is restyled once, in the
+        // frame the dialog appears, and not again while it moves.
         if (shown) {
           this.modal.setContent(this.html);
           this.applyScheme();
@@ -5924,12 +5941,15 @@ class QuickView extends PopupBase {
           shown = true;
           this.openDialog(this.html);
         }
+        // The content's script runs once the content is in the dialog.
+        this.loadScripts(this.html);
         this.trapFocus();
       })
       .finally(() => {
         try { Shopify.PaymentButton.init(); } catch (e) {}
-        if (!document.querySelector('div[data-animation="slide_in"') && typeof BlsLazyloadImg !== "undefined") {
-          BlsLazyloadImg.init();
+        const scope = this.modal && this.modal.modalBox;
+        if (scope && !document.querySelector('div[data-animation="slide_in"') && typeof BlsLazyloadImg !== "undefined") {
+          BlsLazyloadImg.init(scope);
         }
         this.classList.remove("loading");
       })
@@ -6052,7 +6072,7 @@ class QuickView extends PopupBase {
     // Open: off-screen first (no paint in between), then rise.
     set(height(), 0);
     box.getBoundingClientRect();
-    requestAnimationFrame(() => set(0, 320, OPEN_EASE));
+    requestAnimationFrame(() => set(0, 280, OPEN_EASE));
 
     const origClose = m.close.bind(m);
     const slideOut = (v) => {
@@ -6234,10 +6254,12 @@ class QuickView extends PopupBase {
       else if (!e.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
     };
     document.addEventListener("keydown", this.onTrapKey, true);
-    requestAnimationFrame(() => {
-      const start = dialog.querySelector('.qv__value[aria-pressed="true"]') || dialog.querySelector(".qv__atc:not([disabled])") || dialog.querySelector(".tingle-modal__close") || focusables()[0];
-      if (start) start.focus({ preventScroll: true });
-    });
+    // Focus goes to the dialog itself (no ring on a pill the visitor did not
+    // choose); Tab then starts at its first control. Done now, after every
+    // write of the open, so it costs no extra style pass.
+    const box = this.modal.modalBox || dialog;
+    if (!box.hasAttribute("tabindex")) box.setAttribute("tabindex", "-1");
+    try { box.focus({ preventScroll: true }); } catch (e) {}
   }
 
   onCloseEvent() {

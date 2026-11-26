@@ -181,6 +181,38 @@ export const templatePhonePath = (template: string) => `/themes/${CODE_THEME_PAC
  * writes them). The marketplace's Preview frames <root>/<slug>/index.html.
  */
 export const TEMPLATE_PREVIEW_ROOT = "/theme-previews"
+/**
+ * WHERE THE FRAME LOADS A TEMPLATE'S WEBSITE FROM (round 28).
+ *
+ * A frame sandboxed without allow-same-origin has no origin, and Chromium
+ * keeps no file for a frame with no origin: every page of the website asked
+ * again for the 100 or so stylesheets, scripts and fonts the last one had
+ * (measured: 96 of 104 on Clothing's second page,
+ * scripts/check-template-preview-speed.mjs), which is why moving between
+ * its pages was slow. The fix is an origin of its own, and it cannot be
+ * storelib.com's: the website's scripts would then read the visitor's
+ * Storelib session.
+ *
+ * So on storelib.com the website is framed from www.storelib.com, which
+ * serves the same static files (the proxy redirects every page on www to
+ * storelib.com, but leaves /theme-previews alone, so www holds nothing
+ * else), sandboxed with allow-scripts and allow-same-origin: a real origin,
+ * so its files are kept between pages and between templates, and not
+ * storelib.com's, so it reads nothing of Storelib's (the session's cookies
+ * are __Host- and never go to www). The page's shim keeps storage and
+ * cookies in memory there as before (scripts/build-template-previews.ts),
+ * and next.config.mjs lets only storelib.com and www frame it from that
+ * host. Anywhere else (a preview deployment, a developer's machine) the
+ * frame is as it was: the same address, no origin.
+ */
+export const TEMPLATE_PREVIEW_MAIN_HOST = "storelib.com"
+export function templatePreviewFrame(
+  path: string,
+  at: Pick<Location, "hostname" | "host" | "protocol"> | null = typeof window !== "undefined" ? window.location : null,
+): { src: string; sandbox: string } {
+  if (at && at.hostname.toLowerCase() === TEMPLATE_PREVIEW_MAIN_HOST && path.startsWith(`${TEMPLATE_PREVIEW_ROOT}/`)) return { src: `${at.protocol}//www.${at.host}${path}`, sandbox: "allow-scripts allow-same-origin" }
+  return { src: path, sandbox: "allow-scripts" }
+}
 /** The home page of a code template's prerendered website, or null for a listing that is not one. */
 export function templatePreviewPath(l: Pick<ThemeListing, "codePackage">): string | null {
   const t = l.codePackage ? CODE_TEMPLATES.find((c) => `${CODE_THEME_PACKAGE}/${c.template}` === l.codePackage) : null
