@@ -121,8 +121,9 @@ check("  and the live editor decides the same way", read("assets/live-faq.js").i
 
 console.log("\nBLOG")
 const guard = read("assets/layout-guard.css")
-check("a picture laid over a ratio frame fills it (after the height: auto guard)", guard.indexOf(":where([style*='--aspect-ratio'] > img:is(:first-child, .secondary-image)) { height: 100%; }") > guard.indexOf(":where(img[width][height]) { height: auto; }"))
-check("the bundle has it too", read("assets/base.css").includes(":where([style*='--aspect-ratio'] > img:is(:first-child, .secondary-image)) { height: 100%; }") || read("assets/base.css").includes(":where([style*='--aspect-ratio'] > img:is(:first-child, .secondary-image)){height:100%}"))
+/* Changed on purpose (round 28 integration): main (round 64) widened the frame-filling rule to pictures inside <picture> and motion-element; the merge kept main's form. */
+check("a picture laid over a ratio frame fills it (after the height: auto guard)", guard.indexOf(":where([style*='--aspect-ratio'] > img:first-child, [style*='--aspect-ratio'] > img.secondary-image") > guard.indexOf(":where(img[width][height]) { height: auto; }"))
+check("the bundle has it too", read("assets/base.css").includes(":where([style*='--aspect-ratio'] > img:first-child, [style*='--aspect-ratio'] > img.secondary-image"))
 
 console.log("\nFLAGS")
 const loc = read("assets/localization-controls.css")
@@ -137,7 +138,8 @@ check("the glyph's centre is the circle's centre (within 1%)", Math.abs(cx - 50)
 const unit = W / 32 // % of the circle per flag unit
 check("the flag's own area, without its wavy edge, covers the circle", (27.6 - 4.4 - 4) * unit >= 100 && (20.8 - 3.5 - 4) * unit >= 100, { unit })
 const objects = readFileSync(join(process.cwd(), "lib", "storelib-theme", "compat", "objects.ts"), "utf8")
-check("the engine's flag picture is still the one measured", objects.includes('x="16" y="19" font-size="20" text-anchor="middle"'))
+/* Changed on purpose (round 28 integration): round 64 made flags their own artwork (public/flags/<CODE>.svg) filling the round frame with object-fit: cover; the emoji enlargement here only applies to the old data: flags. Measured after the merge: an 18 by 18 frame, the flag 18 by 18, centred. */
+check("the engine's flag picture is a flag file, and the old emoji rule only targets data: flags", objects.includes("public/flags") && /\.localization-flags img\[src\^="data:image\/svg\+xml"\]/.test(read("assets/localization-controls.css")))
 
 console.log("\nMENUS")
 const nav = read("assets/navigation.css")
@@ -150,7 +152,8 @@ check("no template slows its dropdowns past 300ms", noSpeed.length === 0, noSpee
 check("panels paint the header scheme's real background, not the transparent header's", /\.header:not\(\.glass-enabled\) \.navigation\.horizontal :is\(\.menu-parent > \.submenu, \.dropdown-menu \.sub-children-menu\):not\(\[class\*="color-"\]\) \{\s*--color-background: var\(--hs-mnav-bg, #ffffff\);\s*--gradient-background: var\(--hs-mnav-bg, #ffffff\);\s*background: var\(--hs-mnav-bg, #ffffff\);/.test(read("assets/header-section.css")))
 const theme = read("assets/theme.js")
 check("the slide-down mega menu moves in 240ms both ways", (theme.match(/ease: \[0\.7, 0, 0\.2, 1\],\s*duration: 0\.24,/g) ?? []).length >= 3 && !/ease: \[0\.7, 0, 0\.2, 1\],\s*duration: 0\.(35|4),/.test(theme))
-check("the phone menu drawer slides in 300ms and lets go after 340ms", /transform: translateX\(-105%\);[\s\S]{0,120}transition: transform 0\.3s/.test(nav) && /\.nav-open \.navigation\.mobile \{\s*transition: transform 0\.3s/.test(nav) && theme.includes("settleTimer = setTimeout(settle, 340);"))
+/* Changed on purpose (round 28 integration): the drawer motion agent moved the slide onto the shared panel tokens, falling back to 300ms. */
+check("the phone menu drawer slides in 300ms and lets go after 340ms", /transform: translateX\(-105%\);[\s\S]{0,200}transition: transform var\(--mt-panel-out, 0\.3s\)/.test(nav) && /\.nav-open \.navigation\.mobile \{\s*transition: transform var\(--mt-panel-in, 0\.3s\)/.test(nav) && theme.includes("settleTimer = setTimeout(settle, 340);"))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)
