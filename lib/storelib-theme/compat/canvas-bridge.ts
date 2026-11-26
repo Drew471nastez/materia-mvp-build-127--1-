@@ -1760,6 +1760,8 @@ export const CANVAS_BRIDGE = `
       next.style.minHeight = held + "px";
       var pending = Array.prototype.filter.call(next.querySelectorAll("img"), function (i) { return !i.complete; });
       var release = function () { next.style.minHeight = ""; };
+      /* Never held for good (round 66): a frame or an event that never comes left the section at its old height after a setting was put back. */
+      setTimeout(release, 3000);
       if (!pending.length) requestAnimationFrame(release);
       else {
         var left = pending.length;

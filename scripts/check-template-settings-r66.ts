@@ -266,6 +266,8 @@ async function sweepTemplate(browser: Browser, name: string, bridge: string, hea
           let off = offFrom(back)
           /* A moment more to settle (a slider, a picture; a swapped section is held at its height up to 3s for its pictures), then judged. */
           if (off.length) { await sleep(3300); back = await measure(frame); off = offFrom(back) }
+          /* Still held at a height by the swap (its pictures, its stylesheets): a few seconds more before it is called stuck. */
+          if (off.length && (await within(frame.evaluate((id) => !!document.getElementById(`shopify-section-${id}`)?.style.minHeight, s.id), 3000).catch(() => false))) { await sleep(6000); back = await measure(frame); off = offFrom(back) }
           if (off.length) {
             const why = await within(frame.evaluate((id) => {
               const el = document.getElementById(`shopify-section-${id}`)

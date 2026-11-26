@@ -86,6 +86,7 @@ console.log("\nNight sky: a section drawn again runs its own scripts again\n")
   fakeDoc.currentScript = null
   T.addEventListener.call(fakeDoc, "scroll", () => {})
   check("outside a section's script, nothing is noted", own.get("SCRIPT TEXT")?.length === 2)
+  check("a swapped section is never held at its old height for good", /var release = function \(\) \{ next\.style\.minHeight = ""; \};\s*\/\*[^*]*\*\/\s*setTimeout\(release, 3000\);/.test(bridge))
   check("the sky's copy still inside its section is never shown over the page", /#shopify-section-\{\{ sid \}\} \.space-sky-\{\{ sid \}\} \{ display: none !important; \}/.test(sky))
   check("the sky's script still takes its layer to the back of the page", sky.includes("document.body.insertBefore(root, document.body.firstChild)"))
 }
