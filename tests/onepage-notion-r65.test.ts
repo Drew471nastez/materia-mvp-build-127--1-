@@ -29,7 +29,6 @@ import { ONEPAGE_FONTS, familyOf } from "@/lib/onepage/fonts"
 import { lookFromTemplate } from "@/lib/onepage/theme-apply"
 import { appendThemeBlocks, blocksAfterPick, hasThemeBlocks, isStarterBlock, onlyStarterBlocks } from "@/lib/onepage/theme-blocks"
 import { createDefaultBlock, type OnePageBlock } from "@/lib/onepage/types"
-import { readCatalog } from "../scripts/i18n/catalog-file.mjs"
 
 let passed = 0
 let failed = 0
@@ -117,7 +116,7 @@ check("a link the creator filled in is their own", !isStarterBlock(own[2]) && !o
 check("a page with the creator's own blocks keeps them: nothing is laid on unasked", blocksAfterPick(own, blocks) === null)
 check("the onboarding sets a page up from scratch, so it replaces even then", blocksAfterPick(own, blocks, true)!.map((b) => b.type).join() === ["header", ...types].join())
 const added = appendThemeBlocks(own, blocks)
-check("adding them (the Design tab's offer) keeps every block of the creator's first, with one socials row", added.slice(0, 3).every((b, i) => b === own[i]) && added.filter((b) => b.type === "social_row").length === 1 && hasThemeBlocks(added, blocks))
+check("adding them (the Design tab's offer) keeps every block of the creator's first, with one socials row", added.slice(0, 3).every((b, i) => b.id === own[i].id && b.data === own[i].data) && added.filter((b) => b.type === "social_row").length === 1 && hasThemeBlocks(added, blocks))
 check("the offer goes once they are there", !hasThemeBlocks(own, blocks) && hasThemeBlocks(added, blocks))
 check("a theme without blocks changes no block", blocksAfterPick(fresh, null) === null && blocksAfterPick(fresh, []) === null)
 const page = { theme: { template_id: "default", background_color: "#ffffff", block_layout: "masonry", button_size: "large" }, settings: {}, draft_blocks: after } as T
@@ -137,7 +136,9 @@ console.log("\nIn six languages")
 const keys = ["theme::Northpaper", "Free Notion template", "A weekly planner for Notion. Leave your email and the link comes to you.", "Send it", "Sent. The link is in your inbox.", "My Notion Marketplace profile", "Video walkthroughs", "How do I get the template?", "Does it work on Notion's free plan?", "Can I change it once it is mine?", "Add blocks", "{name} comes with blocks for selling Notion templates: your templates, a free template for an email, links and questions. Add them under your blocks?"]
 const missing: string[] = []
 for (const l of ["es", "fr", "de", "pt-BR", "it", "pl"]) {
-  const w = readCatalog(join(root, "lib/i18n/catalog", `${l}.ts`)) as Record<string, string>
+  /* The catalog's lines are `"key": "words",` (JSON strings), read as they are written. */
+  const w: Record<string, string> = {}
+  for (const m of read(`lib/i18n/catalog/${l}.ts`).matchAll(/^ ("(?:[^"\\]|\\.)*"): ("(?:[^"\\]|\\.)*"),?$/gm)) w[JSON.parse(m[1])] = JSON.parse(m[2])
   for (const k of keys) if (!w[k] || /—/.test(w[k]) || (k.includes("{name}") && !w[k].includes("{name}"))) missing.push(`${l}: ${k.slice(0, 30)}`)
 }
 check("every word it shows is in all six catalogs, {name} kept, no em dash", missing.length === 0, missing.slice(0, 5).join("; "))
