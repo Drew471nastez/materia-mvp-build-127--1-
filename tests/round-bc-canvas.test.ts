@@ -59,8 +59,10 @@ console.log("\nA setting the theme's script reads at start\n")
   /* Round 13 (tests/themeset-r13.test.ts): a choice (select, radio, checkbox) is drawn behind at once, without the wait for the changes to stop, and said to the page on screen first; typed words still wait. */
   check("such a change draws the page again behind, once the changes stop and the finger is up", /if \(plan\.scripts && !isLive\(\) && \(scriptsDue\.current \|\| choice\)\) \{\s*scriptsDue\.current = false\s*window\.clearTimeout\(scriptsTimer\.current\)\s*\/\*[^*]*\*\/\s*tell\(win, false\)\s*loadBehind\(html, docKey, list(?:, next)?\)\s*return\s*\}/.test(canvas) && /if \(isLive\(\)\) \{ scriptsTimer\.current = window\.setTimeout\(settle, SCRIPTS_SETTLE_MS\); return \}/.test(canvas))
   check("  meanwhile the rest is written in place, and the frame's scripts are kept as what it holds", /if \(plan\.scripts\) \{\s*next\.scripts = now\.shape\.scripts/.test(canvas))
-  check("a section swapped in runs a script whose text is new", /el\.replaceWith\(next\);\s*runScripts\(next\);/.test(bridge))
-  check("  a script that already ran is not run again", /var key = old\.src \|\| old\.textContent;\s*if \(ran\.has\(key\)\) return;/.test(bridge))
+  /* Changed on purpose (r66): a swapped section runs its own inline scripts again, as Shopify's editor does (tests/builder-canvas-stable-r66.test.ts); one whose text is new still runs. */
+  check("a section swapped in runs a script whose text is new", /el\.replaceWith\(next\);\s*runScripts\(next, true\);/.test(bridge))
+  /* Changed on purpose (r66): a script with an address that already ran is still not run again; an inline one is, in a block, so a top level const is not declared twice. */
+  check("  a script that already ran is not run again", /var rerun = !!again && !old\.src && JS_TYPE\.test\(type\) && \/\\\\S\/\.test\(key\) && ran\.has\(key\);\s*if \(ran\.has\(key\) && !rerun\) return;/.test(bridge) && bridge.includes('"{try{" + key + "\\\\n}catch(e){}}"'))
 }
 
 console.log("\nA theme that applies a section's value itself\n")

@@ -64,7 +64,7 @@ console.log("\nNight sky: a section drawn again runs its own scripts again\n")
   check("only inline JavaScript is run again; a script with an address still runs once", /var rerun = !!again && !old\.src && JS_TYPE\.test\(type\)/.test(bridge))
   check("run again in a block and caught: no const declared twice, no custom element defined twice said", bridge.includes('"{try{" + key + "\\\\n}catch(e){}}"'))
   check("what its last run added to window and document is taken off first", /own\.delete\(key\);\s*mine\.forEach/.test(bridge) && /removeEventListener\(r\[1\], r\[2\], r\[3\]\)/.test(bridge))
-  check("the recorder is the first script of the canvas's head", CANVAS_HEAD.indexOf(CANVAS_SCRIPT_OWN) >= 0 && CANVAS_HEAD.indexOf(CANVAS_SCRIPT_OWN) < CANVAS_HEAD.indexOf("__slGiveBack"))
+  check("the recorder is in the canvas's head, before the switch's own window.addEventListener (which would hide window listeners from it)", CANVAS_HEAD.includes(CANVAS_SCRIPT_OWN) && CANVAS_HEAD.indexOf(CANVAS_SCRIPT_OWN) < CANVAS_HEAD.indexOf("W.addEventListener = function"))
   /* The recorder itself, run against a stand-in window and document. */
   const added: unknown[][] = []
   const fakeDoc: Record<string, unknown> = {}

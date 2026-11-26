@@ -31,11 +31,11 @@
  *     JOBS=4                  pages measured at once
  *     OUT=<dir>               where findings.json and screenshots go
  */
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs"
 import { createServer } from "node:http"
 import { join } from "node:path"
 import JSZip from "jszip"
-import puppeteer, { type Browser, type Frame, type Page } from "puppeteer-core"
+import puppeteer, { type Browser, type Frame } from "puppeteer-core"
 import { convertShopifyTheme } from "../lib/storelib-theme/shopify/convert"
 import { composeTemplateZip } from "../lib/themes/template-packages"
 import { drawPage, drawSection, pageContextFor, sectionIndexIn, themeOfInstall, type StoredSection } from "../lib/storelib-theme/compat/page"
@@ -83,7 +83,19 @@ async function main() {
   const templates = readdirSync(join(process.cwd(), "theme-packages/materia/templates")).filter((d) => existsSync(join(process.cwd(), "theme-packages/materia/templates", d, "templates/index.json")) && (!only || only.has(d)))
   const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ["--no-sandbox", "--hide-scrollbars"] })
   const findings: Finding[] = []
-  const triedTypes = new Set<string>()
+  /* Each section type belongs to the first template (by name) whose home page or groups use it, so a run is the same whatever order the workers finish in. */
+  const owner = new Map<string, string>()
+  for (const t of [...templates].sort()) {
+    for (const f of ["templates/index.json", "sections/header-group.json", "sections/footer-group.json"]) {
+      const p = join(process.cwd(), "theme-packages/materia/templates", t, f)
+      if (!existsSync(p)) continue
+      try {
+        const j = JSON.parse(readFileSync(p, "utf8").replace(/^\s*\/\*[\s\S]*?\*\/\s*/, "")) as { sections?: Record<string, { type?: string }> }
+        for (const sec of Object.values(j.sections ?? {})) if (sec?.type && !owner.has(sec.type)) owner.set(sec.type, t)
+      } catch { /* a file that does not parse: its types go to whoever draws them first */ }
+    }
+  }
+  const triedTypes = { owner, seen: new Set<string>() }
   let tried = 0
   let changes = 0
   const queue = [...templates]
@@ -111,7 +123,7 @@ async function main() {
   process.exit(findings.length ? 1 : 0)
 }
 
-async function sweepTemplate(browser: Browser, name: string, bridge: string, head: string, triedTypes: Set<string>) {
+async function sweepTemplate(browser: Browser, name: string, bridge: string, head: string, triedTypes: { owner: Map<string, string>; seen: Set<string> }) {
   const zip = await JSZip.loadAsync(await composeTemplateZip(`materia/${name}`))
   const r = await convertShopifyTheme(zip)
   if (!r.ok) throw new Error("did not convert")
@@ -208,8 +220,11 @@ async function sweepTemplate(browser: Browser, name: string, bridge: string, hea
     for (const s of list) {
       if (s.hidden) continue
       const typeKey = String(s.type)
-      if (triedTypes.has(typeKey)) continue
-      triedTypes.add(typeKey)
+      const ownerOf = triedTypes.owner.get(typeKey)
+      if (ownerOf ? ownerOf !== name : triedTypes.seen.has(typeKey)) continue
+      if (triedTypes.seen.has(`${name}:${typeKey}`)) continue
+      triedTypes.seen.add(typeKey)
+      triedTypes.seen.add(`${name}:${typeKey}`)
       const schema = theme.schemaOf("sections", theme.typeOf(s.type)) as { settings?: Setting[] }
       const settings = (schema.settings ?? []).filter((x) => x && x.id && valuesFor(x).length)
       if (!settings.length) continue
