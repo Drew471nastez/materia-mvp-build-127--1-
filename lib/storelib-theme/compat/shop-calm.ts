@@ -48,14 +48,16 @@
  *     own shape unless the theme's stylesheet sizes it (these rules weigh
  *     nothing, :where, so any rule of the theme's wins; only the width and
  *     height attributes lose). A logo is drawn whole in whatever box it is
- *     given (object-fit: contain).
+ *     given (object-fit: contain). A lazy logo (sizes="auto") is laid out by
+ *     its attributes whatever the stylesheet says, so once its file is in it
+ *     is given the file's shape (installLogoShape).
  */
 
 /** The widest a product card is drawn, in CSS pixels. */
 export const SHOP_CARD_MAX_PX = 400
 
-/** The tallest a product page's main picture is drawn: the window below a header, at most 960. */
-export const SHOP_GALLERY_MAX_H = "min(calc(100svh - 180px), 960px)"
+/** The tallest a product page's main picture is drawn: the window below a header, a breadcrumb and the page's top padding (they come to 120 to 230px across Materia's templates), at most 960. */
+export const SHOP_GALLERY_MAX_H = "min(calc(100svh - 240px), 960px)"
 
 /** The frame shapes Materia writes (Theme settings > Product cards > Image ratio, a custom one, a picture's own). */
 const FRACTIONS = ["1/1", "3/4", "4/3", "4/5", "5/4", "2/3", "3/2", "16/9", "9/16", "16/10", "10/16", "2/1", "1/2", "5/7", "7/5", "3/5", "5/3"]
@@ -79,6 +81,9 @@ function galleryRatioRules(): string {
   out.push("media-gallery[data-square]{--sl-mg-r:1}")
   return out.join("")
 }
+
+/** Where a picture is a logo, or sits beside one. */
+const LOGO_PLACES = "header img,footer img,.footer img,.header img,.store-info-content img,[class*=logo] img,img[class*=logo]"
 
 /* The cards' hover effects that move (Materia's Product cards > Hover effect, Dawn's image zoom and lift). */
 const STILL = "transform:none!important;translate:none!important;scale:none!important;rotate:none!important"
@@ -116,12 +121,47 @@ export const SHOP_CALM_CSS = [
   'html[data-sl-wishlist=off] :is(button-wishlist,.product-item__button-wishlist,.pc-heart,.product-form__wishlist,[data-wishlist-button],.qv__wish){display:none!important}',
 
   /* 5. A logo keeps its shape. */
-  ":where(header img,footer img,.footer img,.header img,.store-info-content img,[class*=logo] img,img[class*=logo]){height:auto}",
+  `:where(${LOGO_PLACES}){height:auto}`,
   ":where([class*=logo] img,img[class*=logo],.store-info-content img){object-fit:contain}",
 ].join("")
 
+/*
+  A LOGO DRAWN AT ITS FILE'S SHAPE, ALSO WHEN IT LOADS LAZILY. A lazy picture with sizes="auto" is laid out with
+  size containment (the browser's own !important rule, which no stylesheet can undo), so its shape comes from its
+  width and height attributes, never from the file. Written 160 by 160 from the image object's unknown size, the
+  Northpaper logo was a square. Once a logo's file has loaded and its attributes say another shape, it is given
+  the file's (aspect-ratio). Self contained, like lib/images/pic-fit.ts.
+*/
+export function installLogoShape(doc: Document): void {
+  var SEL = "header img,footer img,.footer img,.header img,.store-info-content img,[class*=logo] img,img[class*=logo]"
+  var fix = function (i: HTMLImageElement) {
+    try {
+      if (!i.naturalWidth || !i.naturalHeight || !i.matches(SEL)) return
+      var w = Number(i.getAttribute("width"))
+      var h = Number(i.getAttribute("height"))
+      if (!w || !h) return
+      if (Math.abs(w / h / (i.naturalWidth / i.naturalHeight) - 1) > 0.02) i.style.aspectRatio = i.naturalWidth + " / " + i.naturalHeight
+    } catch {
+      /* Left as the theme drew it. */
+    }
+  }
+  doc.addEventListener(
+    "load",
+    function (e) {
+      var t = e.target as HTMLElement | null
+      if (t && t.tagName === "IMG") fix(t as HTMLImageElement)
+    },
+    true,
+  )
+  var all = function () {
+    for (var k = 0; k < doc.images.length; k++) if (doc.images[k].complete) fix(doc.images[k])
+  }
+  if (doc.readyState === "loading") doc.addEventListener("DOMContentLoaded", all)
+  else all()
+}
+
 /** The same, for a page's <head>. */
-export const SHOP_CALM_HEAD = `<style data-sl-shop-calm>${SHOP_CALM_CSS}</style>`
+export const SHOP_CALM_HEAD = `<style data-sl-shop-calm>${SHOP_CALM_CSS}</style><script data-sl-logo-shape>try{(${installLogoShape.toString()})(document)}catch(e){}</script>`
 
 /** What a header section says about the store's wishlist: an icon setting's value (or its default). Null when it has none. */
 export function headerWishlistOn(

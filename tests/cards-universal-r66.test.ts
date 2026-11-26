@@ -47,7 +47,7 @@ const THREE: SampleProduct[] = [
 
 type Section = { id: string; type: string; settings: Record<string, unknown> }
 
-async function materia(headerIcon: boolean | null): Promise<{ home: string; product: string }> {
+async function materia(headerIcon: boolean | null): Promise<{ home: string; product: string; list: string }> {
   const imported = await importTemplate("materia/creator")
   /* liam-bailey.storelib.com's saved setting: the cards' heart on. */
   imported.theme.settings.shopify = { ...imported.theme.settings.shopify, show_wishlist: true }
@@ -59,7 +59,7 @@ async function materia(headerIcon: boolean | null): Promise<{ home: string; prod
         else s.settings.show_wishlist_icon = headerIcon
       }
   const get = async (s: SiteData, path: string) => String((await answer(s, { method: "GET", path, query: new URLSearchParams(), body: null, cart: [] })).body)
-  return { home: await get(site, "/"), product: await get(site, "/products/alpha-plan") }
+  return { home: await get(site, "/"), product: await get(site, "/products/alpha-plan"), list: await get(site, "/collections/all") }
 }
 
 const hearts = (html: string) => (html.match(/<button-wishlist\b/g) ?? []).length
@@ -69,7 +69,7 @@ async function main() {
   check("cards at most 400px", SHOP_CARD_MAX_PX === 400 && SHOP_CALM_CSS.includes(`--sl-card-max:${SHOP_CARD_MAX_PX}px`))
   check("  Materia's Products listing caps its columns (liam-bailey.storelib.com's section), not the cards in them", SHOP_CALM_CSS.includes(".pl-grid:has(>.product-item){grid-template-columns:repeat(var(--pl-cols,4),minmax(0,var(--sl-card-max)))!important}"))
   check("  the collection page and .grid-cols too; a flex row caps the card", /\.facets-grid:has[^{]*\{grid-template-columns:repeat\(var\(--cols-desktop,4\),minmax\(0,var\(--sl-card-max\)\)\)/.test(SHOP_CALM_CSS) && /\.grid-cols:has\(>\.product-item\)/.test(SHOP_CALM_CSS) && /\.flex-cols,[^{]*\)>\.product-item,\.r7rv__item\{max-width:var\(--sl-card-max\)\}/.test(SHOP_CALM_CSS))
-  check("the product picture: never taller than the window below the header", SHOP_GALLERY_MAX_H === "min(calc(100svh - 180px), 960px)" && SHOP_CALM_CSS.includes(`--sl-gallery-h:${SHOP_GALLERY_MAX_H}`))
+  check("the product picture: never taller than the window below the header", SHOP_GALLERY_MAX_H === "min(calc(100svh - 240px), 960px)" && SHOP_CALM_CSS.includes(`--sl-gallery-h:${SHOP_GALLERY_MAX_H}`))
   check("  the gallery as wide as that at its first slide's shape (Liam's: --aspect-ratio: 3/4, no semicolon)", SHOP_CALM_CSS.includes('[style$="--aspect-ratio: 3/4"]') && SHOP_CALM_CSS.includes("{--sl-mg-r:3/4}") && SHOP_CALM_CSS.includes("max-width:calc(var(--sl-gallery-h) * (var(--sl-mg-r,1)))"))
   check("  a picture's own shape (Adapt) by its first digits", SHOP_CALM_CSS.includes('[style*="--aspect-ratio: 0.7"]){--sl-mg-r:0.7}'))
   check("  the magnifier is not shown", SHOP_CALM_CSS.includes(".drift-zoom-pane,.drift-bounding-box{display:none!important}"))
@@ -80,6 +80,7 @@ async function main() {
   let balanced = true
   for (const ch of SHOP_CALM_CSS) { if (ch === "{") depth++; if (ch === "}") depth--; if (depth < 0) balanced = false }
   check("  the stylesheet's braces balance, and it cannot close its <style>", balanced && depth === 0 && !SHOP_CALM_CSS.includes("<"))
+  check("a lazy logo (sizes=auto, laid out by its attributes) is given its file's shape once loaded", SHOP_CALM_HEAD.includes("<script data-sl-logo-shape>") && /aspectRatio/.test(SHOP_CALM_HEAD) && !/\bimport\b|require\(/.test(SHOP_CALM_HEAD))
 
   console.log("\nheaderWishlistOn\n")
   const schema = { settings: [{ id: "show_wishlist_icon", type: "checkbox", default: true }] }
@@ -91,14 +92,14 @@ async function main() {
   console.log("\nMateria, drawn as a live store is (materia/creator, the cards' heart on)\n")
   const off = await materia(false)
   check("the head carries the stylesheet", off.home.includes(SHOP_CALM_HEAD) && off.product.includes(SHOP_CALM_HEAD))
-  check("header icon off: no heart on the home page's cards", hearts(off.home) === 0, hearts(off.home))
-  check("  nor on the product page's", hearts(off.product) === 0, hearts(off.product))
+  check("header icon off: no heart on the collection page's cards", hearts(off.list) === 0 && (off.list.match(/class="product-item /g) ?? []).length === 3, hearts(off.list))
+  check("  nor on the product page's (its related products)", hearts(off.product) === 0 && /class="product-item /.test(off.product), hearts(off.product))
   check("  and the page is marked, for a heart a section draws on its own", /<html[^>]*data-sl-wishlist="off"/.test(off.home) && /<html[^>]*data-sl-wishlist="off"/.test(off.product))
   const on = await materia(true)
-  check("header icon on: the hearts are drawn as before", hearts(on.home) > 0, hearts(on.home))
+  check("header icon on: the hearts are drawn as before, one a card", hearts(on.list) === 3, hearts(on.list))
   check("  and the page is not marked", !/data-sl-wishlist="off"/.test(on.home))
   const unset = await materia(null)
-  check("header icon never set (Materia's default is on): hearts drawn", hearts(unset.home) > 0 && !/data-sl-wishlist="off"/.test(unset.home), hearts(unset.home))
+  check("header icon never set (Materia's default is on): hearts drawn", hearts(unset.list) === 3 && !/data-sl-wishlist="off"/.test(unset.list), hearts(unset.list))
 
   console.log("\nThe native theme\n")
   const header = { id: "header", type: "header", settings: { show_wishlist_icon: false } } as unknown as SectionInstance
