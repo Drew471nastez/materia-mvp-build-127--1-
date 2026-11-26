@@ -24,7 +24,7 @@ import "./_usd"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { fakeDb } from "./_fake-db"
-import { ensureStarterWebsite, needsStarter, starterKeeper, starterRows, STARTER_THEME_ID } from "@/lib/website-builder/starter-website"
+import { ensureStarterWebsite, needsStarter, starterKeeper, STARTER_NAME, STARTER_TEMPLATE } from "@/lib/website-builder/starter-website"
 import { STORELIB_DEFAULT_ID } from "@/lib/website-builder/theme-registry"
 import { fileLinkHref, leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
 import { money, productImages, imageIndexForVariant } from "@/lib/products/product-page-model"
@@ -79,12 +79,24 @@ async function main() {
   // ── 1. The first website ───────────────────────────────────────────────
   section("1. A new account has a website to open")
   {
-    const rows = starterRows(CREATOR)
-    check("the starter is Storelib Default", !!rows && rows.install.theme_id === STORELIB_DEFAULT_ID && STARTER_THEME_ID === STORELIB_DEFAULT_ID)
-    check("installed as a draft, never published", rows?.install.status === "draft")
-    check("with a home page and a product page from the theme's preset",
-      !!rows && rows.pages.map((p) => p.page_key).join() === "home,product" && rows.pages.every((p) => p.sections.length > 0) &&
-        rows.pages[1].sections.some((s) => s.type === "product"))
+    /* Changed on purpose (r63): the starter is the Materia Storelib Default (the template Browse themes shows), imported as Add imports it, not the native registry theme's preset rows. tests/default-theme-images-r63.test.ts runs the real import. */
+    check("the starter is Storelib Default, the current template", STARTER_TEMPLATE === "default" && STARTER_NAME === "Storelib Default")
+    /* A stand-in for the template's import (lib/themes/template-install.ts), writing what it writes: a draft install, its settings, its pages. */
+    const imports: { template: string; name: string; userId: string }[] = []
+    const fakeImport = (async (db: { from: (t: string) => any }, who: { userId: string; creatorId: string }, template: string, opts: { name: string }) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+      imports.push({ template, name: opts.name, userId: who.userId })
+      const { data, error } = await db.from("store_theme_installs").insert({ creator_id: who.creatorId, theme_id: STORELIB_DEFAULT_ID, name: opts.name, status: "draft", is_custom: true, sort_order: 0 }).select("id").single()
+      if (error || !data) return { ok: false, status: 500, error: "Could not import this theme. Try again." }
+      const pages = await db.from("store_theme_pages").insert([{ install_id: data.id, page_key: "home", sections: [] }, { install_id: data.id, page_key: "product", sections: [] }])
+      if (pages.error) {
+        await db.from("store_theme_installs").delete().eq("id", data.id)
+        return { ok: false, status: 500, error: "Could not import this theme. Try again." }
+      }
+      await db.from("store_theme_settings").insert({ install_id: data.id, settings: {} })
+      return { ok: true, installId: data.id as string, name: opts.name, template }
+    }) as never
+    const deps = { install: fakeImport }
+    const WHO = { userId: "u0000000-0000-4000-8000-000000000001" }
     check("only an empty library gets one, and never on a count that could not be read",
       needsStarter(0) && !needsStarter(1) && !needsStarter(5) && !needsStarter(null) && !needsStarter(undefined))
     check("of two made at once, the older stays",
@@ -94,42 +106,46 @@ async function main() {
 
     const themes = [{ id: STORELIB_DEFAULT_ID, name: "Storelib Default" }]
     const db = fakeDb({ themes: [...themes], store_theme_installs: [], store_theme_settings: [], store_theme_pages: [] })
-    const first = await ensureStarterWebsite(db as never, CREATOR)
+    const first = await ensureStarterWebsite(db as never, CREATOR, WHO, deps)
     const installs = db.tables.store_theme_installs
     check("an empty library: one install, made", first.created && installs.length === 1 && installs[0].id === first.installId)
     check("  as a draft of Storelib Default, first in the library",
-      installs[0].status === "draft" && installs[0].theme_id === STORELIB_DEFAULT_ID && installs[0].sort_order === 0 && installs[0].creator_id === CREATOR)
+      installs[0].status === "draft" && installs[0].name === "Storelib Default" && installs[0].sort_order === 0 && installs[0].creator_id === CREATOR)
+    check("  imported from the default template, into the owner's media folder",
+      imports.length === 1 && imports[0].template === "default" && imports[0].name === "Storelib Default" && imports[0].userId === WHO.userId, JSON.stringify(imports))
     check("  with its settings and its two pages",
       db.tables.store_theme_settings.length === 1 && db.tables.store_theme_pages.length === 2 &&
         db.tables.store_theme_pages.every((p) => p.install_id === first.installId))
     check("  and nothing published anywhere", !installs.some((i) => i.status === "published"))
-    const again = await ensureStarterWebsite(db as never, CREATOR)
+    const again = await ensureStarterWebsite(db as never, CREATOR, WHO, deps)
     check("a second visit adds nothing", !again.created && db.tables.store_theme_installs.length === 1 && db.tables.store_theme_pages.length === 2)
 
     const kept = fakeDb({ themes: [...themes], store_theme_installs: [{ id: "x", creator_id: CREATOR, theme_id: "other", status: "unpublished" }] })
-    const none = await ensureStarterWebsite(kept as never, CREATOR)
+    const none = await ensureStarterWebsite(kept as never, CREATOR, WHO, deps)
     check("a library with anything in it is never touched", !none.created && kept.tables.store_theme_installs.length === 1)
 
     const broken = fakeDb({ themes: [...themes] }, { failWith: { store_theme_installs: { code: "42P01", message: "missing" } } })
-    const quiet = await ensureStarterWebsite(broken as never, CREATOR)
+    const quiet = await ensureStarterWebsite(broken as never, CREATOR, WHO, deps)
     check("a library that cannot be read is not called empty", !quiet.created && quiet.installId === null)
 
     const half = fakeDb({ themes: [...themes], store_theme_installs: [] }, { failInsert: { store_theme_pages: { code: "23502", message: "no" } } })
-    const failedWrite = await ensureStarterWebsite(half as never, CREATOR)
+    const failedWrite = await ensureStarterWebsite(half as never, CREATOR, WHO, deps)
     check("pages that fail to write take the install with them", !failedWrite.created && half.tables.store_theme_installs.length === 0)
 
     const race = fakeDb({ themes: [...themes], store_theme_installs: [], store_theme_settings: [], store_theme_pages: [] })
-    const [a, b] = await Promise.all([ensureStarterWebsite(race as never, CREATOR), ensureStarterWebsite(race as never, CREATOR)])
+    const [a, b] = await Promise.all([ensureStarterWebsite(race as never, CREATOR, WHO, deps), ensureStarterWebsite(race as never, CREATOR, WHO, deps)])
+    /* Changed on purpose (r63): the import writes its rows before the twin check, and the database removes a removed install's rows with it (this in-memory one does not), so only the installs are counted. */
     check("two visits at once: one website, not two",
-      race.tables.store_theme_installs.length === 1 && race.tables.store_theme_settings.length === 1 && race.tables.store_theme_pages.length === 2,
+      race.tables.store_theme_installs.length === 1 && race.tables.store_theme_pages.filter((p) => p.install_id === race.tables.store_theme_installs[0].id).length === 2,
       `${race.tables.store_theme_installs.length} installs`)
+    check("no user id, no starter (its pictures need the owner's folder)", !(await ensureStarterWebsite(fakeDb({ store_theme_installs: [] }) as never, CREATOR, { userId: "" }, deps)).created)
     check("  and both answer with the same one", !!a.installId && a.installId === b.installId && [a.created, b.created].filter(Boolean).length === 1)
 
     const page = code("app/(storelib)/app/website-builder/website-page.tsx") /* Changed on purpose (templates round 16): the page's loader is website-page.tsx, shared by /app/website-builder and /app/website-builder/ai */
     check("the website page seeds through the starter, not the old function that published",
-      /ensureStarterWebsite\(createAdminClient\(\), creator\.id\)/.test(page) && !/initialize_creator_themes/.test(page))
+      /* Changed on purpose (r63): with the owner's user id, the media folder the template's pictures go in. */ /ensureStarterWebsite\(createAdminClient\(\), creator\.id, \{ userId: access\.ownerUserId \}\)/.test(page) && !/initialize_creator_themes/.test(page))
     check("  only for a library read that came back empty", /if \(rows && rows\.length === 0\)/.test(page))
-    check("the initialize route uses it too", /ensureStarterWebsite\(admin, creator\.id\)/.test(code("app/api/website-builder/initialize/route.ts")) &&
+    check("the initialize route uses it too", /* Changed on purpose (r63): with the owner's user id. */ /ensureStarterWebsite\(admin, creator\.id, \{ userId: site\.ownerUserId \}\)/.test(code("app/api/website-builder/initialize/route.ts")) &&
       !/initialize_creator_themes/.test(code("app/api/website-builder/initialize/route.ts")))
 
     const client = code("app/(storelib)/app/website-builder/website-builder-client.tsx")

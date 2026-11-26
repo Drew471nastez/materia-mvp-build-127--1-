@@ -87,7 +87,14 @@ export function findLetterbox(px: ArrayLike<number>, width: number, height: numb
   const across = sides("column")
   const down = sides("row")
   if (!across && !down) return null
-  const box: ContentBox = { x: across ? across[0] : 0, y: down ? down[0] : 0, w: across ? across[1] : 1, h: down ? down[1] : 1 }
+  /*
+    Round 64: the editor pads on one axis only (a portrait cover at the sides, a very wide one above and below). Bars
+    found on both axes mean one of them is the picture's own edge (a poster's black top rows): the axis with the most
+    taken off is the padding, the other is kept.
+  */
+  const onlyAcross = !!across && !!down && 1 - across[1] >= 1 - down[1]
+  const onlyDown = !!across && !!down && !onlyAcross
+  const box: ContentBox = { x: across && !onlyDown ? across[0] : 0, y: down && !onlyAcross ? down[0] : 0, w: across && !onlyDown ? across[1] : 1, h: down && !onlyAcross ? down[1] : 1 }
   if (box.w < 0.2 || box.h < 0.2) return null
   return box
 }

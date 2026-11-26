@@ -124,12 +124,23 @@ async function templateMenusForEmptyStore(admin: Admin, creatorId: string, packa
   }
 }
 
-/** `template` is a CODE_TEMPLATES folder ("trainer"). The website is named `name`. */
+/**
+ * A home page with only the site's frame: the header, footer and overlay groups the converter marks
+ * (convert.ts `group`). Start from blank (r63) is the default template with its sample home sections left out.
+ */
+export function homeChromeOnly<P extends { page_key: string; sections: { group?: unknown }[] }>(pages: P[]): P[] {
+  return pages.map((p) => (p.page_key === "home" ? { ...p, sections: p.sections.filter((s) => !!s.group) } : p))
+}
+
+/**
+ * `template` is a CODE_TEMPLATES folder ("trainer"). The website is named `name`. `blankHome` keeps the template's
+ * frame and every other page, and leaves its home page's own sections out (Start from blank).
+ */
 export async function installCodeTemplate(
   admin: Admin,
   who: { userId: string; creatorId: string },
   template: string,
-  opts: { name: string; deps?: TemplateInstallDeps },
+  opts: { name: string; blankHome?: boolean; deps?: TemplateInstallDeps },
 ): Promise<TemplateInstalled | StoreFailure> {
   const packageId = `${CODE_THEME_PACKAGE}/${template}`
   if (!isCodePackageId(packageId)) return { ok: false, status: 400, error: "No template has this name." }
@@ -150,7 +161,8 @@ export async function installCodeTemplate(
     console.error("[themes/template-install] the template did not convert", { template })
     return { ok: false, status: 500, error: FAILED }
   }
-  const stored = await (deps.store ?? storeImportedTheme)(admin, who, theme.theme, theme.report, { name: opts.name })
+  const converted = opts.blankHome ? { ...theme.theme, pages: homeChromeOnly(theme.theme.pages) } : theme.theme
+  const stored = await (deps.store ?? storeImportedTheme)(admin, who, converted, theme.report, { name: opts.name })
   if (stored.ok === false) return stored
   await (deps.menus ?? templateMenusForEmptyStore)(admin, who.creatorId, packageId)
   return { ok: true, installId: stored.installId, name: stored.name, template }

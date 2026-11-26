@@ -99,6 +99,22 @@ export const DEFAULT_LISTING_SLUG = "storelib-default"
 /** The theme package the templates are made from (theme-packages/<package>). */
 export const CODE_THEME_PACKAGE = "materia"
 
+/**
+ * THE DEFAULT (r63). The template every new website starts from: the Storelib
+ * Default Browse themes shows, the Sundry sample shop
+ * (theme-packages/materia/templates/default), never the native registry theme
+ * of the same name (lib/website-builder/theme-registry.ts STORELIB_DEFAULT_ID),
+ * which is retired. A first visit (lib/website-builder/starter-website.ts),
+ * Start from blank (lib/website-builder/create-website.ts) and the AI
+ * builder's fallback (lib/storelib-ai/materia/reference.ts) all read this.
+ */
+export const DEFAULT_CODE_TEMPLATE = "default"
+/** Its marketplace listing's id and package, as builtinListings() writes them. */
+export const DEFAULT_TEMPLATE_LISTING_ID = `template-${CODE_THEME_PACKAGE}-${DEFAULT_CODE_TEMPLATE}`
+export const DEFAULT_TEMPLATE_PACKAGE = `${CODE_THEME_PACKAGE}/${DEFAULT_CODE_TEMPLATE}`
+/** The name a starter website is given: the listing's own. */
+export const DEFAULT_TEMPLATE_NAME = "Storelib Default"
+
 /** One starting website: its address, its overlay folder, its name and where it is filed. */
 export interface CodeTemplate {
   slug: string
@@ -109,7 +125,7 @@ export interface CodeTemplate {
 
 /** In the order the library shows them; the first is the default. */
 export const CODE_TEMPLATES: readonly CodeTemplate[] = [
-  { slug: DEFAULT_LISTING_SLUG, template: "default", name: "Storelib Default", category: "general" },
+  { slug: DEFAULT_LISTING_SLUG, template: DEFAULT_CODE_TEMPLATE, name: DEFAULT_TEMPLATE_NAME, category: "general" },
   { slug: "clothing", template: "clothing", name: "Clothing", category: "fashion" },
   { slug: "merch", template: "merch", name: "Merch", category: "creators" },
   { slug: "digital-products", template: "digital", name: "Digital products", category: "digital" },

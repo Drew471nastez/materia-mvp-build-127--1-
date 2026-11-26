@@ -10,7 +10,7 @@
  * (`DRAFT_MARKER`) and the second creator's rows carry `OTHER_MARKER`, so a
  * test can look for either in what a cached public page holds.
  */
-import { starterRows } from "@/lib/website-builder/starter-website"
+import { starterRows } from "../_fixtures/native-starter"
 import type { Fixture, Row } from "./fake-postgrest"
 
 export const DRAFT_MARKER = "UNPUBLISHED-DRAFT-7f3a"

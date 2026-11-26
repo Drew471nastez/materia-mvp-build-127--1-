@@ -153,6 +153,30 @@ export function ProductMedia({
   const sliderOnPhone = mobile !== "stacked"
   const aspect = RATIO[ratio]
 
+  /*
+    NATURAL SHAPE, SIDE BY SIDE (r63). With the picture's own shape (the default) a row of pictures, the phone's
+    swipe row, the slideshow, the carousel and the grid's pairs, is as tall as its tallest picture, and every
+    other one was drawn whole inside a frame stretched to that height: a wide picture beside a tall one was a
+    strip with half its frame blank (the owner's live product page). Now the row takes its height from one
+    picture only, drawn at its own shape (the first; in the grid, the left of each pair), and the others cover
+    a frame of that height, laid out absolutely so they never make the row taller. Nothing is measured, so
+    nothing moves after the first paint. A single column keeps every picture at its own shape, as before.
+  */
+  const COVER = "absolute inset-0 h-full w-full object-cover"
+  const NATURAL_PHONE = sliderOnPhone ? COVER : "static h-auto object-contain"
+  const NATURAL_DESK: Record<MediaLayout, [string, string]> = {
+    /* [the picture that sets the row's height, every other one], written out whole so the stylesheet has them. */
+    stacked: ["@[768px]:static @[768px]:h-auto @[768px]:object-contain", "@[768px]:static @[768px]:h-auto @[768px]:object-contain"],
+    stacked_2col: ["@[768px]:static @[768px]:h-auto @[768px]:object-contain", "@[768px]:absolute @[768px]:inset-0 @[768px]:h-full @[768px]:object-cover"],
+    slideshow: ["@[768px]:static @[768px]:h-auto @[768px]:object-contain", "@[768px]:absolute @[768px]:inset-0 @[768px]:h-full @[768px]:object-cover"],
+    carousel: ["@[768px]:static @[768px]:h-auto @[768px]:object-contain", "@[768px]:absolute @[768px]:inset-0 @[768px]:h-full @[768px]:object-cover"],
+  }
+  /** The classes a natural-shape picture is drawn with at `pos`: the first sets the height, the rest cover it. */
+  const naturalFit = (pos: number) => {
+    const setsHeight = layout === "stacked_2col" ? pos % 2 === 0 : pos === 0
+    return cn(pos === 0 ? "static h-auto object-contain" : NATURAL_PHONE, NATURAL_DESK[layout][setsHeight ? 0 : 1])
+  }
+
   return (
     <div data-product-media="" data-media-layout={layout}>
       <div
@@ -198,7 +222,7 @@ export function ProductMedia({
               alt={pos === 0 ? title : `${title}, picture ${pos + 1}`}
               className={cn(
                 "block w-full transition-transform duration-500",
-                aspect ? "h-full object-cover" : "h-auto object-contain",
+                aspect ? "h-full object-cover" : naturalFit(pos),
                 hoverZoom && "@[768px]:group-hover/media:scale-[1.06]",
                 open && "cursor-zoom-in",
               )}

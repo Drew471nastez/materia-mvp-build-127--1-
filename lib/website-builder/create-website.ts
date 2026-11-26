@@ -51,6 +51,12 @@
  * (product-page.ts withMainProduct), so a product is never "Product name"
  * and never unbuyable.
  *
+ * THE CURRENT DEFAULT (r63). Start from blank no longer writes the native
+ * registry theme: it imports the Materia Storelib Default (the template
+ * Browse themes shows) with an empty home page; see createStartWebsite. The
+ * native rows below are left only for Start with AI on the classic engine,
+ * or without the jobs table, whose builder writes the native sections.
+ *
  * Server only: it writes with the service role. The creator comes from the
  * signed-in caller (lib/team/website websiteCaller), never from a request.
  */
@@ -61,6 +67,7 @@ import { buildThemePreset, getThemeDefinition, STORELIB_DEFAULT_ID, themeCatalog
 import { ensureStoreMenus } from "./store-menus-server"
 import { pointAtStoreMenus } from "./main-menu"
 import type { installCodeTemplate } from "@/lib/themes/template-install"
+import { DEFAULT_CODE_TEMPLATE } from "@/lib/themes/marketplace-shared"
 import type { SectionInstance, ThemeSettingsValues } from "./types"
 
 /** How a new website starts. */
@@ -175,7 +182,7 @@ const failed = (): StartResult => ({ ok: false, status: 500, error: FAILED })
  */
 export async function createStartWebsite(
   db: { supabase: SupabaseClient; admin: SupabaseClient },
-  input: { creatorId: string; mode: StartMode; name?: unknown; chrome?: StartChrome; template?: { id: string; userId: string } },
+  input: { creatorId: string; mode: StartMode; name?: unknown; chrome?: StartChrome; template?: { id: string; userId: string }; userId?: string },
   deps: { menus?: typeof ensureStoreMenus; installTemplate?: typeof installCodeTemplate } = {},
 ): Promise<StartResult> {
   const { supabase, admin } = db
@@ -183,17 +190,28 @@ export async function createStartWebsite(
   const menus = deps.menus ?? ensureStoreMenus
 
   /*
+    START FROM BLANK IS THE CURRENT STORELIB DEFAULT (r63). It used to be the native registry theme's header, footer
+    and product page (startRows below), the old default Browse themes no longer offers. Now it is the Materia
+    template Browse themes shows as Storelib Default (DEFAULT_CODE_TEMPLATE), with its frame, its other pages and
+    its settings, and a home page with none of its sample sections. Never the native theme: without the owner's id
+    (whose media folder the template's pictures go in) it is refused, not made the old way.
+  */
+  const blank = mode === "blank"
+  const template = input.template ?? (blank && input.userId ? { id: DEFAULT_CODE_TEMPLATE, userId: input.userId } : null)
+  if (blank && !template) return failed()
+
+  /*
     ROUND 26: START WITH AI FROM ONE OF STORELIB'S TEMPLATES. The new website is the closest Materia template,
     imported as Browse themes adds one (lib/themes/template-install.ts): the same library limit asked first and
     counted again after the insert, one website, its rows all or nothing (a write that fails removes it).
   */
-  if (input.template) {
+  if (template) {
     if ((await librarySlotsLeft(supabase, creatorId)) === 0) return full()
     const { data: namedRows } = await supabase.from("store_theme_installs").select("name").eq("creator_id", creatorId)
     const takenNames = ((namedRows ?? []) as { name?: unknown }[]).map((r) => (typeof r.name === "string" ? r.name : "")).filter(Boolean)
     /* Injected by the route (server only): this file is read by the Website page too, and the import must never reach a browser bundle. */
     if (!deps.installTemplate) return failed()
-    const made = await deps.installTemplate(admin, { userId: input.template.userId, creatorId }, input.template.id, { name: pickStartName(input.name, mode, takenNames) })
+    const made = await deps.installTemplate(admin, { userId: template.userId, creatorId }, template.id, { name: pickStartName(input.name, mode, takenNames), ...(blank ? { blankHome: true } : {}) })
     if (made.ok === false) return made.code ? { ok: false, status: made.status, error: made.error, code: made.code } : { ok: false, status: made.status, error: made.error }
     return { ok: true, install: { id: made.installId, name: made.name, template: made.template } }
   }

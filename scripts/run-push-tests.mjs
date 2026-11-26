@@ -344,6 +344,8 @@ const SUITES = [
   "tests/section-categories.test.ts",
   "tests/canvas-loading.test.ts",
   "tests/compat-recently-viewed.test.ts",
+  /* Round 64 (k2): You may also like and Recently viewed on a Materia website. */
+  "tests/related-recent-r64.test.ts",
   "tests/compat-header-cards.test.ts",
   "tests/shopify-overlay-import.test.ts",
   "tests/editor-save-errors.test.ts",
@@ -552,6 +554,9 @@ const SUITES = [
   "tests/admin-dashboard.test.ts",
   "tests/admin-queries.test.ts",
   "tests/admin-routes.test.ts",
+  /* Round 63: Build website for a creator from Storelib Default (app/api/admin/creators/site): admin only, a new draft beside their live site, the library limit, only their own content, none of the template's sample words. */
+  "tests/creator-site-builder-r63.test.ts",
+  "tests/cover-trim-hosts-r64.test.ts",
   "tests/admin-logic.test.ts",
   "tests/cron-reachable.test.ts",
   "tests/theme-presets.test.ts",
@@ -1975,6 +1980,10 @@ const STRICT_SUITES = [
   "tests/live-platform-r62.test.ts",
   /* Round 60 (h3): a login's business limit set per account by Storelib (SQL part 446, business_limits: NULL the rule of three, -1 no limit, or a number). The real /api/businesses route with the admin client stood in: three and no more without a row, a sixth with -1 and never told three, four at 4, a failed read is the rule; a claim link at -1 is not "limit"; the part's table is server only and nothing in the app writes it. scripts/check-business-limit-sql.sh runs the part on Postgres 16 (who can write it, the trigger and the handoff). */
   "tests/business-limit-r60.test.ts",
+  /* Round 63 (j1): every new website starts on the current Storelib Default (the Materia template Browse themes shows, template-materia-default), imported for real on a first visit and on Start from blank; the native theme is offered nowhere. Product pictures: Materia's offered up to 1440 wide for 2x, the native gallery's row of natural-shape pictures has no blank half. scripts/check-product-images-r63.mjs measures it in Chromium at 360, 390, 768 and 1280. */
+  "tests/default-theme-images-r63.test.ts",
+  /* Round 64 (k1): country flags are real artwork, public/flags/<CODE>.svg (country-flag-icons, MIT), not the emoji written as text in a data: SVG: `country | image_url` is the file for every theme, Materia asks for a row's flag only when it is in the list's view, and Storelib's own order and admin pages draw the same files. scripts/check-flags-r64.mjs measures centre offset and coverage in Chromium at 390 and 1280. */
+  "tests/flags-r64.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

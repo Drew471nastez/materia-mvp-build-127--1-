@@ -1,8 +1,9 @@
 "use client"
 
 import * as React from "react"
+import { FlagImage } from "@/components/ui/flag-image"
 
-import { ACTION_GROUPS, ONLINE_MS, countryFlag, countryName, describeEvent, deviceLabel, groupSessions, isOnline, pageLabel, type TimelineEvent } from "@/lib/activity/creator-activity"
+import { ACTION_GROUPS, ONLINE_MS, countryName, describeEvent, deviceLabel, groupSessions, isOnline, pageLabel, type TimelineEvent } from "@/lib/activity/creator-activity"
 import type { ActivityFeedRow, ActivityPayload, CreatorActivityPayload, PresenceRow } from "@/lib/admin/types"
 
 import { ago, date, num } from "./format"
@@ -94,7 +95,7 @@ function Country({ code }: { code: string | null }) {
   if (!code) return <span className="text-[#6b6b76]">Unknown</span>
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5">
-      <span aria-hidden>{countryFlag(code)}</span>
+      <FlagImage code={code} />
       <span className="truncate">{countryName(code)}</span>
     </span>
   )

@@ -224,6 +224,14 @@ const nextConfig = {
     */
     '/api/website-builder/**': ['./theme-packages/**/*', CHROMIUM_BIN],
     /*
+      THE FIRST VISIT (r63). The Website page installs Storelib Default into an
+      empty library while it renders (lib/website-builder/starter-website.ts),
+      and Storelib Default is now the Materia template, composed from the same
+      folder. Its page and the two that share its loader (/ai, /themes).
+    */
+    '/app/website-builder': ['./theme-packages/**/*'],
+    '/app/website-builder/**': ['./theme-packages/**/*'],
+    /*
       THE INVOICE'S TYPEFACE. lib/checkout/invoice.ts reads Inter from
       lib/checkout/fonts by path, which tracing cannot see, for every route
       that draws one: the download, and the three that email the receipt

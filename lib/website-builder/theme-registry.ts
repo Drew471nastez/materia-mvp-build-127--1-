@@ -348,7 +348,12 @@ export function isThemeId(value: unknown): value is string {
  * not differ. They stay defined, because websites already made from them
  * read their definition for covers and names, but only these can be added.
  */
-export const BROWSABLE_THEME_IDS: readonly string[] = [STORELIB_DEFAULT_ID]
+/*
+  Changed on purpose (r63): none. The native Storelib Default was the last one Add took; the Storelib Default a
+  creator is offered and starts on is the Materia template (lib/themes/marketplace-shared.ts DEFAULT_CODE_TEMPLATE).
+  Websites already made from the native theme keep working: they read its definition, they are never changed.
+*/
+export const BROWSABLE_THEME_IDS: readonly string[] = []
 export const BROWSABLE_THEMES: ThemeDefinition[] = THEME_REGISTRY.filter((t) => BROWSABLE_THEME_IDS.includes(t.id))
 
 export function getThemeDefinition(themeId: string): ThemeDefinition | null {

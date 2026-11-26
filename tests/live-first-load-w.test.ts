@@ -25,7 +25,7 @@
  */
 import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
-import { FLAG_SRC_PREFIX, openedAsDocument, readierFirstLoad, sharedAtCdn } from "../lib/storelib-theme/compat/first-load"
+import { FLAG_SRC_PREFIX, isFlagSrc, openedAsDocument, readierFirstLoad, sharedAtCdn } from "../lib/storelib-theme/compat/first-load"
 import { flagImage } from "../lib/storelib-theme/compat/objects"
 import { PUBLIC_PAGE_CACHE, SHAREABLE_HEADER, publicAnswer } from "../lib/storelib-theme/compat/anonymous-cache"
 import { SITE_PREFETCH_RULES } from "../lib/website-builder/prefetch-rules"
@@ -113,8 +113,10 @@ function firstDraw() {
 function flags() {
   section("The country selector's flags load when seen")
   const us = flagImage("US")
-  check("a flag is the picture first-load.ts looks for", us.startsWith(FLAG_SRC_PREFIX), us.slice(0, 120))
-  check("and still the country's own emoji, drawn with no request", decodeURIComponent(us).includes(String.fromCodePoint(0x1f1fa, 0x1f1f8)) && us.startsWith("data:image/svg+xml,"))
+  /* Changed on purpose (r64): a flag is its own artwork in public/flags (a static file the proxy never sees), not the emoji drawn in a data: SVG (tests/flags-r64.test.ts). */
+  check("a flag is the picture first-load.ts looks for", isFlagSrc(us), us.slice(0, 120))
+  check("and the country's own file, never a page of the website", us === "/flags/US.svg")
+  check("a page kept from before r64 still has its emoji flags found", isFlagSrc(`${FLAG_SRC_PREFIX}%20x%3D%2216%22`))
   const page = `<html><head></head><body><ul><li><img src="${us}" alt="United States"></li><li><img loading="eager" src="${flagImage("FR")}" alt="France"></li></ul><img src="data:image/svg+xml,%3Csvg%3E%3C%2Fsvg%3E" alt="other"><img src="/hero.jpg" fetchpriority="high"><script>var t='<img src="${us}">'</script></body></html>`
   const r = readierFirstLoad(page)
   check("one flag marked lazy", r.lazyFlags === 1 && r.html.includes(`<img loading="lazy" src="${us}" alt="United States">`), r.lazyFlags)
