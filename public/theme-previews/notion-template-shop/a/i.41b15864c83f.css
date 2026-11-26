@@ -32,7 +32,7 @@
   .r7n__note a { color: var(--color-heading); text-underline-offset: 2px; }
 }
 .main-product-section {
-  @media (min-width: 990px) { .main-product { margin-inline: 0 !important; flex-direction: row-reverse !important; align-items: center !important; flex-wrap: nowrap !important; gap: 56px !important; } .product-detail__information { padding-top: 0 !important; } }
+  @media (min-width: 990px) { .main-product { margin-inline: 0 !important; flex-direction: row-reverse !important; align-items: center !important; flex-wrap: nowrap !important; gap: 56px !important; } .product-detail__information { padding-top: 0 !important; flex: 1 1 0 !important; min-width: 0; } .product-detail__media { min-width: 0; } }
   @media (max-width: 989px) { .product-detail__media { order: 2; margin-top: 28px; } }
   .media-gallery__image:first-child:not(:only-child), .media-gallery__image:nth-child(n+3) { display: none !important; }
   .product-detail__media media-gallery { display: block; padding: 5% 4% 3%; border-radius: 16px; background: #efe7d6; }
