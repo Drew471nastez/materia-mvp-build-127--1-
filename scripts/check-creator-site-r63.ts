@@ -44,7 +44,7 @@ const arg = (name: string) => {
 const CONTENT = arg("content") ?? process.env.CREATOR_CONTENT ?? ""
 const IMAGES = arg("images") ?? process.env.CREATOR_IMAGES ?? ""
 const OUT = arg("out") ?? process.env.CREATOR_OUT ?? "."
-const WIDTHS = (arg("widths") ?? "360,390,768,1280").split(",").map(Number)
+const WIDTHS = (arg("widths") ?? process.env.CREATOR_WIDTHS ?? "360,390,768,1280").split(",").map(Number)
 const MIME: Record<string, string> = { ".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg" }
 
 type Content = {
@@ -163,7 +163,9 @@ async function main() {
   const samplesSeen: string[] = []
   const SAMPLE_WORDS = ["Northwind", "studio", "Sundry", "hello@example.com", "Acme", "Sarah J.", "10% off", "small runs", "Customer name", "Monday to Friday"]
   mkdirSync(OUT, { recursive: true })
-  const paths = [["home", "/"], ["collection", "/collections/all"], ...c.products.map((p) => [`product-${p.handle}`, `/products/${p.handle}`])]
+  const paths = (process.env.CREATOR_PAGES ?? "").trim()
+    ? (process.env.CREATOR_PAGES as string).split(",").map((p) => [p.replace(/^\/(pages\/)?/, "").replace(/\W+/g, "-") || "home", p])
+    : [["home", "/"], ["about", "/pages/about"], ["collection", "/collections/all"], ...c.products.map((p) => [`product-${p.handle}`, `/products/${p.handle}`])]
   for (const w of WIDTHS) {
     const ctx = await browser.newContext({ viewport: { width: w, height: w < 700 ? 800 : 900 }, deviceScaleFactor: 2 })
     const page = await ctx.newPage()
@@ -214,7 +216,7 @@ async function main() {
         return {
           scrollW: doc.scrollWidth,
           clientW: doc.clientWidth,
-          h1: (document.querySelector("h1")?.textContent ?? "").trim().slice(0, 80),
+          h1: [...document.querySelectorAll("h1")].map((h) => (h.textContent ?? "").trim().slice(0, 80)).filter(Boolean).join(" | "),
           hero: hero ? { src: (hero.currentSrc || hero.src).slice(-50), loaded: hero.complete && hero.naturalWidth > 0, box: [Math.round(hero.getBoundingClientRect().width), Math.round(hero.getBoundingClientRect().height)] } : null,
           cards,
           text: document.body.innerText,
