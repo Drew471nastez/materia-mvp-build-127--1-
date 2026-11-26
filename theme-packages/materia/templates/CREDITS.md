@@ -786,7 +786,7 @@ Templates round 23, after the owner's streetwear reference. The lifestyle photog
 
 Templates round 24, renamed and remade in round 25 as Streetwear drop by Sixth Ward and in round 26 as Redline by Kurb Club (a red restyle after a streetwear store the owner sent; the Kurb Club wordmark, assets/rail-logo.webp, is set in Liberation Serif and Liberation Sans, SIL Open Font License, and drawn to an image), a sample streetwear label, after the owner's hanging rail video and store references (a hanging rail store, a real streetwear brand's home page). Every garment on the rail is a real Unsplash photograph of it on its hanger, cut out by machine (rembg, BiRefNet and IS-Net models) and cleaned by hand. One hanger for all: each photograph's own hanger is toned to the same natural wood, the white hoodie's plastic hanger recoloured as wood, and the charcoal long sleeve, whose hook was out of frame, given a drawn steel hook. The grey, oat, forest and charcoal hoodies are the white hoodie photograph tinted; they are not photographs of those colours. The side views on the rail (assets/rail-*-side.webp, round 25) are drawn for this template from each garment's own front cut-out: the sleeve, body and hood fabric are strips of that photograph resampled into a garment hanging side on, then shaded; they are not photographs of the garments from the side. The black long sleeve, the black tee and the charcoal long sleeve are the three garments of one photograph, each long sleeve's hidden sleeve edge mirrored from its other sleeve. The lifestyle and landscape pictures are Unsplash photographs, resized.
 
-Round 28: every sample product's first picture is now a real photograph of someone wearing that kind of piece in that colour (the photographs are of other people's clothes, chosen for the cut and colour), and its second is the garment alone: the hanger cut-out the rail hangs, the same transparent file as the rail's front view, so the focus view shows it once. The "Made heavy" banner, lookbook split, category tiles, @kurbclub grid and countdown were added to the home page; the brick, garage, sky, hills and tile pictures were removed.
+Round 28: every sample product's first picture is now a real photograph of someone wearing that kind of piece in that colour (the photographs are of other people's clothes, chosen for the cut and colour), and its second is the garment alone: the hanger cut-out the rail hangs, the same transparent file as the rail's front view, so the focus view shows it once. The "Made heavy" banner, lookbook split, category tiles, @kurbclub grid and countdown were added to the home page; the brick, garage, sky, hills and tile pictures were removed. The two bomber fronts are one photograph of a rust bomber on a hanger, cut out (rembg, IS-Net), the hand and arm holding it removed, the plastic hanger toned to wood and steel, the label text painted out, then tinted black and olive; they are not photographs of those colours. The slate long sleeve is the charcoal long sleeve cut-out tinted. The shorts photograph has the printed logos on the tee and the shorts painted out and is cropped above the shoes.
 
 | Template | File | Source | Licence |
 | --- | --- | --- | --- |
@@ -843,25 +843,25 @@ Round 28: every sample product's first picture is now a real photograph of someo
 | rail (sample products, round 28) | scripts/theme-templates/products/rail/rail-nylon-shorts-worn.webp | https://images.unsplash.com/photo-1763750581767-b367bcd6c117 (cropped above the shoes; the printed logos on the tee and the shorts painted out) | Unsplash License |
 | rail (sample products, round 28) | scripts/theme-templates/products/rail/rail-wide-denim-worn.webp | https://images.unsplash.com/photo-1768696082704-c4e5593d9f27 (cropped above the shoes) | Unsplash License |
 | rail (sample products, round 28) | scripts/theme-templates/products/rail/rail-cargo-pants-worn.webp | https://images.unsplash.com/photo-1789938581278-4a28ff217f9c (cropped) | Unsplash License |
-| rail (round 28) | assets/rail-bomber-black-front.webp | https://images.unsplash.com/photo-1591047139829-d91aecb6caea (one rust bomber on a hanger, cut out (rembg, IS-Net), the hand and arm removed, the plastic hanger toned to wood and steel, the label text painted out, and the jacket tinted black and olive; not photographs of those colours) | Unsplash License |
-| rail (round 28) | assets/rail-bomber-olive-front.webp | https://images.unsplash.com/photo-1591047139829-d91aecb6caea (one rust bomber on a hanger, cut out (rembg, IS-Net), the hand and arm removed, the plastic hanger toned to wood and steel, the label text painted out, and the jacket tinted black and olive; not photographs of those colours) | Unsplash License |
-| rail (round 28) | assets/rail-bomber-black-side.webp | Drawn for this template (side views built from the front cut-outs (as the round 25 side views)) | Storelib |
-| rail (round 28) | assets/rail-bomber-olive-side.webp | Drawn for this template (side views built from the front cut-outs (as the round 25 side views)) | Storelib |
-| rail (round 28) | assets/rail-longsleeve-slate-side.webp | Drawn for this template (side views built from the front cut-outs (as the round 25 side views)) | Storelib |
-| rail (round 28) | assets/rail-longsleeve-slate-front.webp | assets/rail-longsleeve-charcoal-front.webp (the charcoal long sleeve cut-out tinted slate; not a photograph of that colour) | Unsplash License |
-| rail (round 28) | assets/rail-made-garage.webp | https://images.unsplash.com/photo-1677538537484-324385aff147 (two crops of one photograph) | Unsplash License |
-| rail (round 28) | assets/rail-made-garage-m.webp | https://images.unsplash.com/photo-1677538537484-324385aff147 (two crops of one photograph) | Unsplash License |
-| rail (round 28) | assets/rail-lookbook-mural.webp | https://images.unsplash.com/photo-1773236237773-be5baa7945c8 (cropped) | Unsplash License |
-| rail (round 28) | assets/rail-cat-hoodies.webp | https://images.unsplash.com/photo-1580079906050-84bb132e4c4f (the product photograph, cropped again for the category tile) | Unsplash License |
-| rail (round 28) | assets/rail-cat-jackets.webp | https://images.unsplash.com/photo-1629353689974-af4d5c70440f (the product photograph, cropped again for the category tile) | Unsplash License |
-| rail (round 28) | assets/rail-cat-tees.webp | https://images.unsplash.com/photo-1622445275463-afa2ab738c34 (the product photograph, cropped again for the category tile) | Unsplash License |
-| rail (round 28) | assets/rail-cat-bottoms.webp | https://images.unsplash.com/photo-1789938581278-4a28ff217f9c (the product photograph, cropped again for the category tile) | Unsplash License |
-| rail (round 28) | assets/rail-ugc-1.webp | https://images.unsplash.com/photo-1578768079052-aa76e52ff62e (square crop) | Unsplash License |
-| rail (round 28) | assets/rail-ugc-2.webp | https://images.unsplash.com/photo-1508216310976-c518daae0cdc (square crop) | Unsplash License |
-| rail (round 28) | assets/rail-ugc-3.webp | https://images.unsplash.com/photo-1748642173861-3c26495a3c41 (square crop) | Unsplash License |
-| rail (round 28) | assets/rail-ugc-4.webp | https://images.unsplash.com/photo-1660486044177-45cd45bb5e99 (square crop) | Unsplash License |
-| rail (round 28) | assets/rail-ugc-5.webp | https://images.unsplash.com/photo-1664451735548-753802037b71 (square crop) | Unsplash License |
-| rail (round 28) | assets/rail-ugc-6.webp | https://images.unsplash.com/photo-1536443664265-46b42d043c2d (square crop) | Unsplash License |
+| rail | assets/rail-bomber-black-front.webp | https://images.unsplash.com/photo-1591047139829-d91aecb6caea | Unsplash License |
+| rail | assets/rail-bomber-olive-front.webp | https://images.unsplash.com/photo-1591047139829-d91aecb6caea | Unsplash License |
+| rail | assets/rail-bomber-black-side.webp | Drawn for this template | Storelib |
+| rail | assets/rail-bomber-olive-side.webp | Drawn for this template | Storelib |
+| rail | assets/rail-longsleeve-slate-side.webp | Drawn for this template | Storelib |
+| rail | assets/rail-longsleeve-slate-front.webp | https://images.unsplash.com/photo-1610502778270-c5c6f4c7d575 | Unsplash License |
+| rail | assets/rail-made-garage.webp | https://images.unsplash.com/photo-1677538537484-324385aff147 | Unsplash License |
+| rail | assets/rail-made-garage-m.webp | https://images.unsplash.com/photo-1677538537484-324385aff147 | Unsplash License |
+| rail | assets/rail-lookbook-mural.webp | https://images.unsplash.com/photo-1773236237773-be5baa7945c8 | Unsplash License |
+| rail | assets/rail-cat-hoodies.webp | https://images.unsplash.com/photo-1580079906050-84bb132e4c4f | Unsplash License |
+| rail | assets/rail-cat-jackets.webp | https://images.unsplash.com/photo-1629353689974-af4d5c70440f | Unsplash License |
+| rail | assets/rail-cat-tees.webp | https://images.unsplash.com/photo-1622445275463-afa2ab738c34 | Unsplash License |
+| rail | assets/rail-cat-bottoms.webp | https://images.unsplash.com/photo-1789938581278-4a28ff217f9c | Unsplash License |
+| rail | assets/rail-ugc-1.webp | https://images.unsplash.com/photo-1578768079052-aa76e52ff62e | Unsplash License |
+| rail | assets/rail-ugc-2.webp | https://images.unsplash.com/photo-1508216310976-c518daae0cdc | Unsplash License |
+| rail | assets/rail-ugc-3.webp | https://images.unsplash.com/photo-1748642173861-3c26495a3c41 | Unsplash License |
+| rail | assets/rail-ugc-4.webp | https://images.unsplash.com/photo-1660486044177-45cd45bb5e99 | Unsplash License |
+| rail | assets/rail-ugc-5.webp | https://images.unsplash.com/photo-1664451735548-753802037b71 | Unsplash License |
+| rail | assets/rail-ugc-6.webp | https://images.unsplash.com/photo-1536443664265-46b42d043c2d | Unsplash License |
 
 ## Personal trainer (trainer, Mateo Ruiz)
 

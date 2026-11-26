@@ -30,9 +30,9 @@
     overflow: hidden;
     transform: translateX(-105%);
     /* Round 28: one 300ms slide, the links and pictures with it. */
-    transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1),
-      opacity 0.24s cubic-bezier(0.2, 0.7, 0.2, 1),
-      visibility 0s linear 0.3s;
+    transition: transform var(--mt-panel-out, 0.3s) var(--mt-panel-ease-out, cubic-bezier(0.2, 0.7, 0.2, 1)),
+      opacity var(--mt-panel-out, 0.24s) var(--mt-panel-ease-out, cubic-bezier(0.2, 0.7, 0.2, 1)),
+      visibility 0s linear var(--mt-panel-out, 0.3s);
     z-index: 30;
     box-shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.35);
   }
@@ -44,8 +44,8 @@
     transition: z-index 0s 0s !important;
   }
   .nav-open .navigation.mobile {
-    transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1),
-      opacity 0.24s cubic-bezier(0.2, 0.7, 0.2, 1),
+    transition: transform var(--mt-panel-in, 0.3s) var(--mt-panel-ease-in, cubic-bezier(0.2, 0.7, 0.2, 1)),
+      opacity var(--mt-panel-in, 0.24s) var(--mt-panel-ease-in, cubic-bezier(0.2, 0.7, 0.2, 1)),
       visibility 0s linear 0s;
   }
   .navigation.mobile open-children-toggle {

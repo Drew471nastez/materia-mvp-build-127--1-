@@ -238,7 +238,18 @@
     }).observe(html, {subtree: true, childList: true});
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { watch(); schedule(); }, {once: true});
     else watch();
-    new MutationObserver(schedule).observe(html, {attributes: true, attributeFilter: ['class']});
+    const LOCKS = /^(?:open-drawer|open-minicart|open-search|nav-open|nav-verticalmenu|open-popup|open-sidebar|open-byl|facets-locked|overlay-closing|no-scroll|tingle-enabled|mt-lock)$/;
+    let lockTimer = 0;
+    new MutationObserver(records => {
+      const lists = records.map(r => new Set((r.oldValue || '').split(/\s+/).filter(Boolean)));
+      lists.push(new Set(html.classList));
+      const all = new Set(lists.flatMap(l => [...l]));
+      const changed = [...all].filter(c => !lists.every(l => l.has(c)));
+      if (!changed.length) return;
+      if (changed.some(c => !LOCKS.test(c))) return schedule();
+      clearTimeout(lockTimer);
+      lockTimer = setTimeout(schedule, SHOW_MS + 60);
+    }).observe(html, {attributes: true, attributeFilter: ['class'], attributeOldValue: true});
     const seen = () => { measured = true; };
     addEventListener('scroll', seen, {passive: true, once: true});
     addEventListener('scroll', schedule, {passive: true});

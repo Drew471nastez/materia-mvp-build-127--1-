@@ -516,7 +516,7 @@
           "settings": {
             "text": "Made heavy. Worn every day.",
             "size_desktop": 92,
-            "size_mobile": 36,
+            "size_mobile": 32,
             "tag": "h2",
             "enable_custom_style": true,
             "color": "#f01a10",
@@ -926,7 +926,7 @@
         "body_size_desktop": 14,
         "padding_top_desktop": 96,
         "padding_bottom_desktop": 96,
-        "side_padding_desktop": 32,
+        "side_padding_desktop": 48,
         "row_gap_mobile": 32,
         "col_gap_mobile": 16,
         "heading_size_mobile": 34,

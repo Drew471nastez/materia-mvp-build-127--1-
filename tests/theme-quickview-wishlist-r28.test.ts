@@ -31,6 +31,7 @@ import { execFileSync } from "node:child_process"
 import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import vm from "node:vm"
+import { ADD_TO_CART_BUTTONS, BUSY_MARKS, BUSY_BUTTON_CSS } from "../lib/storelib-theme/compat/busy-buttons"
 
 let passed = 0
 let failed = 0
@@ -88,6 +89,7 @@ const offenders = readdirSync(join(BASE, "assets")).filter((f) => f.endsWith(".c
 check("no theme stylesheet puts a * under a [class*=] test", offenders.length === 0, offenders)
 const busy = readFileSync(join(ROOT, "lib", "storelib-theme", "compat", "busy-buttons.ts"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "")
 check("  nor the engine's busy Add to cart rule, which every live page carries (same icons matched)", !/:is\(\$\{SPINNER\}\) \*/.test(busy) && /:is\(\$\{SPINNER\}\) :is\(\$\{ICON\}\)/.test(busy))
+check("  each busy button is written out button by mark (Chrome then watches the mark, not every class change)", ADD_TO_CART_BUTTONS.every((b) => BUSY_MARKS.every((m) => BUSY_BUTTON_CSS.includes(`${b}${m} :is(svg,img,i,.icon)`))) && !/:is\([^)]*add-to-cart[^)]*\):is\(/.test(BUSY_BUTTON_CSS))
 const bundle = (() => { try { execFileSync("node", ["scripts/build-materia-base-css.mjs", "--check"], { cwd: ROOT, stdio: "pipe" }); return true } catch { return false } })()
 check("base.css is built from these sources", bundle)
 

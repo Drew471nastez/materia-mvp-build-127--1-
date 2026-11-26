@@ -113,8 +113,8 @@ function motion(f: number[]) {
   for (const d of frames.slice(1)) { at += d; if (at > 320) break; moving.push(d) }
   return { first, moving: moving.length ? Math.max(...moving) : 0 }
 }
-/** The click to the first frame that shows the panel moving: two frames at most (Chromium here, a desktop CPU; LATE_MS to change). */
-const LATE_MS = Number(process.env.LATE_MS ?? 40)
+/** The click to the first frame that shows the panel moving, the middle of three openings: three frames at most (a trivial panel measures 20 to 30ms here; Chromium, a desktop CPU; LATE_MS to change). */
+const LATE_MS = Number(process.env.LATE_MS ?? 50)
 const PANEL = /minicart__wrapper|search-overlay|facets-panel|navigation|nav\.|overlay::after|overlay_search|overlayminicart|::backdrop/
 async function drawers(browser: Browser) {
   console.log("\nDRAWERS")
@@ -145,7 +145,7 @@ async function drawers(browser: Browser) {
           await sleep(60)
           const opening = (await read()).filter((a) => PANEL.test(a.el) && /transform|translate|opacity/.test(a.prop))
           /* First movement: the click to the first frame after the panel's transition started (its start time is that of the frame that made it, which may still be busy restyling). */
-          const late = await page.evaluate((sel) => {
+          let late = await page.evaluate((sel) => {
             const w = window as unknown as { __ft: number[]; __t0: number }
             const starts = document.getAnimations().filter((a) => a.constructor.name === "CSSTransition" && a.startTime !== null).map((a) => Number(a.startTime))
             const s0 = starts.length ? Math.min(...starts) : NaN
@@ -160,6 +160,21 @@ async function drawers(browser: Browser) {
           await sleep(700)
           const cf = motion(await page.evaluate(() => (window as unknown as { __f: number[] }).__f.map(Math.round)))
           const inRange = (l: typeof opening) => l.length > 0 && l.every((a) => a.dur >= 180 && a.dur <= 320)
+          /* Two more openings: where in its frame a click lands moves the first frame by up to one; the middle of three is kept. */
+          const lates = [late]
+          for (let k = 0; k < 2; k++) {
+            await sleep(700)
+            await page.evaluate((e, f) => { new Function(f)(); (e as HTMLElement).click() }, el, FRAMES)
+            await sleep(60)
+            lates.push(await page.evaluate(() => {
+              const w = window as unknown as { __ft: number[]; __t0: number }
+              const starts = document.getAnimations().filter((a) => a.constructor.name === "CSSTransition" && a.startTime !== null).map((a) => Number(a.startTime))
+              const s0 = starts.length ? Math.min(...starts) : NaN
+              return Math.round((w.__ft.find((x) => x > s0 + 1) ?? NaN) - w.__t0)
+            }))
+            await page.evaluate(() => { document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); (document.activeElement as HTMLElement | null)?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })) })
+          }
+          late = lates.sort((a, b) => a - b)[1]
           check(`${t.template} ${name}: opens in ${[...new Set(opening.map((a) => a.dur))].join("/")}ms, moving ${late}ms after the click (longest frame while it moves ${of.moving}ms)`, inRange(opening) && of.moving <= 70 && late <= LATE_MS, { opening, of, late })
           check(`${t.template} ${name}: closes in ${[...new Set(closing.map((a) => a.dur))].join("/")}ms, nothing inside starts late (first frame ${cf.first}ms, longest while it moves ${cf.moving}ms)`, inRange(closing) && closing.every((a) => a.delay === 0) && cf.moving <= 70, { closing, cf })
           if (of.first > 120 || cf.first > 120) console.log(`        note: a ${Math.max(of.first, cf.first)}ms first frame (the page restyled for its scroll lock) before it starts to move`)

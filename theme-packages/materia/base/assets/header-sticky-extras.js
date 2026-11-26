@@ -46,12 +46,19 @@
     const root = document.documentElement;
     const phone = matchMedia('(max-width: 1024.98px)');
     let closeTimer;
+    /* Read once, not in the click: .nav-open has just changed the page's
+       classes, so asking for a computed style there restyled the whole page
+       before the drawer could move (30 to 270ms, measured). */
+    let rtl = null;
+    const isRtl = () => (rtl === null ? (rtl = getComputedStyle(root).direction === 'rtl') : rtl);
+    if (document.readyState === 'complete') setTimeout(isRtl, 0);
+    else addEventListener('load', () => setTimeout(isRtl, 0), {once: true});
     const drawers = () => [...document.querySelectorAll('.navigation.mobile')];
     const show = nav => {
       if (!nav.hasAttribute('popover')) nav.setAttribute('popover', 'manual');
       if (nav.matches(':popover-open')) return;
       nav.style.transition = 'none';
-      nav.style.transform = getComputedStyle(root).direction === 'rtl' ? 'translateX(105%)' : 'translateX(-105%)';
+      nav.style.transform = isRtl() ? 'translateX(105%)' : 'translateX(-105%)';
       try { nav.showPopover(); } catch (e) { nav.style.transition = nav.style.transform = ''; return; }
       nav.getBoundingClientRect();
       nav.style.transition = nav.style.transform = '';
