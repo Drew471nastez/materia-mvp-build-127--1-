@@ -31,7 +31,7 @@ const ROUTES = "app/api/website-builder/themes/[installId]/"
   console.log("\nNot found only when it is not there\n")
   const areas = read("lib/team/areas.ts")
   const website = read("lib/team/website.ts")
-  const installHelperOk = /if \(r\.error\) r = await run\(\)/.test(areas) && /if \(r\.error\) return \{ ok: false, status: 503 \}/.test(areas) && areas.indexOf("status: 503 }") < areas.indexOf("status: 404 }", areas.indexOf("if (r.error) r = await run()")) && /found\.status === 503 \? UNREACHABLE : "Theme not found"/.test(website)
+  const installHelperOk = /if \(r\.error\) r = await run\(\)/.test(areas) && /if \(r\.error\) return \{ ok: false, status: 503 \}/.test(areas) && areas.indexOf("status: 503 }") < areas.indexOf("status: 404 }", areas.indexOf("if (r.error) r = await run()")) && /(found|refusal)\.status === 503 \? UNREACHABLE : "Theme not found"/.test(website) /* Changed on purpose (r65): the refusal is narrowed by name so the stricter test compile reads it */
   for (const f of ["route.ts", "settings/route.ts", "sections/route.ts", "sections/sync-global/route.ts", "files/route.ts", "publish/route.ts", "backups/route.ts", "backups/[backupId]/restore/route.ts", "sections/code/route.ts", "cover/route.ts", "security/route.ts"]) {
     const src = read(ROUTES + f)
     const guard = src.indexOf("installReadErr) return")
