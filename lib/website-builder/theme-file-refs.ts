@@ -173,6 +173,10 @@ export function forgetHeldBlobs(): void {
   held.clear()
   heldChars = 0
 }
+/** Whether this server holds a blob's text: it read it from the table or wrote it there, so the table has it (round 66, backups.ts lightSnapshot). */
+export function blobHeld(sha: string): boolean {
+  return held.has(sha)
+}
 export function heldBlobCount(): number {
   return held.size
 }

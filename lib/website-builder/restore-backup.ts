@@ -1,7 +1,7 @@
 import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { applySnapshot, takeBackup, type BackupSnapshot } from "@/lib/website-builder/backups"
+import { applySnapshot, fullSnapshot, takeBackup, type BackupSnapshot } from "@/lib/website-builder/backups"
 import { addedSince, askedToRemove, removeAdded, type AddedItem } from "@/lib/website-builder/added-since"
 
 /**
@@ -49,8 +49,16 @@ export async function restoreBackup(
     return { ok: false, status: 500, error: "Could not load that. Try again." }
   }
   if (!backup) return { ok: false, status: 404, error: "Backup not found" }
-  const snapshot = backup.snapshot as BackupSnapshot
-  if (!snapshot || typeof snapshot !== "object" || !Array.isArray(snapshot.pages)) return { ok: false, status: 422, error: "This backup cannot be read" }
+  const stored = backup.snapshot as BackupSnapshot
+  if (!stored || typeof stored !== "object" || !Array.isArray(stored.pages)) return { ok: false, status: 422, error: "This backup cannot be read" }
+  /* Round 66: a light backup's named files read back from the blobs, before anything reads the backup (./backups.ts fullSnapshot). One that cannot be: nothing changed. */
+  let snapshot: BackupSnapshot
+  try {
+    snapshot = await fullSnapshot(stored)
+  } catch {
+    console.error("[backups/restore] the backup's files could not be read", { installId })
+    return { ok: false, status: 503, error: "Could not read that backup just now. Nothing was changed. Try again." }
+  }
 
   /* What was added since, read BEFORE the restore writes (the restore inserts pages the backup has and the draft lacks: those are the backup's, not added). */
   const added = await addedSince(evidence, installId, { created_at: String(backup.created_at), snapshot }).catch(() => ({ remove: [], keep: [] }))

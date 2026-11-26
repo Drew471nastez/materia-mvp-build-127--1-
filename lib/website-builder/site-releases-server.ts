@@ -218,6 +218,38 @@ export async function readBlobs(db: Db, shas: string[]): Promise<Record<string, 
 }
 
 /**
+ * A RELEASE JUST WRITTEN, KEPT WHERE ITS READERS LOOK (round 66). The
+ * release had every file's text in hand, and the first page drawn from it
+ * on any server (the warm right after Publish, first of all) read it all
+ * back from theme_file_blobs: 31 MB on a Materia template's first publish.
+ * Its manifest and each group of its blobs are put in the data cache under
+ * the very names releaseManifest and releaseFiles read (a group already
+ * held, from another release or website, is left as it is), and this
+ * server keeps the manifest. Best effort: a failure here is a read later.
+ */
+export async function primeRelease(releaseId: string, manifest: ReleaseManifest, blobs: Map<string, string>): Promise<void> {
+  try {
+    if (manifestsHeld.size >= MANIFESTS_MAX) manifestsHeld.delete(manifestsHeld.keys().next().value as string)
+    manifestsHeld.set(releaseId, manifest)
+    await unstable_cache(keyedAs("site-release:v2", async () => packHeld(manifest)), ["site-release", "v2", releaseId], { revalidate: false })()
+    const groups = blobGroups(manifest.files)
+    for (let i = 0; i < groups.length; i += 8) {
+      await Promise.all(groups.slice(i, i + 8).map((g) => {
+        const part: Record<string, string> = {}
+        for (const sha of g.shas) {
+          const text = blobs.get(sha)
+          if (text === undefined) return Promise.resolve(null)
+          part[sha] = text
+        }
+        return unstable_cache(keyedAs("theme-blobs:v2", async () => packHeld(part)), ["theme-blobs", "v2", g.key], { revalidate: false })()
+      }))
+    }
+  } catch {
+    /* read when it is first needed instead */
+  }
+}
+
+/**
  * A release's files, path to text. Each group of blobs is held for good
  * under the sha256 of its members, so a cold server reads the data cache,
  * not the database, and a group already read for another release (an
@@ -274,7 +306,7 @@ const BLOB_WRITE_BYTES = 1_000_000
 const BLOB_WRITE_ROWS = 100
 
 export type RecordResult =
-  | { ok: true; releaseId: string; live: boolean; files: number; newBlobs: number }
+  | { ok: true; releaseId: string; live: boolean; files: number; newBlobs: number; blobs: string[] }
   | { ok: false; reason: "missing" | "failed"; detail: string }
 
 /**
@@ -285,7 +317,20 @@ export type RecordResult =
  * trigger counted `rev` up): the release is kept for the record and the
  * website stays drawn from its rows until the next Publish.
  */
-export async function recordRelease(db: Db, input: { installId: string; creatorId: string }): Promise<RecordResult> {
+export async function recordRelease(
+  db: Db,
+  input: {
+    installId: string
+    creatorId: string
+    /**
+     * The live rows, read by the caller's follow-up so the backup after it
+     * reads none of them again (round 66, ./after-publish.ts). Asked here,
+     * after the count is read, exactly where this would read them itself;
+     * null or a failure: read here as before.
+     */
+    read?: () => Promise<{ settings: unknown; pages: ReleasePage[]; files: Record<string, string> } | null>
+  },
+): Promise<RecordResult> {
   const { installId, creatorId } = input
   const fail = (error: DbError | Error | unknown, what: string): RecordResult => {
     const e = error as DbError
@@ -303,11 +348,14 @@ export async function recordRelease(db: Db, input: { installId: string; creatorI
     if (at.error || !at.data) return fail(at.error ?? { message: "no pointer row" }, "pointer")
     const rev = at.data.rev ?? 0
 
-    const [settingsRead, pagesRead, files] = await Promise.all([
-      db.from("store_theme_settings").select("settings").eq("install_id", installId).maybeSingle() as Promise<Result<{ settings?: unknown } | null>>,
-      db.from("store_theme_pages").select("page_key, sections").eq("install_id", installId) as Promise<Result<ReleasePage[] | null>>,
-      liveFiles(db, installId),
-    ])
+    const given = input.read ? await input.read().catch(() => null) : null
+    const [settingsRead, pagesRead, files] = given
+      ? [{ data: { settings: given.settings }, error: null } as Result<{ settings?: unknown } | null>, { data: given.pages, error: null } as Result<ReleasePage[] | null>, given.files]
+      : await Promise.all([
+          db.from("store_theme_settings").select("settings").eq("install_id", installId).maybeSingle() as Promise<Result<{ settings?: unknown } | null>>,
+          db.from("store_theme_pages").select("page_key, sections").eq("install_id", installId) as Promise<Result<ReleasePage[] | null>>,
+          liveFiles(db, installId),
+        ])
     if (settingsRead.error) return fail(settingsRead.error, "settings")
     if (pagesRead.error) return fail(pagesRead.error, "pages")
     const { manifest, blobs, totalBytes } = buildManifest({ settings: settingsRead.data?.settings ?? null, pages: pagesRead.data ?? [], files })
@@ -359,7 +407,10 @@ export async function recordRelease(db: Db, input: { installId: string; creatorI
       .eq("rev", rev)
       .select("install_id")
     if (pointed.error) return fail(pointed.error, "pointer")
-    return { ok: true, releaseId, live: (pointed.data ?? []).length > 0, files: manifest.files.length, newBlobs: fresh.length }
+    const live = (pointed.data ?? []).length > 0
+    if (live) await primeRelease(releaseId, manifest, blobs)
+    /* Every sha256 of this release is in the blobs now (found or written): a backup after it names them rather than keeping their text (./backups.ts lightSnapshot). */
+    return { ok: true, releaseId, live, files: manifest.files.length, newBlobs: fresh.length, blobs: shas }
   } catch (e) {
     return fail(e, "release")
   }
