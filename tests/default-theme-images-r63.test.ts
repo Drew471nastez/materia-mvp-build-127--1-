@@ -147,9 +147,11 @@ async function main() {
   {
     const media = read("components/website-builder/sections/renderers/product/product-media.tsx")
     check("one picture sets the row's height, the first (the left of each pair in the grid)", /const setsHeight = layout === "stacked_2col" \? pos % 2 === 0 : pos === 0/.test(media))
-    check("  the others cover a frame of that height, laid out absolutely", /const COVER = "absolute inset-0 h-full w-full object-cover"/.test(media) && /NATURAL_PHONE = sliderOnPhone \? COVER/.test(media))
+    /* Changed on purpose (r65): the others sit whole in a frame of that height (contain), never cut; lib/images/pic-fit.ts paints the rest from their edge. */
+    check("  the others fill a frame of that height, whole, laid out absolutely", /const COVER = "absolute inset-0 h-full w-full object-contain"/.test(media) && /NATURAL_PHONE = sliderOnPhone \? COVER/.test(media))
     check("  a single column keeps every picture at its own shape", /stacked: \["@\[768px\]:static @\[768px\]:h-auto @\[768px\]:object-contain", "@\[768px\]:static @\[768px\]:h-auto @\[768px\]:object-contain"\]/.test(media))
-    check("  a chosen ratio still covers its frame, as before", /aspect \? "h-full object-cover" : naturalFit\(pos\)/.test(media))
+    /* Changed on purpose (r65): a chosen ratio's frame holds the whole picture. */
+    check("  a chosen ratio's frame holds the whole picture", /aspect \? "h-full object-contain" : naturalFit\(pos\)/.test(media))
     check("  nothing measured in script, so nothing moves after the first paint", !/naturalWidth|onLoad=/.test(media))
     check("scripts/check-product-images-r63.mjs measures it in Chromium at 360, 390, 768 and 1280", /for \(const width of \[360, 390, 768, 1280\]\)/.test(read("scripts/check-product-images-r63.mjs")))
   }

@@ -238,9 +238,10 @@ function main() {
 
   console.log("\n  a card's picture fills its box")
 
+  /* Changed on purpose (r65): a product card's picture is whole in its box (contain, lib/images/pic-fit.ts paints the rest); the spotlight is a promo picture and still covers. */
   for (const f of ["product_grid", "product_featured", "product_spotlight", "search"]) {
     check(`${f} draws the image at the box's height`,
-      /\.card__media img \{ display: block; width: 100%; height: 100%; object-fit: cover; \}/.test(read(`themes/default/sections/${f}.storelib`)))
+      new RegExp(`\\.card__media img \\{ display: block; width: 100%; height: 100%; object-fit: ${f === "product_spotlight" ? "cover" : "contain"}; \\}`).test(read(`themes/default/sections/${f}.storelib`)))
   }
   check("the search page's own padding is 60 and 60",
     /"id": "padding_top",\s*"label": "Padding top",\s*"default": 60/.test(read("themes/default/sections/search.storelib")))

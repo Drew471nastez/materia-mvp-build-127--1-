@@ -7,6 +7,8 @@
     const rect=root.getBoundingClientRect();if(rect.bottom<0||rect.top>innerHeight)return;
     let url;try{url=new URL(root.dataset.productCounterUrl,location.href);if(url.origin!==location.origin||!/(^|\/)products\//.test(url.pathname))return;}catch{return;}
     const id=root.dataset.productCounterId,key=url.href;let entry=cache.get(key);
+    // The page's own count was drawn into it a moment ago: read from the page, not fetched again (480KB of HTML). The minute's refresh still asks.
+    if(!entry&&url.pathname===location.pathname){entry={time:Date.now(),promise:Promise.resolve(document)};cache.set(key,entry);}
     if(!entry||Date.now()-entry.time>60000){
       entry={time:Date.now(),promise:fetch(key,{credentials:'same-origin',headers:{Accept:'text/html'}}).then(r=>r.ok?r.text():null).then(text=>text?new DOMParser().parseFromString(text,'text/html'):null).catch(()=>null)};cache.set(key,entry);
       if(cache.size>30)cache.delete(cache.keys().next().value);

@@ -60,8 +60,11 @@ export async function websiteInstallCaller<T = { id: string; creator_id: string 
   const c = await websiteCaller(opts)
   if (c.error !== null) return { ...c, install: null }
   const found = await storeInstall<T>(c.supabase, c.creatorId, installId, columns)
-  if (!found.ok) return { ...refused(found.status === 503 ? UNREACHABLE : "Theme not found", found.status), install: null } as WebsiteInstallCaller<T>
-  return { ...c, install: found.install }
+  if (found.ok === false) {
+    const refusal = found as { status: 404 | 503 }
+    return { ...refused(refusal.status === 503 ? UNREACHABLE : "Theme not found", refusal.status), install: null } as WebsiteInstallCaller<T>
+  }
+  return { ...c, install: (found as { install: T }).install } as WebsiteInstallCaller<T>
 }
 
 /**

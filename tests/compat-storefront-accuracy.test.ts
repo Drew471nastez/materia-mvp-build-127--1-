@@ -77,7 +77,8 @@ async function main() {
     const asset = themeAsset(theme, "theme.css", () => ctx)
     check("so is the theme's CSS asset", String(asset?.body) === ".btn{ background: #222 }.btn *{background:transparent}", asset?.body)
     const route = read("app/api/site-theme/assets/[installId]/[version]/[...name]/route.ts")
-    check("and the asset route serves a stored stylesheet fixed the same way", /\/\^text\\\/css\/\.test\(type\) \? fixThemeCss\(text\) : text/.test(route))
+    /* Changed on purpose (r65): a script now goes through js-fixes.ts after the stylesheet case, so the ternary goes on past `fixThemeCss(text) :`. */
+    check("and the asset route serves a stored stylesheet fixed the same way", /\/\^text\\\/css\/\.test\(type\) \? fixThemeCss\(text\) :/.test(route))
   }
 
   console.log("\nIcons\n")

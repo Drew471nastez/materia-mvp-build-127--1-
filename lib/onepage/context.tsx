@@ -101,7 +101,8 @@ interface OnePageContextType {
   updateTheme: (updates: Partial<OnePageTheme>) => void
   applyTemplate: (template: OnePageTemplate) => void
   /** Picks a theme: the whole look, Share and Subscribe, and every block's own colours, in one undo step (lib/onepage/theme-apply). */
-  applyThemeLook: (template: ThemeTemplateLike, headerLayout?: "classic" | "hero", previous?: ThemeTemplateLike | null) => void
+  /* `blocks` (round 65, lib/onepage/theme-blocks): the page's blocks after the pick, for a theme that comes with its own; laid on in the same step as the look. */
+  applyThemeLook: (template: ThemeTemplateLike, headerLayout?: "classic" | "hero", previous?: ThemeTemplateLike | null, blocks?: OnePageBlock[] | null) => void
 
   updateSocialLinks: (updates: Partial<OnePageSocialLinks>) => void
 
@@ -576,10 +577,10 @@ export function OnePageProvider({ children, initialOnePage: givenOnePage }: OneP
     commit({ ...prev, theme: { ...template.theme, template_id: template.id } }, null)
   }, [commit])
 
-  const applyThemeLook = useCallback((template: ThemeTemplateLike, headerLayout?: "classic" | "hero", previous?: ThemeTemplateLike | null) => {
+  const applyThemeLook = useCallback((template: ThemeTemplateLike, headerLayout?: "classic" | "hero", previous?: ThemeTemplateLike | null, blocks?: OnePageBlock[] | null) => {
     const prev = latestOnepageRef.current
     if (!prev) return
-    commit(lookFromTemplate(prev, template, headerLayout, previous), null)
+    commit(lookFromTemplate(blocks ? { ...prev, draft_blocks: renumber(blocks) } : prev, template, headerLayout, previous), null)
   }, [commit])
 
   const updateSocialLinks = useCallback((updates: Partial<OnePageSocialLinks>) => {

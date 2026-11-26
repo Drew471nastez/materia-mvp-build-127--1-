@@ -162,14 +162,15 @@ export function ProductMedia({
     a frame of that height, laid out absolutely so they never make the row taller. Nothing is measured, so
     nothing moves after the first paint. A single column keeps every picture at its own shape, as before.
   */
-  const COVER = "absolute inset-0 h-full w-full object-cover"
+  /* Round 65: never cut. A picture in a frame of another shape sits whole in it, on its own edge's colours (lib/images/pic-fit.ts). */
+  const COVER = "absolute inset-0 h-full w-full object-contain"
   const NATURAL_PHONE = sliderOnPhone ? COVER : "static h-auto object-contain"
   const NATURAL_DESK: Record<MediaLayout, [string, string]> = {
     /* [the picture that sets the row's height, every other one], written out whole so the stylesheet has them. */
     stacked: ["@[768px]:static @[768px]:h-auto @[768px]:object-contain", "@[768px]:static @[768px]:h-auto @[768px]:object-contain"],
-    stacked_2col: ["@[768px]:static @[768px]:h-auto @[768px]:object-contain", "@[768px]:absolute @[768px]:inset-0 @[768px]:h-full @[768px]:object-cover"],
-    slideshow: ["@[768px]:static @[768px]:h-auto @[768px]:object-contain", "@[768px]:absolute @[768px]:inset-0 @[768px]:h-full @[768px]:object-cover"],
-    carousel: ["@[768px]:static @[768px]:h-auto @[768px]:object-contain", "@[768px]:absolute @[768px]:inset-0 @[768px]:h-full @[768px]:object-cover"],
+    stacked_2col: ["@[768px]:static @[768px]:h-auto @[768px]:object-contain", "@[768px]:absolute @[768px]:inset-0 @[768px]:h-full @[768px]:object-contain"],
+    slideshow: ["@[768px]:static @[768px]:h-auto @[768px]:object-contain", "@[768px]:absolute @[768px]:inset-0 @[768px]:h-full @[768px]:object-contain"],
+    carousel: ["@[768px]:static @[768px]:h-auto @[768px]:object-contain", "@[768px]:absolute @[768px]:inset-0 @[768px]:h-full @[768px]:object-contain"],
   }
   /** The classes a natural-shape picture is drawn with at `pos`: the first sets the height, the rest cover it. */
   const naturalFit = (pos: number) => {
@@ -193,6 +194,7 @@ export function ProductMedia({
           <div
             key={src}
             data-media-item={i}
+            data-pic-frame=""
             className={cn(
               "relative overflow-hidden",
               sliderOnPhone ? "w-full shrink-0 snap-start" : "w-full",
@@ -222,7 +224,7 @@ export function ProductMedia({
               alt={pos === 0 ? title : `${title}, picture ${pos + 1}`}
               className={cn(
                 "block w-full transition-transform duration-500",
-                aspect ? "h-full object-cover" : naturalFit(pos),
+                aspect ? "h-full object-contain" : naturalFit(pos),
                 hoverZoom && "@[768px]:group-hover/media:scale-[1.06]",
                 open && "cursor-zoom-in",
               )}
@@ -265,6 +267,7 @@ export function ProductMedia({
               onClick={(e) => { e.stopPropagation(); setActive(pos); scrollTo(pos) }}
               aria-label={`Show picture ${pos + 1}`}
               aria-current={active === pos}
+              data-pic-frame=""
             >
               {/* The button's only content, so its name: the product and which picture. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -281,7 +284,7 @@ export function ProductMedia({
                   </span>
                 </span>
               ) : (
-                <img src={src} {...siteImageProps(src, "96px")} alt={`${title} thumbnail ${pos + 1}`} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+                <img src={src} {...siteImageProps(src, "96px")} alt={`${title} thumbnail ${pos + 1}`} className="h-full w-full object-contain" loading="lazy" decoding="async" />
               )}
             </button>
           ))}

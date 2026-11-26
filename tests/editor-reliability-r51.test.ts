@@ -191,7 +191,8 @@ async function main() {
     const editor = src("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     const load = editor.slice(editor.indexOf("const loadData = useCallback"), editor.indexOf("NEVER A LOADER WITH NOTHING TO PRESS"))
     check("the website's read and the pages' reads are hedged", /hedged\(\(\) => fetchSignedIn\(\(\) => fetchWithin\(`\/api\/website-builder\/themes\/\$\{installId\}`/.test(load) && /hedged\(\(\) => fetchSignedIn\(\(\) => fetchWithin\(url, \{\}, SECTIONS_WAIT_MS\)\), HEDGE_MS\)/.test(editor))
-    check("the newest open wins: an older one's answer changes nothing", /const epoch = quiet \? openEpoch\.current : \+\+openEpoch\.current/.test(load) && (load.match(/if \(stale\(\)\) return false/g) ?? []).length >= 4 && /if \(!stale\(\)\) setLoading\(false\)/.test(load))
+    /* Changed on purpose (r65): the newest open also marks the first read answered (openSettled), so the finally block is a block. */
+    check("the newest open wins: an older one's answer changes nothing", /const epoch = quiet \? openEpoch\.current : \+\+openEpoch\.current/.test(load) && (load.match(/if \(stale\(\)\) return false/g) ?? []).length >= 4 && /if \(!stale\(\)\) \{\s*setLoading\(false\)/.test(load))
     check("every body read has an end", /deadline\(res\.json\(\), BODY_MS, "the website"\)/.test(load))
     check("an open past OPEN_SLOW_MS offers Try again over the loader", /const OPEN_SLOW_MS = 15_000/.test(editor) && /kind="editor-still-opening"/.test(editor) && /loading && loadSlow && !loadFailed/.test(editor))
     const publish = editor.slice(editor.indexOf("const publishChanges = async"), editor.indexOf("const handleSave = async"))

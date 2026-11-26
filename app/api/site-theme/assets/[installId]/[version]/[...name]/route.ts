@@ -28,6 +28,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { ASSET_MAP_PATH, assetType, binaryOf } from "@/lib/storelib-theme/compat/asset-file"
 import { isOptimizableImage } from "@/lib/images/optimized-url"
 import { fixThemeCss } from "@/lib/storelib-theme/compat/css-fixes"
+import { fixThemeJs } from "@/lib/storelib-theme/compat/js-fixes"
 import { assetVersion, isContentVersion, plainAssetVersion } from "@/lib/storelib-theme/compat/asset-version"
 import { splitAssetVersion } from "@/lib/storelib-theme/compat/draft-version"
 import { isDraftAssetPass } from "@/lib/website-builder/draft-asset-pass"
@@ -135,7 +136,8 @@ export async function GET(_req: Request, { params }: Params) {
   if (typeof text === "string" && text !== "") {
     const bytes = binaryOf(text)
     /* A stylesheet as the page draws its own (lib/storelib-theme/compat/css-fixes.ts). */
-    const body = bytes ?? (/^text\/css/.test(type) ? fixThemeCss(text) : text)
+    /* And an installed Materia script without the downloads it did not need (lib/storelib-theme/compat/js-fixes.ts, round 65). */
+    const body = bytes ?? (/^text\/css/.test(type) ? fixThemeCss(text) : /javascript/.test(type) ? fixThemeJs(name, text) : text)
     const control = cacheFor(plainAssetVersion(text))
     if (!asked.draft) keepAnswer(installId, version, name, plainAssetVersion(text), { body, type, cache: control }, isContentVersion)
     return new NextResponse(typeof body === "string" ? body : new Blob([body as BlobPart]), { headers: { ...cors, "Content-Type": type, "Cache-Control": control } })

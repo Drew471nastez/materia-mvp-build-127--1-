@@ -45,6 +45,7 @@ import { CART_HINT_COOKIE, PERSONAL_PARAM, cartHintCookie, withPersonalFill } fr
 import { heldStrangerPage, strangerKey } from "@/lib/storelib-theme/compat/stranger-hold"
 import { openedAsDocument, readierFirstLoad, sharedAtCdn } from "@/lib/storelib-theme/compat/first-load"
 import { withLcpHint } from "@/lib/storelib-theme/compat/lcp-hint"
+import { withSizedMedia } from "@/lib/storelib-theme/compat/sized-media"
 import { calmerScripts, runsThirdPartyScripts } from "@/lib/storelib-theme/compat/script-order"
 import { withDesktopPrerender } from "@/lib/storelib-theme/compat/prerender"
 import { withTouchPrefetch } from "@/lib/storelib-theme/compat/touch-prefetch"
@@ -577,6 +578,8 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
         html = withPersonalFill(html, out.personal ?? { sections: [], layout: false })
       }
       html = readierFirstLoad(html).html
+      /* The website's own uploads a theme printed as they are (a 1.9MB hero PNG), sent through the optimizer at the sizes they are drawn, before the first picture is preloaded (lib/storelib-theme/compat/sized-media.ts, round 65). */
+      html = withSizedMedia(html).html
       /* The first big picture of the page's first sections, asked for from the top of the head (lib/storelib-theme/compat/lcp-hint.ts). */
       html = withLcpHint(html).html
       /*

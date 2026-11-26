@@ -57,6 +57,7 @@ import { CART_ATTRIBUTES_MAX, cartAttributes, siteCheckoutHref } from "@/lib/che
 import { ITEMS_PARAM_MAX, lineProperties, propertiesKey } from "@/lib/physical/cart-link"
 import { getMainDomain } from "@/lib/url-helpers"
 import { fixThemeCss } from "./css-fixes"
+import { fixThemeJs } from "./js-fixes"
 import { accountContent, addressesContent, downloadNotice, orderContent, signInContent, themeCustomer, themeSignInFields, type SiteAccount } from "./account"
 import { signInNotice } from "@/lib/website-builder/account-pages"
 import { accountNoticeIn, accountWord, wordedCustomer } from "@/lib/site-accounts/words"
@@ -2385,7 +2386,8 @@ export function themeAsset(theme: CompatTheme, name: string, settingsCtx: () => 
     }
   }
   /* A stylesheet, with a button's label never painting a box of its own (./css-fixes.ts). */
-  const css = (body: string) => (/^text\/css/.test(type) ? fixThemeCss(body) : body)
+  /* And an installed Materia script without the downloads it did not need (./js-fixes.ts, round 65). */
+  const css = (body: string) => (/^text\/css/.test(type) ? fixThemeCss(body) : /javascript/.test(type) ? fixThemeJs(name, body) : body)
   const text = theme.files[`assets/${name}`]
   if (text !== undefined) {
     const bytes = binaryOf(text)

@@ -557,6 +557,7 @@ const SUITES = [
   /* Round 63: Build website for a creator from Storelib Default (app/api/admin/creators/site): admin only, a new draft beside their live site, the library limit, only their own content, none of the template's sample words. */
   "tests/creator-site-builder-r63.test.ts",
   "tests/cover-trim-hosts-r64.test.ts",
+  "tests/product-ratio-r65.test.ts",
   "tests/admin-logic.test.ts",
   "tests/cron-reachable.test.ts",
   "tests/theme-presets.test.ts",
@@ -1015,6 +1016,8 @@ const SUITES = [
   "tests/onepage-at1.test.ts",
   /* The two dark Clean themes, Velvet and Basalt (components/onepage/themes/dark-clean-themes): their place at the end of Clean, every colour pair at 4.5:1 in every button style and under the pointer, a structure of their own, faces the page loads, names in six languages; scripts/check-onepage-dark-themes.mjs measures a whole page of each on pixels at 390 and 1280. */
   "tests/onepage-dark-themes.test.ts",
+  /* Round 65: Northpaper, a Notion template seller's one page after the Northpaper website template (components/onepage/themes/northpaper-theme): its colours from the website's settings at AA, the blocks it comes with and when they are laid on (lib/onepage/theme-blocks), the Design tab's offer, the onboarding, six languages; scripts/check-onepage-northpaper.mjs measures it at 360, 390, 768 and 1280. */
+  "tests/onepage-notion-r65.test.ts",
   /* The theme swatch round: a theme card is a swatch (its wallpaper, "Aa" in its title face, its button), with no account and no hover that moves it, and nineteen themes whose wallpapers are painted in CSS (components/onepage/themes/theme-swatch, mood-themes). */
   "tests/onepage-swatch-themes.test.ts",
   "tests/onepage-themes-w8.test.ts",
@@ -1319,6 +1322,8 @@ const SUITES = [
   "tests/live-speed-imported.test.ts",
   /* Round 27 (the owner: adding a theme and opening the editor take too long): a template converted once per server and stored by the import's own writes in this request (pictures six at a time and only new ones, rows in 3 MB parts three at a time, the listing's note in the first write, the template's own cover), only its own and the base's release rows, and the editor's two large reads a 304 when unchanged (lib/website-builder/revalidated-json.ts). Measured over a fake database with a fixed delay per query. */
   "tests/theme-add-speed-r27.test.ts",
+  /* Round 65: "Still opening your website". The editor's install read names its pages instead of reading every page and 5 MB of section files; an imported theme's 30 MB of sources and files wait for the editor's first read; the marketplace add tells the editor the site is imported. Real routes over an in-memory Supabase, on the Materia clothing template. */
+  "tests/builder-canvas-open-r65.test.ts",
   /* Round 27: the cover's browser traced into the folded /api/website-builder entry and Add (matched with Next's own picomatch), no browser remembered with the template's picture instead and the page backing off, and one press of Add one website (a press key: replayed, waited for, the older kept) */
   "tests/cover-and-add-r27.test.ts",
   /* Round 27: a website's unchanged theme files kept once in theme_file_blobs behind STORELIB_THEME_FILE_REFS and RUN_PENDING_ROUND_27.sql: an old full-copy website and a new referencing one read the same through the storefront, the builder and the asset reads, copy on write, and the list of readers still to convert before new websites use it */
@@ -1984,6 +1989,8 @@ const STRICT_SUITES = [
   "tests/default-theme-images-r63.test.ts",
   /* Round 64 (k1): country flags are real artwork, public/flags/<CODE>.svg (country-flag-icons, MIT), not the emoji written as text in a data: SVG: `country | image_url` is the file for every theme, Materia asks for a row's flag only when it is in the list's view, and Storelib's own order and admin pages draw the same files. scripts/check-flags-r64.mjs measures centre offset and coverage in Chromium at 390 and 1280. */
   "tests/flags-r64.test.ts",
+  /* Round 65 (m3): a live website's pages without the downloads they did not need: Storelib's own uploads a theme prints as they are (a 1.9MB hero PNG) sent through /_next/image at the sizes they are drawn, before the first picture is preloaded; Materia's hero no longer gives its hidden video the original photo as a poster, and a product page no longer fetches itself for its sold count, fixed in theme-packages and where an older install's script is served (lib/storelib-theme/compat/js-fixes.ts). */
+  "tests/live-speed-r65.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

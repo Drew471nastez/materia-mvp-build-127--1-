@@ -161,7 +161,8 @@ check("a choice made under a theme that never set it stays", (lookFromTemplate(c
 check("without the last theme known, anything there is kept as the creator's", (lookFromTemplate({ id: "p", theme: { template_id: "?", avatar_shape: "square" }, settings: {}, draft_blocks: [] } as never, plain).theme as any).avatar_shape === "square")
 check("the picker hands the theme the page wore", /applyThemeLook\(template as never, [^\n]*THEME_TEMPLATES\.find\(\(t\) => t\.id === theme\.template_id\)/.test(design))
 const context = read("lib/onepage/context.tsx")
-check("  and the editor passes it on", /commit\(lookFromTemplate\(prev, template, headerLayout, previous\), null\)/.test(context))
+/* Changed on purpose (r65): the page handed in may carry a theme's own blocks (Northpaper, lib/onepage/theme-blocks); the last theme is still passed on. */
+check("  and the editor passes it on", /commit\(lookFromTemplate\(blocks \? \{ \.\.\.prev, draft_blocks: renumber\(blocks\) \} : prev, template, headerLayout, previous\), null\)/.test(context))
 
 console.log("\nEvery name in six languages")
 const names = read("components/onepage/themes/theme-names.ts")

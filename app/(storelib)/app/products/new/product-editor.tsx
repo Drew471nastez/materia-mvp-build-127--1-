@@ -1012,7 +1012,12 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
 
       // Get photo URLs from media items (images and YouTube)
       /* Photos and video files, in the order the creator put them: a video is told apart by its extension wherever the list is read (lib/media/video.ts). */
-      const photoUrls = mediaItems.filter(m => m.type === "image" || m.type === "video").map(m => m.url)
+      /*
+        Round 65: a photo after the first is kept as it was uploaded (`original`), never the grey padded copy: only the
+        cover (the first, thumbnail_url) is the shop's 16:9 copy. Every theme fits a photo whole in its own frame, and a
+        padded one would sit in it shrunk inside its grey until the page's trim cut it back.
+      */
+      const photoUrls = mediaItems.filter(m => m.type === "image" || m.type === "video").map(m => (m !== mediaItems[0] && m.type === "image" && m.original ? m.original : m.url))
       const youtubeItems = mediaItems.filter(m => m.type === "youtube")
 
       // Determine thumbnail based on FIRST media item position

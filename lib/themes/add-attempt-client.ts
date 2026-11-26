@@ -8,6 +8,8 @@
  * the website the first press made instead of making a second one. A press
  * that got no answer at all is sent again once by itself, a moment later.
  */
+import { rememberCompatInstall } from "@/lib/website-builder/compat-hint"
+
 const keys = new Map<string, string>()
 
 function newKey(): string {
@@ -50,5 +52,19 @@ export async function postAddTheme(slug: string, fetchImpl: Fetch = (u, i) => fe
     res = await send()
   }
   if (res.status < 500) settleAddAttempt(slug)
+  /* Round 65: the editor that opens next knows it is an imported theme (lib/website-builder/compat-hint.ts). */
+  if (res.ok) {
+    try {
+      void res
+        .clone()
+        .json()
+        .then((d: { install_id?: unknown } | null) => {
+          if (typeof d?.install_id === "string") rememberCompatInstall(d.install_id)
+        })
+        .catch(() => {})
+    } catch {
+      /* an answer that cannot be read twice: the editor learns it from the install */
+    }
+  }
   return res
 }

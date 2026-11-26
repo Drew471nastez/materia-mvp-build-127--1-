@@ -56,7 +56,7 @@ interface ProductGalleryProps {
   /**
    * How a picture sits in its frame. Storelib's own product page (app/(storelib)/(marketing)/p/[slug]) passes
    * `contain`: every photo whole, letterboxed on the padded copy's light grey as Explore's card is (the owner's rule for
-   * storelib.com's commerce pages; #f0f0f0 is the middle of processImageToWidescreen's grey). Left out, a wide frame fills (cover) and a square one shows the photo whole.
+   * storelib.com's commerce pages; #f0f0f0 is the middle of processImageToWidescreen's grey). Left out, the photo is whole too (round 65): only `cover` cuts it.
    */
   fit?: "cover" | "contain"
 }
@@ -78,7 +78,8 @@ export function ProductGallery({
   followVariantsOf,
   fit,
 }: ProductGalleryProps) {
-  const whole = fit ? fit === "contain" : shape === "square"
+  /* Round 65: a product picture is never cut. Whole in its frame unless a caller asks for cover, on its own edge's colours (lib/images/pic-fit.ts, data-pic-frame). */
+  const whole = fit !== "cover"
   const [currentIndex, setCurrentIndex] = useState(0)
   /* A chosen variant's photo the gallery did not have, added at its end. */
   const [variantExtra, setVariantExtra] = useState<string[]>([])
@@ -400,6 +401,7 @@ export function ProductGallery({
            front off a transform: an engine writes pixels, not a percent per
            slide. Nothing styles off it. */
         data-gallery-index={currentIndex}
+        data-pic-frame=""
         className={cn(
           "relative overflow-hidden rounded-xl w-full group",
           shape === "square" ? "aspect-square" : "aspect-video",
@@ -776,6 +778,7 @@ export function ProductGallery({
                     : "border-transparent opacity-55 hover:opacity-85",
                 )}
                 style={currentIndex === index && selectionColor ? { borderColor: selectionColor } : undefined}
+                data-pic-frame=""
                 aria-label={`View ${media.type === "image" ? "image" : "video"} ${index + 1}`}
               >
                 {media.type === "image" && (
@@ -784,7 +787,7 @@ export function ProductGallery({
                     alt={`${title} thumbnail ${index + 1}`}
                     fill
                     sizes="(max-width: 640px) 80px, 96px"
-                    className={fit === "contain" ? "object-contain bg-[#f0f0f0]" : "object-cover"}
+                    className={whole ? "object-contain bg-[#f0f0f0]" : "object-cover"}
                   />
                 )}
                 {media.type === "video" && (
