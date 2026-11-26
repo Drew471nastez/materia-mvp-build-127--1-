@@ -34,8 +34,50 @@ const token = hs256({ sub: USER_ID, aud: "authenticated", role: "authenticated",
 const COOKIE = "sb-abcd-auth-token"
 const cookie = "base64-" + Buffer.from(JSON.stringify({ access_token: token, refresh_token: "rt", token_type: "bearer", expires_in: 3600, expires_at: nowS() + 3600, user: person })).toString("base64url")
 
-/** The network: each answer takes `rttMs` plus its bytes at `mbps` megabytes a second. */
-export const net = { rttMs: 25, mbps: 25, authMs: 40 }
+/**
+ * The network: each answer takes `rttMs` plus its bytes at `mbps` megabytes a
+ * second. `shared`: one link for every answer at once, split evenly between
+ * those in flight (a database that has so much reading to do a second), so a
+ * large read slows a small one beside it.
+ */
+export const net = { rttMs: 25, mbps: 25, authMs: 40, shared: false }
+
+type Flow = { left: number; done: () => void }
+const flows = new Set<Flow>()
+let ticking: ReturnType<typeof setInterval> | null = null
+let lastTick = 0
+function tick() {
+  const now = performance.now()
+  const dt = now - lastTick
+  lastTick = now
+  if (flows.size === 0) {
+    if (ticking) clearInterval(ticking)
+    ticking = null
+    return
+  }
+  const each = ((net.mbps * 1e6) / 1000) * dt / flows.size
+  for (const f of [...flows]) {
+    f.left -= each
+    if (f.left <= 0) {
+      flows.delete(f)
+      f.done()
+    }
+  }
+}
+function sharedTransfer(bytes: number): Promise<void> {
+  return new Promise((resolve) => {
+    flows.add({ left: bytes, done: resolve })
+    if (!ticking) {
+      lastTick = performance.now()
+      ticking = setInterval(tick, 2)
+    }
+  })
+}
+async function transfer(bytes: number): Promise<void> {
+  await new Promise((r) => setTimeout(r, net.rttMs))
+  if (net.shared) await sharedTransfer(bytes)
+  else await new Promise((r) => setTimeout(r, (bytes / (net.mbps * 1e6)) * 1000))
+}
 
 export const world = {
   tables: new Map<string, Row[]>(),
@@ -251,7 +293,9 @@ export function installFetch(app: (path: string, init?: RequestInit) => Promise<
       seen.n++
       seen.bytes += size
       world.byTable.set(name, seen)
-      return later(net.rttMs + (size / (net.mbps * 1e6)) * 1000, () => new Response(a.status === 204 || a.text === "" ? null : a.text, { status: a.status, headers: a.headers }), signal)
+      await transfer(size)
+      if (signal?.aborted) throw signal.reason
+      return new Response(a.status === 204 || a.text === "" ? null : a.text, { status: a.status, headers: a.headers })
     }
     return new Response("{}", { status: 404 })
   }) as typeof fetch
