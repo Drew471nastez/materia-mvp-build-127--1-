@@ -11,7 +11,7 @@
       <div class="grid">
         {% for item in wishlist.items %}
         <article class="card" data-card="product" data-storelib-wishlist-card="{{ item.id }}">
-          <div class="card__media" data-card-media style="aspect-ratio: {{ settings.shape }};">
+          <div class="card__media" data-card-media data-pic-frame style="aspect-ratio: {{ settings.shape }};">
             {% if item.image %}<img src="{{ item.image | asset }}" alt="{{ item.title }}" loading="lazy" decoding="async">{% endif %}
             {# Theme settings › Product cards and Badges reach a saved item as they reach the shop's cards. #}{% if item.tag or theme.badges.sale and item.compare_price %}<span class="badges" data-badges>{% if theme.badges.sale and item.compare_price %}<span class="tag" data-badge="sale">{{ theme.badges.sale_text }}</span>{% endif %}{% if item.tag %}<span class="tag" data-badge="{% if item.tag == 'Sold out' %}soldout{% else %}tag{% endif %}">{{ item.tag }}</span>{% endif %}</span>{% endif %}
             <button type="button" class="heart" data-storelib-wishlist="{{ item.id }}" aria-pressed="true" aria-label="{{ words.remove_saved }}: {{ item.title }}"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
@@ -74,7 +74,7 @@
 .wl--center .card__price { justify-content: center; }
 .card[hidden] { display: none; }
 .card__media { position: relative; overflow: hidden; border-radius: var(--s-radius); background: var(--s-border); }
-.card__media img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.card__media img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .card__title { margin: 14px 0 0; font-size: 15px; font-weight: 600; line-height: 1.35; color: var(--s-heading); }
 .card__price { margin: 8px 0 0; display: flex; align-items: baseline; gap: 8px; font-size: 15px; font-weight: 600; color: var(--s-heading); }
 .card__was { font-size: 13px; font-weight: 400; color: var(--s-para); opacity: 0.7; }

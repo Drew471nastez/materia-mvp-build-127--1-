@@ -21,7 +21,7 @@
           {% for block in settings.collection.products %}
             {% if forloop.index <= settings.product_count %}
             <article class="card" data-card="product" data-block-id="{{ block.id }}">
-              <div class="card__media" data-card-media style="aspect-ratio: {{ settings.shape }};">
+              <div class="card__media" data-card-media data-pic-frame style="aspect-ratio: {{ settings.shape }};">
                 {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% endif %}
                 {% if block.settings.tag or theme.badges.sale and block.settings.compare_price %}<span class="badges" data-badges>{% if theme.badges.sale and block.settings.compare_price %}<span class="tag" data-badge="sale">{{ theme.badges.sale_text }}</span>{% endif %}{% if block.settings.tag %}<span class="tag" data-badge="soldout">{{ block.settings.tag }}</span>{% endif %}</span>{% endif %}
               </div>
@@ -71,7 +71,7 @@
 @container (min-width: 900px) { .grid { grid-template-columns: repeat(var(--cols-d), minmax(0, 1fr)); } }
 .card { position: relative; display: flex; flex-direction: column; }
 .card__media { position: relative; overflow: hidden; border-radius: var(--s-radius); background: var(--s-border); }
-.card__media img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.card__media img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .card__title { margin: 14px 0 0; font-size: 15px; font-weight: 600; color: var(--s-heading); }
 .card__rating { margin: 6px 0 0; display: flex; align-items: center; gap: 6px; font-size: 13px; line-height: 1; color: var(--s-para); }
 .card__rating > span { position: relative; letter-spacing: 1px; color: var(--s-border); }
