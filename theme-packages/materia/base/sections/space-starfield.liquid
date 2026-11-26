@@ -44,6 +44,8 @@
       radial-gradient(1px 1px at 22% 58%, {{ star }} 50%, transparent 51%);
   }
   .space-sky-{{ sid }}[data-ready] { background-image: none; }
+  /* A copy still inside the section is one its script has not taken to the back of the page yet: never shown there, where the header's layer would put it over every section. */
+  #shopify-section-{{ sid }} .space-sky-{{ sid }} { display: none !important; }
   {%- if s.see_through -%}
     /* Sections in the sky's colour scheme let the stars show through them. Drawers and pop ups keep their own colour. */
     main .color-{{ see }},

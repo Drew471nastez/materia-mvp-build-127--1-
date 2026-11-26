@@ -1,6 +1,7 @@
 import type React from "react"
 import type { Metadata, Viewport } from "next"
 import { redirect } from "next/navigation"
+import { headers } from "next/headers"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { SessionRecovery } from "@/components/auth/session-recovery"
 import { EditorToaster } from "@/components/ui/editor-toaster"
@@ -38,6 +39,13 @@ export default async function WebsiteBuilderEditorLayout({
   const current = await currentUserForRequest()
   if (!current.user) {
     if (current.state === "indeterminate") return <SessionRecovery />
+    /*
+      SIGNED OUT INSIDE THE EDITOR'S OWN FRAME (round 66). The code pane is
+      this page in a frame of the editor; sent on to /login, which refuses to
+      be framed, the pane showed "storelib.com refused to connect". In a
+      frame it says so, and signing in again opens in the whole tab.
+    */
+    if ((await headers()).get("sec-fetch-dest") === "iframe") return <FramedSignedOut />
     redirect("/login")
   }
 
@@ -53,5 +61,18 @@ export default async function WebsiteBuilderEditorLayout({
       {/* Pages and named actions for /admin's creator activity, once a minute (components/app/activity-beacon). */}
       <ActivityBeacon />
     </EditorFrame>
+  )
+}
+
+/** Signed out, in a frame of the editor: said here, with the way back in the whole tab. */
+function FramedSignedOut() {
+  return (
+    <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-3 bg-white px-6 text-center font-sans">
+      <p className="text-[15px] font-semibold text-[#1a1a2e]">You were signed out</p>
+      <p className="max-w-[320px] text-[13px] text-[#6b7280]">Sign in again to keep editing. Your unsaved code stays in this browser.</p>
+      <a href="/login" target="_top" className="mt-1 inline-flex h-9 items-center rounded-full bg-[#1a1a2e] px-4 text-[13px] font-semibold text-white">
+        Sign in
+      </a>
+    </div>
   )
 }

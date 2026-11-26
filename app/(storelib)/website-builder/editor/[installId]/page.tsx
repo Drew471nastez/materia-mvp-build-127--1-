@@ -19,6 +19,7 @@ import { installSteadyFocus, rowIntoView } from "@/lib/website-builder/steady-fo
 import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import { liveSiteLink, openLiveSite } from "@/lib/website-builder/live-site-link"
 import { openInstallPreview } from "@/lib/website-builder/open-preview"
+import { externalHref } from "@/lib/website-builder/canvas-links"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import {
@@ -10027,6 +10028,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /* Opening the live site from the editor is not a visit to it (lib/analytics/own-site). */
   useOwnMarker()
   const websiteUrl = siteName ? getWebsiteShareUrl(siteName) : ""
+  /* Read by the canvas's link handler, which is made once (navigateCompatCanvas). */
+  const websiteUrlRef = useRef(websiteUrl)
+  websiteUrlRef.current = websiteUrl
   const websiteUrlDisplay = siteName ? getWebsiteUrlDisplay(siteName) : ""
 
   /**
@@ -10101,7 +10105,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         creator's side is a broken header (scripts/check-builder-nav19.ts).
       */
       const other = href.trim().match(/^(?:https?:)?\/\/([^/?#]+)/i)
-      if (other) toast(`Opens ${other[1].replace(/^www\./, "")} on your live site`, { id: "compat-link-out" })
+      /* Another website opens in a new tab (round 66), never in the canvas, which it would refuse; said instead when the browser holds the tab back. */
+      const out = externalHref(href, websiteUrlRef.current)
+      const tab = out ? window.open(out, "_blank") : null
+      if (tab) tab.opener = null
+      else if (other) toast(`Opens ${other[1].replace(/^www\./, "")} on your live site`, { id: "compat-link-out" })
       else if (path.startsWith("/")) toast(`No page at ${path} yet`, { id: "compat-link-missing", description: "Add it in Pages, or point the link somewhere else in Menus." })
       return false
     }
