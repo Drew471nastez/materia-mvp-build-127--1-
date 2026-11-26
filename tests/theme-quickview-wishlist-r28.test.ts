@@ -31,6 +31,8 @@ import { execFileSync } from "node:child_process"
 import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import vm from "node:vm"
+import { colorObject } from "../lib/storelib-theme/compat/objects"
+import { OUTPUT } from "../lib/storelib-theme/compat/runtime"
 import { ADD_TO_CART_BUTTONS, BUSY_MARKS, BUSY_BUTTON_CSS } from "../lib/storelib-theme/compat/busy-buttons"
 
 let passed = 0
@@ -137,6 +139,25 @@ else {
     check("  beside the preview's cart, which is kept", (JSON.parse(three.name) as { slpv: Record<string, string> }).slpv.x === "1~0.1")
   }
 }
+
+console.log("\nCOLOURS: a colour chosen to be clear stays clear")
+const out = (v: unknown) => String((colorObject(v) as Record<PropertyKey, unknown> | null)?.[OUTPUT as PropertyKey] ?? "")
+check("the editor's \"Don't apply any color\" prints as transparent", out("transparent") === "transparent" && (colorObject("transparent") as { alpha?: number })?.alpha === 0)
+check("  the stored default and every other colour print as before", out("rgba(0,0,0,0)") === "rgba(0, 0, 0, 0)" && out("#ff0000") === "#ff0000" && out("rgba(255, 0, 0, 0.5)") === "rgba(255, 0, 0, 0.5)")
+const sc = read("snippets/scheme-color.liquid")
+check("scheme-color keeps a chosen clear colour, and an empty or default one still falls back", /if color == 'transparent'\s*assign scheme_color_out = 'transparent'/.test(sc) && /color\.alpha != 0 and color != 'rgba\(0,0,0,0\)'/.test(sc))
+
+console.log("\nPRODUCT PAGES: the description once")
+const pib = read("snippets/product-info-blocks.liquid")
+check("a Description row steps aside when a block above already showed the whole description", /if pib_drawn contains 'description,'\s*assign cr_twice = true/.test(pib) && /\{%- if cr_twice -%\}/.test(pib))
+check("  and when it shows it, it counts as the description for the blocks after it", /assign cr_desc = true\s*assign pib_drawn = pib_drawn \| append: 'description,'/.test(pib))
+check("  the modern row too", /assign mcr_twice = true/.test(pib) && /assign mcr_desc = true\s*assign pib_drawn = pib_drawn \| append: 'description,'/.test(pib))
+
+console.log("\nSECTION SIDES: the page container's")
+const cd2 = read("sections/countdown-timer2.liquid")
+check("countdown-timer2 takes the container's 90% / 95% from 1025px and the theme's gutter", /data-cd2-width='container'\] \.ti-cd__inner \{ width: 90%; \}/.test(cd2) && /data-cd2-width='fluid_container'\] \.ti-cd__inner \{ width: 95%; \}/.test(cd2) && /padding-inline: var\(--bs-gutter-x/.test(cd2))
+const r7 = read("snippets/r7-testimonial-base.liquid")
+check("the r7 testimonials (product, wall) too", /\.r7t__frame\[data-width="container"\] \{ width: 90%; \}/.test(r7) && /\.r7t__frame\[data-width="fluid_container"\] \{ width: 95%; \}/.test(r7))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

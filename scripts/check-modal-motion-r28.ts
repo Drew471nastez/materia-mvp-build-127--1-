@@ -141,6 +141,9 @@ async function drawers(browser: Browser) {
             }
             return out
           })
+          /* As a visitor does: the pointer comes to the button, then presses it. */
+          await page.evaluate((e) => e.dispatchEvent(new PointerEvent("pointerover", { bubbles: true })), el)
+          await sleep(150)
           await page.evaluate((e, f) => { new Function(f)(); (e as HTMLElement).click() }, el, FRAMES)
           await sleep(60)
           const opening = (await read()).filter((a) => PANEL.test(a.el) && /transform|translate|opacity/.test(a.prop))
@@ -164,6 +167,8 @@ async function drawers(browser: Browser) {
           const lates = [late]
           for (let k = 0; k < 2; k++) {
             await sleep(700)
+            await page.evaluate((e) => e.dispatchEvent(new PointerEvent("pointerover", { bubbles: true })), el)
+            await sleep(150)
             await page.evaluate((e, f) => { new Function(f)(); (e as HTMLElement).click() }, el, FRAMES)
             await sleep(60)
             lates.push(await page.evaluate(() => {

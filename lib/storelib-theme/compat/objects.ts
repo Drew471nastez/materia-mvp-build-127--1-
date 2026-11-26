@@ -868,8 +868,17 @@ export function colorObject(value: unknown): O | null {
     s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
     h = (max === R ? (G - B) / d + (G < B ? 6 : 0) : max === G ? (B - R) / d + 2 : (R - G) / d + 4) * 60
   }
+  /*
+    Round 28: "Don't apply any color" in the editor stores the word
+    "transparent". It prints as that word (the same colour as
+    rgba(0, 0, 0, 0)), so a theme can tell a colour chosen to be clear from
+    the empty default, which settings store as "rgba(0,0,0,0)": Materia's
+    scheme-color keeps a chosen clear border clear instead of drawing the
+    scheme's. Every field is as before.
+  */
+  const chosenClear = typeof value === "string" && value.trim().toLowerCase() === "transparent"
   return {
-    [OUTPUT]: c.a < 1 ? `rgba(${c.r}, ${c.g}, ${c.b}, ${+c.a.toFixed(2)})` : hex,
+    [OUTPUT]: chosenClear ? "transparent" : c.a < 1 ? `rgba(${c.r}, ${c.g}, ${c.b}, ${+c.a.toFixed(2)})` : hex,
     red: c.r,
     green: c.g,
     blue: c.b,

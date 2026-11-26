@@ -1854,15 +1854,21 @@ var BlsSearchShopify = (function () {
       clearTimeout(this._hideTimer);
       this.panelOpen = true;
       this._trigger = trigger || document.activeElement;
-      if (!isDrawer(f)) this.placePopup(f);
+      // Measured as the pointer came near (warmPlace), so the click itself
+      // reads no layout before the panel starts to move.
+      if (!isDrawer(f) && !(this._placed && this._placed.y === window.scrollY && this._placed.w === window.innerWidth && performance.now() - this._placed.at < 4000)) this.placePopup(f);
+      this._placed = null;
       const s = scrim();
-      // Scrim first, so the panel is above it in the top layer.
-      showLayer(s);
-      showLayer(f);
+      // Every class first, then the top layer (whose show restyles the page
+      // once for all of them), then focus: one style pass in the click, not
+      // three. The panel's closed style was already computed, so its slide
+      // starts from it. Scrim first, so the panel is above it in the top layer.
       html.classList.add("open-drawer", "open-search");
       if (s) s.classList.add("open");
       f.classList.add("open");
       this.setToggles(true);
+      showLayer(s);
+      showLayer(f);
       document.addEventListener("keydown", this._onKeydown, true);
       // Synchronously, inside the click, so phones raise the keyboard.
       const input = f.querySelector('input[type="search"]');
@@ -1937,7 +1943,24 @@ var BlsSearchShopify = (function () {
       return f ? f.querySelector('input[type="search"]') : null;
     },
 
+    // The popup's place, read while the pointer is on the search button (or
+    // it has focus), between the frames of nothing happening.
+    warmPlace: function (e) {
+      const t = e.target && e.target.closest && e.target.closest(".top-search-toggle");
+      if (!t || t.tagName === "A" || this.panelOpen) return;
+      const f = panel();
+      if (!f || isDrawer(f)) return;
+      this.placePopup(f);
+      this._placed = { y: window.scrollY, w: window.innerWidth, at: performance.now() };
+    },
+
     setupEventListeners: function () {
+      if (!this._warmWired) {
+        this._warmWired = true;
+        const warm = (e) => this.warmPlace(e);
+        document.addEventListener("pointerover", warm, { passive: true });
+        document.addEventListener("focusin", warm);
+      }
       const f = panel();
       const input = this.input();
       const form = input && input.form;

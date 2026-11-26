@@ -24,6 +24,11 @@
   #shopify-section-{{ sid }} .r7t__frame[data-width="container"] { --r7t-pad: 1.5rem; max-width: calc(var(--page-width, 1300px) + 3rem); }
   #shopify-section-{{ sid }} .r7t__frame[data-width="fluid_container"] { --r7t-pad: 1.5rem; max-width: calc(var(--fluid-container-width, 1500px) + 3rem); }
   #shopify-section-{{ sid }} .r7t__frame[data-width="stretch_width"] { --r7t-pad: 1.5rem; }
+  {%- comment -%} Round 28: the page container's sides from 1025px (critical.css .container 90%, .fluid_container 95%), so the cards never sit 15px from the screen's edge. {%- endcomment -%}
+  @media (min-width: 1025px) {
+    #shopify-section-{{ sid }} .r7t__frame[data-width="container"] { width: 90%; }
+    #shopify-section-{{ sid }} .r7t__frame[data-width="fluid_container"] { width: 95%; }
+  }
 
   #shopify-section-{{ sid }} .r7t__head { max-width: 720px; margin: 0 0 28px; text-align: start; }
   #shopify-section-{{ sid }} .r7t[data-align="center"] .r7t__head { margin-inline: auto; text-align: center; }

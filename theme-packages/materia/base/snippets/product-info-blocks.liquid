@@ -372,11 +372,27 @@
               {%- liquid
                 assign cr_body = block_st.content
                 assign cr_desc = false
+                assign cr_twice = false
                 if block_st.use_product_description == true and product.description != blank
-                  assign cr_body = product.description
-                  assign cr_desc = true
+                  comment
+                    Round 28: the description is drawn once per page. A short
+                    description that showed it whole (it fit) already counts as
+                    it, so this row would repeat it word for word (every
+                    template whose short description sits above a Description
+                    row showed the text twice). The row steps aside then.
+                  endcomment
+                  if pib_drawn contains 'description,'
+                    assign cr_twice = true
+                  else
+                    assign cr_body = product.description
+                    assign cr_desc = true
+                    assign pib_drawn = pib_drawn | append: 'description,'
+                  endif
                 endif
               -%}
+              {%- if cr_twice -%}
+                {%- if request.design_mode -%}<p class="pib-note" {{ block.shopify_attributes }}>Hidden: another block already shows the description.</p>{%- endif -%}
+              {%- else -%}
               <details class="mt-acc product-detail__collapsible" data-mt-acc-key="{{ block.id }}" {{ block.shopify_attributes }}{% if block_st.open == true %} open{% endif %}>
                 <summary>
                   <h3 class="mt-acc__title">{{- block_st.heading -}}</h3>
@@ -386,6 +402,7 @@
                   <div class="mt-acc__inner rte{% if cr_desc %} product_description{% endif %}">{{ cr_body }}</div>
                 </div>
               </details>
+              {%- endif -%}
             {%- when 'countdown_timer' -%}
               {%- render 'product-countdown-timer', product: product, block: block -%}
             {%- when 'product_addons' -%}
@@ -3119,6 +3136,18 @@ Pick the source:
 
 {%- assign icon_svg = bs.icon_svg_custom | default: preset_svg -%}
 
+{%- liquid
+  assign mcr_twice = false
+  if bs.use_product_description == true and product.description != blank and pib_drawn contains 'description,'
+    comment
+      Round 28: the description is drawn once per page (see collapsible_row).
+    endcomment
+    assign mcr_twice = true
+  endif
+-%}
+{%- if mcr_twice -%}
+  {%- if request.design_mode -%}<p class="pib-note" {{ block.shopify_attributes }}>Hidden: another block already shows the description.</p>{%- endif -%}
+{%- else -%}
 <details
   id="ModernCR-{{ block.id }}"
   class="mt-acc bls-toggle-modern"
@@ -3138,6 +3167,7 @@ Pick the source:
     if bs.use_product_description == true and product.description != blank
       assign mcr_body = product.description
       assign mcr_desc = true
+      assign pib_drawn = pib_drawn | append: 'description,'
     endif
   -%}
   <div class="mt-acc__body">
@@ -3157,6 +3187,7 @@ Pick the source:
     }
   </style>
 </details>
+{%- endif -%}
 
 {%- when 'delivery_estimate', 'stock_level', 'offer_timer', 'guarantee_row', 'whats_included', 'comparison_table', 'faq_accordion', 'quote_card', 'link_button' -%}
   {%- comment -%} The extras: snippets/product-info-extras, included so its stylesheet is written once per section. {%- endcomment -%}
