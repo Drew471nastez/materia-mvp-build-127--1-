@@ -68,13 +68,29 @@ export async function customSchemaLookup(
     if (typeof text === "string" && text.trim() !== "") sources[r.path] = text
   }
   if (Object.keys(sources).length === 0) return undefined
-  return (type: string) => schemaFor(type, sources, SECTION_SCHEMAS)
+  return onceEach(sources)
+}
+
+/**
+ * Each type's schema read from its file once per lookup (round 65). The
+ * sanitiser asks for every section it cleans, and a page cleaned three ways
+ * (its sections, its draft, the answer) parsed a megabyte file three times
+ * per section of that type. The sources do not change during one lookup.
+ */
+function onceEach(sources: Record<string, string>): SchemaLookup {
+  const seen = new Map<string, ReturnType<SchemaLookup>>()
+  return (type: string) => {
+    if (seen.has(type)) return seen.get(type)
+    const schema = schemaFor(type, sources, SECTION_SCHEMAS)
+    seen.set(type, schema)
+    return schema
+  }
 }
 
 /** The same lookup from sources already in hand, as the published site has them. */
 export function schemaLookupFrom(sources: Record<string, string> | undefined): SchemaLookup | undefined {
   if (!sources || Object.keys(sources).length === 0) return undefined
-  return (type: string) => schemaFor(type, sources, SECTION_SCHEMAS)
+  return onceEach(sources)
 }
 
 /**
