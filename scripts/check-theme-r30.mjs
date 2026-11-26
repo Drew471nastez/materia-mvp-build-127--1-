@@ -72,8 +72,8 @@ async function open(url, width, height = 900, { scroll = true, reduced = true } 
   return page
 }
 
-/* Points across a box (inset 6px) that must all be the box's own. */
-const OWN_POINTS = `(el) => { const r = el.getBoundingClientRect(); const xs = [r.left + 6, r.left + r.width / 2, r.right - 6], ys = [r.top + 6, r.top + r.height / 2, r.bottom - 6]; const bad = []; for (const x of xs) for (const y of ys) { if (x < 0 || y < 0 || x > innerWidth || y > innerHeight) continue; const hit = document.elementFromPoint(x, y); if (hit && !el.contains(hit)) bad.push(Math.round(x) + ',' + Math.round(y) + ' ' + hit.tagName + '.' + String(hit.className).slice(0, 40)) } return bad }`
+/* Points across a box (inset 6px, and clear of its rounded corners) that must all be the box's own. */
+const OWN_POINTS = `(el) => { const r = el.getBoundingClientRect(); const k = 6 + (parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0) * 0.35; const xs = [r.left + k, r.left + r.width / 2, r.right - k], ys = [r.top + k, r.top + r.height / 2, r.bottom - k]; const bad = []; for (const x of xs) for (const y of ys) { if (x < 0 || y < 0 || x > innerWidth || y > innerHeight) continue; const hit = document.elementFromPoint(x, y); if (hit && !el.contains(hit)) bad.push(Math.round(x) + ',' + Math.round(y) + ' ' + hit.tagName + '.' + String(hit.className).slice(0, 40)) } return bad }`
 
 async function popovers(slug, dir) {
   const colls = existsSync(join(dir, "collections")) ? readdirSync(join(dir, "collections")).filter((f) => f.endsWith(".html")).sort() : []
@@ -304,7 +304,9 @@ async function motion(slug, folder) {
   const res = await page.evaluate(() => {
     window.__r30.stop = true
     const f = window.__r30.frames.slice(3).sort((a, b) => a - b)
-    const held = [...document.querySelectorAll('.scroll-trigger')].filter((e) => { const r = e.getBoundingClientRect(); return r.height > 2 && r.left >= -1 && r.right <= innerWidth + 1 }).filter((e) => (e.classList.contains('scroll-trigger--armed') || +getComputedStyle(e).opacity < 0.99 || e.querySelector('[data-reveal-part], .mt-word')))
+    // Shown on the page: not a slide waiting off to the side in a carousel (clipped by a frame), which reveals when it is swiped to.
+    const shown = (e) => { const r = e.getBoundingClientRect(); if (r.height <= 2) return false; let L = Math.max(r.left, 0), Rr = Math.min(r.right, innerWidth); for (let x = e.parentElement; x && x !== document.body; x = x.parentElement) { const cs = getComputedStyle(x); if (cs.overflowX !== 'visible' || cs.overflow !== 'visible') { const q = x.getBoundingClientRect(); L = Math.max(L, q.left); Rr = Math.min(Rr, q.right) } } return Rr - L >= r.width * 0.5 }
+    const held = [...document.querySelectorAll('.scroll-trigger')].filter(shown).filter((e) => (e.classList.contains('scroll-trigger--armed') || +getComputedStyle(e).opacity < 0.99 || e.querySelector('[data-reveal-part], .mt-word')))
     const types = new Set([...document.querySelectorAll('.ti-section-reveal')].map((e) => [...e.classList].find((c) => /^(fade_in|fade_up|slide_in|zoom_in|subtle_rise|cinematic|blur_up|blur_in|slide_side|stagger_up|mask_reveal|split_text|editorial)$/.test(c))))
     return { names: [...window.__r30.names], props: [...window.__r30.props], p95: f.length ? Math.round(f[Math.floor(f.length * 0.95)]) : null, median: f.length ? Math.round(f[Math.floor(f.length / 2)]) : null, held: held.slice(0, 3).map((e) => e.id.slice(0, 40)), types: [...types] }
   })
