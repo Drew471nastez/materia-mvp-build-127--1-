@@ -237,12 +237,7 @@ export function installCoverTrim(doc: Document, win: Window): void {
     var full = new Image()
     full.crossOrigin = "anonymous"
     full.decoding = "async"
-    /*
-      Round 64: the pixels are read through this site's own image route. A creator's site on its own host
-      (liam-bailey.storelib.com, a custom domain) reads storelib.com/media from another origin, which sends no CORS
-      header, so the read failed and the padded copy was drawn cut into the card. /_next/image on the page's own
-      origin gives the same 1280x720 picture (w=1920 is never enlarged) with nothing cross origin about it.
-    */
+    /* Round 64: read through this origin's /_next/image, so a cross origin copy with no CORS header is readable. */
     var readFrom = key
     try {
       var at = new URL(key, doc.baseURI)
