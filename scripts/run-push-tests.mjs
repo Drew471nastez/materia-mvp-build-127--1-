@@ -1978,6 +1978,8 @@ const STRICT_SUITES = [
   "tests/business-limit-r60.test.ts",
   /* Round 63 (j1): every new website starts on the current Storelib Default (the Materia template Browse themes shows, template-materia-default), imported for real on a first visit and on Start from blank; the native theme is offered nowhere. Product pictures: Materia's offered up to 1440 wide for 2x, the native gallery's row of natural-shape pictures has no blank half. scripts/check-product-images-r63.mjs measures it in Chromium at 360, 390, 768 and 1280. */
   "tests/default-theme-images-r63.test.ts",
+  /* Round 64 (k1): country flags are real artwork, public/flags/<CODE>.svg (country-flag-icons, MIT), not the emoji written as text in a data: SVG: `country | image_url` is the file for every theme, Materia asks for a row's flag only when it is in the list's view, and Storelib's own order and admin pages draw the same files. scripts/check-flags-r64.mjs measures centre offset and coverage in Chromium at 390 and 1280. */
+  "tests/flags-r64.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

@@ -60,6 +60,7 @@ import { CarrierLogo } from "@/components/physical/carrier-logo"
 import { carrierOf } from "@/lib/physical/carriers"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
+import { FlagImage } from "@/components/ui/flag-image"
 import { SOURCE_LABEL, canRefundLine, dayHeading, fullDate, itemsLabel, refundableCents, shipStageOf, timeOfDay, type Order, type OrderRow } from "@/lib/orders/order-view"
 import { paidThroughAirwallex } from "@/lib/payments/past-provider"
 import { originCampaign, sourceText } from "@/lib/orders/order-source"
@@ -632,11 +633,6 @@ function PaymentCard({
   )
 }
 
-function flagOf(code: string | null | undefined): string {
-  if (!code || code.length !== 2 || code === "XX") return ""
-  return String.fromCodePoint(...code.toUpperCase().split("").map((c) => 127397 + c.charCodeAt(0)))
-}
-
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="min-w-0">
@@ -735,7 +731,10 @@ function CustomerCard({
         ) : null}
         {country ? (
           <Field label={tt("Country")}>
-            {flagOf(line.buyer_country_code)} {country}
+            <span className="inline-flex min-w-0 items-center gap-1.5">
+              <FlagImage code={line.buyer_country_code} />
+              <span className="min-w-0">{country}</span>
+            </span>
           </Field>
         ) : null}
         {device ? <Field label={tt("Device")}>{device}</Field> : null}

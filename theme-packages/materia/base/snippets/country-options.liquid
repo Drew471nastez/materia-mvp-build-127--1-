@@ -3,7 +3,8 @@
   page as compact JSON in script#materia-country-options (layout/theme). Each
   selector builds its rows from it the first time it opens. Each entry is
   [code, name, currency code, currency symbol, flag]; the flag address is left
-  empty when it is the usual emoji flag, which the script draws from the code.
+  empty when it is drawn in the page (a data: SVG), and the script finds the
+  flag from the code.
 {%- endcomment -%}
 [
 {%- for country in localization.available_countries -%}
