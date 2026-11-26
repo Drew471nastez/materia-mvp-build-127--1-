@@ -113,9 +113,8 @@ function block(type: OnePageBlockType, data: Record<string, unknown> = {}): OneP
 export function northpaperBlocks(): OnePageBlock[] {
   return [
     block("social_row", { platforms: [], style: "icons" }),
-    block("heading", { text: tt("Templates"), size: "small", alignment: "left" }),
-    /* The creator's own digital products, read live (lib/onepage/storelib-blocks); the page leaves it out until there is one. */
-    block("storelib_shelf", { source: "digital", title: "", layout: "list", limit: 6 }),
+    /* The creator's own digital products, read live (lib/onepage/storelib-blocks); the page leaves it out, title and all, until there is one, so a new page has no heading over nothing. Section titles are the blocks' own (centred, as every theme draws them), and the links need none. */
+    block("storelib_shelf", { source: "digital", title: tt("Templates"), layout: "list", limit: 6 }),
     block("email_capture", {
       headline: tt("Free Notion template"),
       description: tt("A weekly planner for Notion. Leave your email and the link comes to you."),
@@ -124,9 +123,9 @@ export function northpaperBlocks(): OnePageBlock[] {
       custom_button_text: tt("Send it"),
       button_text: tt("Send it"),
       success_message: tt("Sent. The link is in your inbox."),
-      layout_type: "default",
+      /* Minimal: the words flush left over an outlined field, the Northpaper footer's own signup. */
+      layout_type: "minimal",
     }),
-    block("heading", { text: tt("Links"), size: "small", alignment: "left" }),
     block("link_button", { label: tt("My Notion Marketplace profile"), url: "https://www.notion.com/templates", icon: "notion" }),
     block("link_button", { label: tt("Video walkthroughs"), url: "https://youtube.com/", icon: "youtube" }),
     block("faq", {
