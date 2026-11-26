@@ -173,7 +173,13 @@ const MEASURE = ([kinds]) => {
       if (s.overflowX !== "visible" || s.overflowY !== "visible") break
       f = f.parentElement
     }
-    const fr = f.getBoundingClientRect()
+    /* The frame's inside (a bordered thumbnail button clips at its padding box, not its border). */
+    const fb = f.getBoundingClientRect()
+    const fcs = getComputedStyle(f)
+    const [bl, bt, br, bb] = [fcs.borderLeftWidth, fcs.borderTopWidth, fcs.borderRightWidth, fcs.borderBottomWidth].map((v) => parseFloat(v) || 0)
+    const fr = { left: fb.left + bl, top: fb.top + bt, width: fb.width - bl - br, height: fb.height - bt - bb }
+    fr.right = fr.left + fr.width
+    fr.bottom = fr.top + fr.height
     if (fr.width < 30 || fr.right <= 0 || fr.left >= innerWidth) continue
     const cs = getComputedStyle(img)
     const nw = img.naturalWidth
@@ -195,7 +201,8 @@ const MEASURE = ([kinds]) => {
     if (untrimmed) { x += (388 / 1280) * dw; w = (504 / 1280) * dw }
     const L = Math.max(x, fr.left), T = Math.max(y, fr.top), R = Math.min(x + w, fr.right), B = Math.min(y + h, fr.bottom)
     const inside = Math.max(0, R - L) * Math.max(0, B - T)
-    const pr = ratioOf[img.dataset.probe]
+    /* A trimmed copy is measured as the picture the trim made (it keeps 500 of the poster's 504 columns, r64's rule). */
+    const pr = src.startsWith("blob:") ? nw / nh : ratioOf[img.dataset.probe]
     const frameRatio = fr.width / fr.height
     const ideal = Math.min(pr / frameRatio, frameRatio / pr)
     out.push({
@@ -264,7 +271,7 @@ async function nativePages() {
   const css = await appCss(root)
   const head = `<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><script>${COVER_TRIM_SCRIPT}</script><style>${css}</style><style>body{margin:0;font-family:Inter,sans-serif}</style>`
   const out = {}
-  for (const shape of ["1 / 1", "4 / 5", "4 / 3"]) {
+  for (const shape of ["1 / 1", "3 / 4", "4 / 3"]) {
     const grid = JSON.parse(execFileSync(process.execPath, [path.join(work, "grid.mjs")], { cwd: root, encoding: "utf8", env: { ...process.env, SHAPE: shape, IMG_BASE: `${ORIGIN}/__native` } }))
     out[`/native/grid-${shape.replace(/\D+/g, "x")}.html`] = `<!doctype html><html><head>${head}<style>${grid.css}</style></head><body><div style="container-type:inline-size" data-section-id="shop-all-products">${grid.html}</div></body></html>`
   }
@@ -280,7 +287,7 @@ const prepared = {}
 for (const p of PAGES) prepared[p.path] = (await prepare(browser, p)).replace(/<head([^>]*)>/i, (m) => `${m}<script>${COVER_TRIM_SCRIPT}</script>`)
 if (mode === "after") {
   Object.assign(prepared, await nativePages())
-  for (const g of ["1x1", "4x5", "4x3"]) PAGES.push({ name: `native-grid-${g}`, path: `/native/grid-${g}.html`, native: true })
+  for (const g of ["1x1", "3x4", "4x3"]) PAGES.push({ name: `native-grid-${g}`, path: `/native/grid-${g}.html`, native: true })
   for (const layout of ["stacked", "slideshow", "carousel"]) for (const ratio of ["square", "portrait"]) PAGES.push({ name: `native-product-${layout}-${ratio}`, path: `/native/product.html?base=${encodeURIComponent(ORIGIN + "/__pic")}&imgs=poster,square,wide,poster_processed&layout=${layout}&ratio=${ratio}`, native: true })
 }
 
