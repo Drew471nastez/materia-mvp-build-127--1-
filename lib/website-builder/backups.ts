@@ -88,7 +88,7 @@ export async function readSnapshot(db: SupabaseClient, installId: string): Promi
   ])
 
   /* Before the code files' table exists, a backup is what it always was. */
-  let files: { path: string; content: string | null; draft_content?: string | null }[] | undefined
+  let files: FileRow[] | undefined
   try {
     const { data, error } = await db.from("store_theme_custom_files").select(await fileCols("path, content, draft_content")).eq("install_id", installId)
     if (!error) files = await resolveRefs((data ?? []) as unknown as FileRow[])
@@ -108,7 +108,7 @@ type SnapshotPageRow = { page_key: unknown; sections?: unknown; draft_sections?:
 export function snapshotOf(
   settingsRow: { settings?: unknown; draft_settings?: unknown } | null | undefined,
   pageRows: readonly SnapshotPageRow[],
-  fileRows: readonly { path: string; content: string | null; draft_content?: string | null }[] | null | undefined,
+  fileRows: readonly Pick<FileRow, "path" | "content" | "draft_content">[] | null | undefined,
 ): BackupSnapshot {
   const settings = (settingsRow?.draft_settings ?? settingsRow?.settings ?? {}) as Record<string, unknown>
   const pages = pageRows
@@ -120,7 +120,7 @@ export function snapshotOf(
     .sort((a, b) => a.page_key.localeCompare(b.page_key))
   const files = fileRows
     ? fileRows
-        .map((f) => ({ path: String(f.path), content: editorContent({ content: f.content ?? "", draft_content: f.draft_content ?? null }) }))
+        .map((f) => ({ path: String(f.path), content: editorContent(f) }))
         .filter((f) => f.content !== "")
         .sort((a, b) => a.path.localeCompare(b.path))
     : undefined

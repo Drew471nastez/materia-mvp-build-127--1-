@@ -371,10 +371,10 @@ async function handlePost(req: Request, { params }: Params, holder: JobHolder): 
         if (kept.ok === false) {
           if (kept.reason === "failed") console.error("[publish] the release was not written:", kept.detail)
         } else {
-          seen = { pointed: !!(kept as { live?: boolean }).live, blobs: (kept as { blobs?: string[] }).blobs ?? [] }
+          await pruneReleases(admin, installId)
           /* Pointed at: every server draws from it now, not from the rows (lib/website-builder/site-releases-server.ts releasePointed). */
           if ((kept as { live?: boolean }).live) releasePointed(creatorId)
-          await pruneReleases(admin, installId)
+          seen = { pointed: !!(kept as { live?: boolean }).live, blobs: (kept as { blobs?: string[] }).blobs ?? [] }
         }
       } finally {
         follow.releaseDone(seen)

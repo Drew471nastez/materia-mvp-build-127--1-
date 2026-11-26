@@ -312,7 +312,7 @@ async function main() {
     const at = route.indexOf("await recordRelease(admin, { installId, creatorId }")
     check("Publish writes the release after the answer, after the live site is purged", at > route.indexOf("await revalidatePublishedSite(creator.id)") && route.lastIndexOf("after(async () => {", at) > route.indexOf("await revalidatePublishedSite(creator.id)"))
     check("  a release that was not written never fails the Publish", !route.slice(at - 200, at + 400).includes("return NextResponse") && route.slice(at, at + 400).includes("await pruneReleases(admin, installId)"))
-    check("  Undo, restore, history and backups are as they were", route.includes('action: "published",') && route.includes('await takeBackup(admin, installId, { label: "Published", source: "publish" })'))
+    check("  Undo, restore, history and backups are as they were", route.includes('action: "published",') && /* Changed on purpose (r66): the backup is handed the publish's one read as a fourth argument. */ route.includes('await takeBackup(admin, installId, { label: "Published", source: "publish" }'))
   }
 
   console.log("\nWhich imported theme pages the CDN may hold")
