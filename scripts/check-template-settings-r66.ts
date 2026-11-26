@@ -183,7 +183,7 @@ async function sweepTemplate(browser: Browser, name: string, bridge: string, hea
       }, html)
       for (let i = 0; i < 100; i++) {
         const fr = tab.frames().find((x) => x !== tab.mainFrame())
-        if (fr && (await within(fr.evaluate(() => document.readyState === "complete" && !!document.querySelector(".shopify-section")), 2000).catch(() => false))) { await sleep(900); return fr }
+        if (fr && (await within(fr.evaluate(() => document.readyState === "complete" && !!document.querySelector(".shopify-section")), 2000).catch(() => false))) { await sleep(2500); return fr }
         await sleep(100)
       }
       throw new Error("the page never drew")
@@ -238,6 +238,8 @@ async function sweepTemplate(browser: Browser, name: string, bridge: string, hea
           const changed = { ...s, settings: { ...(s.settings as Record<string, unknown>), [set.id]: value } } as StoredSection
           let next: string
           try { next = sectionHtml(changed) } catch (e) { findings.push({ template: name, section: s.id, type: typeKey, setting: set.id, value, kind: "errors", detail: `drawSection threw: ${String(e).slice(0, 120)}` }); continue }
+          /* Measured again just before: a popup on a timer or a late picture is the page's own, not this value's. */
+          baseline = await measure(frame).catch(() => baseline)
           const errs0 = baseline.errors
           let after
           try {
@@ -253,15 +255,25 @@ async function sweepTemplate(browser: Browser, name: string, bridge: string, hea
             if (id === s.id) continue
             const a = after.secs[id]
             if (b.h > 20 && (!a || a.h < 2)) add("collapsed", `${id} ${b.h}px -> ${a ? a.h : "gone"}`)
-            else if (b.hit === "inside" && a && a.hit !== "inside" && a.h > 40) add("covered", `${id} under ${a.hit}`)
+            /* Covered by the section changed, or by something of no section's (a layer a script took out of its section): another section's own popup is not this value's doing. */
+            else if (b.hit === "inside" && a && a.hit !== "inside" && a.h > 40 && (a.hit.endsWith(` in shopify-section-${s.id}`) || !/ in shopify-section-/.test(a.hit))) add("covered", `${id} under ${a.hit}`)
           }
           if (after.errors > errs0) add("errors", after.last.join(" | "))
           /* Put back, and the page must be as it was. */
           await send(s.id, own, next)
-          const back = await measure(frame)
-          const off = Object.entries(baseline.secs).filter(([id, b]) => { const a = back.secs[id]; return !a || Math.abs(a.h - b.h) > 4 || (b.hit === "inside" && a.hit !== "inside") })
+          const offFrom = (m: typeof baseline) => Object.entries(baseline.secs).filter(([id, b]) => { const a = m.secs[id]; return !a || Math.abs(a.h - b.h) > 4 || (b.hit === "inside" && a.hit !== "inside" && (a.hit.endsWith(` in shopify-section-${s.id}`) || !/ in shopify-section-/.test(a.hit))) })
+          let back = await measure(frame)
+          let off = offFrom(back)
+          /* A moment more to settle (a slider, a picture), then judged. */
+          if (off.length) { await sleep(1200); back = await measure(frame); off = offFrom(back) }
           if (off.length) {
-            add("stuck", off.slice(0, 3).map(([id, b]) => `${id} ${b.h}/${b.hit} -> ${back.secs[id]?.h}/${back.secs[id]?.hit}`).join("; "))
+            const why = await within(frame.evaluate((id) => {
+              const el = document.getElementById(`shopify-section-${id}`)
+              if (!el) return "gone"
+              const styled = Array.from(el.querySelectorAll<HTMLElement>("[style]")).slice(0, 3).map((x) => `${x.tagName.toLowerCase()}.${String(x.className).split(" ")[0]}{${x.getAttribute("style")!.slice(0, 80)}}`)
+              return `minHeight=${el.style.minHeight || "-"} styled=${styled.join(",")}`
+            }, s.id), 3000).catch(() => "?")
+            add("stuck", off.slice(0, 3).map(([id, b]) => `${id} ${b.h}/${b.hit} -> ${back.secs[id]?.h}/${back.secs[id]?.hit}`).join("; ") + `  [${why}]`)
             await tab.screenshot({ path: join(OUT, `stuck-${name}-${set.id}.png`) }).catch(() => {})
             frame = await open(); baseline = await measure(frame); own = sectionHtml(s)
           } else baseline = { ...baseline, errors: back.errors }
