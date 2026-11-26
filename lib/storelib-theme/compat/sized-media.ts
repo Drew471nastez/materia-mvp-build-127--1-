@@ -17,8 +17,8 @@
  *   - a picture the theme says is small (width under 320) gets one address,
  *     twice that wide for a sharp screen;
  *   - any other gets the widths a phone, a tablet and a desktop ask for, with
- *     the theme's own `sizes`, or the whole width of the screen when it says
- *     none (never larger than the file: the optimizer does not enlarge).
+ *     the theme's own `sizes`, or DEFAULT_SIZES when it says none (never
+ *     larger than the file: the optimizer does not enlarge).
  * SVG and GIF go as they are (the optimizer refuses one and stills the
  * other), and so does anything already sized, a data or blob address,
  * another host's file and a theme's own asset. Script, style and textarea
@@ -29,6 +29,15 @@ import { attr } from "./first-load"
 
 /** The widths offered for a picture of any size: a phone, a large phone, a tablet, a desktop. */
 export const SIZED_MEDIA_WIDTHS = [640, 828, 1200, 1920] as const
+/*
+  THE SIZES SAID WHEN THE THEME SAYS NONE. A full width picture on a phone is
+  nearly always a hero drawn with object-fit: cover in a box taller than the
+  picture is at that width (Materia's hero: 560px tall on a 390px screen), so
+  it shows a part of a wider picture. Measured on Liam's front page: at 100vw
+  a phone took the 828 file and the hero was visibly softer than the
+  original; at 150vw it takes the 1200 file (41KB against 1.9MB) and matches.
+*/
+export const DEFAULT_SIZES = "(max-width: 767px) 150vw, 100vw"
 /** Under this many CSS pixels a picture is an icon or a badge: one address, twice as wide. */
 const SMALL_WIDTH = 320
 /** At most this many pictures per page are rewritten; past it the page is left as it is. */
@@ -76,7 +85,7 @@ function sizedTag(raw: string, kind: "img" | "source"): string | null {
     const srcset = SIZED_MEDIA_WIDTHS.map((w) => `${sizedUploadUrl(original, w)} ${w}w`).join(", ")
     let out = setAttr(raw, "src", sizedUploadUrl(original, 1920))
     out = setAttr(out, "srcset", srcset)
-    if (attr(raw, "sizes") === null) out = setAttr(out, "sizes", "100vw")
+    if (attr(raw, "sizes") === null) out = setAttr(out, "sizes", DEFAULT_SIZES)
     return out
   }
   const set = attr(raw, "srcset")
@@ -85,7 +94,7 @@ function sizedTag(raw: string, kind: "img" | "source"): string | null {
   /* One address only: a srcset with descriptors is the theme's own choice. */
   if (/[\s,]/.test(original) || !isSizableUpload(original)) return null
   let out = setAttr(raw, "srcset", SIZED_MEDIA_WIDTHS.map((w) => `${sizedUploadUrl(original, w)} ${w}w`).join(", "))
-  if (attr(raw, "sizes") === null) out = setAttr(out, "sizes", "100vw")
+  if (attr(raw, "sizes") === null) out = setAttr(out, "sizes", DEFAULT_SIZES)
   return out
 }
 

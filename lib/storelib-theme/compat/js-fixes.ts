@@ -37,9 +37,9 @@ export const THEME_JS_FIXES: readonly JsFix[] = [
   },
   {
     file: "product-counters.js",
-    find: "const id=root.dataset.productCounterId,key=url.href;let entry=cache.get(key);",
+    find: "const id=root.dataset.productCounterId,key=url.href;let entry=cache.get(key);\n    if(!entry||Date.now()-entry.time>60000){",
     replace:
-      "const id=root.dataset.productCounterId,key=url.href;let entry=cache.get(key);if(!entry&&url.pathname===location.pathname){entry={time:Date.now(),promise:Promise.resolve(document)};cache.set(key,entry);}",
+      "const id=root.dataset.productCounterId,key=url.href;let entry=cache.get(key);\n    if(!entry&&url.pathname===location.pathname){entry={time:Date.now(),promise:Promise.resolve(document)};cache.set(key,entry);}\n    if(!entry||Date.now()-entry.time>60000){",
   },
 ]
 
