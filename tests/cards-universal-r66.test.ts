@@ -117,10 +117,10 @@ async function main() {
   const without = draw(themeWithHeaderLogo({} as ThemeSettingsValues, logo))
   check("Product grid: hearts with the header's icon on", !!withHearts && (withHearts.html.match(/class="heart"/g) ?? []).length === 2, withHearts?.html.slice(0, 200))
   check("  none with it off", !!without && !/class="heart"/.test(without.html))
-  check("  its columns stop at 400px and pack at the start", !!withHearts && /minmax\(0, var\(--card-max, 400px\)\)/.test(withHearts.css) && /justify-content: ?start/.test(withHearts.css))
+  check("  its columns stop at 400px (a grid packs fixed columns at its start)", !!withHearts && /minmax\(0, 400px\)/.test(withHearts.css))
   for (const f of ["product_grid", "collection_featured", "search", "product_featured", "main_wishlist"]) {
     const src = readFileSync(`themes/default/sections/${f}.storelib`, "utf8")
-    check(`  ${f}: no column wider than 400px`, (src.match(/var\(--card-max, 400px\)/g) ?? []).length === 2 && !/@container \(min-width: 900px\) \{ \.grid \{[^}]*1fr/.test(src))
+    check(`  ${f}: no column wider than 400px`, (src.match(/minmax\(0, 400px\)/g) ?? []).length === 2 && !/@container \(min-width: 900px\) \{ \.grid \{[^}]*1fr/.test(src))
   }
   check("search: a card's picture no longer zooms on hover", !/\.card__wrap:hover \.card__media img \{ transform/.test(readFileSync("themes/default/sections/search.storelib", "utf8")))
   const media = readFileSync("components/website-builder/sections/renderers/product/product-media.tsx", "utf8")

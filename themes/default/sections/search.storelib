@@ -181,10 +181,8 @@
 .s__sub { margin: 10px 0 0; font-size: var(--section-text-size, 16px); line-height: var(--section-text-line-height, 1.6); color: var(--s-para); }
 
 .grid { display: grid; gap: 24px 12px; margin-top: 28px; grid-template-columns: repeat(var(--cols-m), minmax(0, 1fr)); }
-/* Round 66: a card is never wider than 400px, whatever the row setting: the columns stop growing and the row packs at its start (lib/storelib-theme/compat/shop-calm.ts gives every installed theme the same). */
-.grid { justify-content: start; }
-@container (min-width: 640px) { .grid { gap: 28px 20px; grid-template-columns: repeat(var(--cols-t), minmax(0, var(--card-max, 400px))); } }
-@container (min-width: 900px) { .grid { grid-template-columns: repeat(var(--cols-d), minmax(0, var(--card-max, 400px))); } }
+@container (min-width: 640px) { .grid { gap: 28px 20px; grid-template-columns: repeat(var(--cols-t), minmax(0, 400px)); } }
+@container (min-width: 900px) { .grid { grid-template-columns: repeat(var(--cols-d), minmax(0, 400px)); } }
 .card { display: flex; flex-direction: column; min-width: 0; }
 .card__wrap { position: relative; }
 .card__media { position: relative; overflow: hidden; border-radius: var(--s-radius); background: color-mix(in srgb, var(--s-border) 55%, var(--s-bg)); }
