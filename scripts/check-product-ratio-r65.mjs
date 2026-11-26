@@ -48,7 +48,9 @@ const root = process.cwd()
 const mode = process.argv[2] === "before" ? "before" : "after"
 const OUT = path.resolve(process.argv[3] || fs.mkdtempSync(path.join(os.tmpdir(), "product-ratio-r65-")))
 fs.mkdirSync(OUT, { recursive: true })
-const work = fs.mkdtempSync(path.join(os.tmpdir(), "pr65-"))
+/* Inside the checkout, so a bundle's external packages resolve from its node_modules. */
+fs.mkdirSync(path.join(root, ".wb-probe"), { recursive: true })
+const work = fs.mkdtempSync(path.join(root, ".wb-probe", "pr65-"))
 const esbuild = path.join(root, "node_modules/.bin/esbuild")
 
 /* ---- the head script: r65-base's (before) or this checkout's (after) ---- */
@@ -111,6 +113,10 @@ const MIME = { ".html": "text/html", ".css": "text/css", ".js": "application/jav
 async function serve(ctx, html) {
   await ctx.route(`${ORIGIN}/**`, async (route) => {
     const u = new URL(route.request().url())
+    if (u.pathname.startsWith("/__native/")) {
+      const body = PICS[NATIVE_NAMES[u.pathname.slice(10).replace(/\.jpg$/, "")]]
+      return body ? route.fulfill({ status: 200, contentType: "image/jpeg", body }) : route.fulfill({ status: 404 })
+    }
     if (u.pathname.startsWith("/__pic/")) {
       const body = PICS[u.pathname.slice(7)]
       return body ? route.fulfill({ status: 200, contentType: "image/jpeg", body, headers: { "cache-control": "max-age=3600" } }) : route.fulfill({ status: 404 })
@@ -118,7 +124,7 @@ async function serve(ctx, html) {
     /* The prerendered pages link a snapshot of Materia's base.css: this checkout's own is what live stores get. */
     const bundle = /^\/theme-previews\/_base\/a\/(base|base-static)\.[0-9a-f]+\.css$/.exec(u.pathname)
     if (bundle) return route.fulfill({ status: 200, contentType: "text/css", body: fs.readFileSync(path.join(root, `theme-packages/materia/base/assets/${bundle[1]}.css`)) })
-    if (html && html[u.pathname]) return route.fulfill({ status: 200, contentType: "text/html", body: html[u.pathname] })
+    if (html && html[u.pathname]) return route.fulfill({ status: 200, contentType: u.pathname.endsWith(".js") ? "application/javascript" : "text/html", body: html[u.pathname] })
     const file = path.join(root, "public", decodeURIComponent(u.pathname))
     if (!file.startsWith(path.join(root, "public")) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) return route.fulfill({ status: 404, body: "" })
     return route.fulfill({ status: 200, contentType: MIME[path.extname(file)] || "application/octet-stream", body: fs.readFileSync(file) })
@@ -246,12 +252,37 @@ async function seam(page, m) {
   return Math.round((sum / n) * 10) / 10
 }
 
+
+/* ---- the native theme: its grid and its product gallery, as this checkout draws them (scripts/render-*-r63) ---- */
+const NATIVE_NAMES = { tall45: "poster.jpg", small600: "poster.jpg", wide169: "wide.jpg", landscape32: "wide.jpg", square: "square.jpg", portrait23: "square.jpg" }
+const NATIVE_KIND = { "poster.jpg": "poster", "square.jpg": "square", "wide.jpg": "wide", "poster_processed.jpg": "padded" }
+async function nativePages() {
+  const { appCss } = await import(path.join(root, "scripts/probe-css.mjs"))
+  execFileSync(esbuild, [path.join(root, "scripts/render-product-images-r63.tsx"), "--bundle", "--format=iife", "--platform=browser", "--jsx=automatic", "--log-level=error", `--outfile=${path.join(work, "probe.js")}`,
+    '--banner:js=var process=globalThis.process||{env:{NODE_ENV:"production"},browser:true};globalThis.process=process;', '--define:process.env.NODE_ENV="production"', `--alias:@=${root}`, "--loader:.css=empty", "--loader:.svg=dataurl", "--loader:.png=dataurl"], { cwd: root })
+  execFileSync(esbuild, [path.join(root, "scripts/render-product-grid-images-r63.ts"), "--bundle", "--platform=node", "--format=esm", `--alias:@=${root}`, "--packages=external", "--loader:.css=empty", "--log-level=error", `--outfile=${path.join(work, "grid.mjs")}`], { cwd: root })
+  const css = await appCss(root)
+  const head = `<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><script>${COVER_TRIM_SCRIPT}</script><style>${css}</style><style>body{margin:0;font-family:Inter,sans-serif}</style>`
+  const out = {}
+  for (const shape of ["1 / 1", "4 / 5", "4 / 3"]) {
+    const grid = JSON.parse(execFileSync(process.execPath, [path.join(work, "grid.mjs")], { cwd: root, encoding: "utf8", env: { ...process.env, SHAPE: shape, IMG_BASE: `${ORIGIN}/__native` } }))
+    out[`/native/grid-${shape.replace(/\D+/g, "x")}.html`] = `<!doctype html><html><head>${head}<style>${grid.css}</style></head><body><div style="container-type:inline-size" data-section-id="shop-all-products">${grid.html}</div></body></html>`
+  }
+  out["/native/probe.js"] = fs.readFileSync(path.join(work, "probe.js"), "utf8")
+  out["/native/product.html"] = `<!doctype html><html class="light"><head>${head}</head><body><div id="root"></div><script src="/native/probe.js"></script></body></html>`
+  return out
+}
 const browser = await chromium.launch({ args: ["--no-sandbox", "--hide-scrollbars"] })
 const rows = []
 const bad = []
 const shots = []
 const prepared = {}
 for (const p of PAGES) prepared[p.path] = (await prepare(browser, p)).replace(/<head([^>]*)>/i, (m) => `${m}<script>${COVER_TRIM_SCRIPT}</script>`)
+if (mode === "after") {
+  Object.assign(prepared, await nativePages())
+  for (const g of ["1x1", "4x5", "4x3"]) PAGES.push({ name: `native-grid-${g}`, path: `/native/grid-${g}.html`, native: true })
+  for (const layout of ["stacked", "slideshow", "carousel"]) for (const ratio of ["square", "portrait"]) PAGES.push({ name: `native-product-${layout}-${ratio}`, path: `/native/product.html?base=${encodeURIComponent(ORIGIN + "/__pic")}&imgs=poster,square,wide,poster_processed&layout=${layout}&ratio=${ratio}`, native: true })
+}
 
 for (const p of PAGES) {
   for (const width of [360, 390, 1280]) {
@@ -259,6 +290,15 @@ for (const p of PAGES) {
     await serve(ctx, prepared)
     const page = await ctx.newPage()
     await page.goto(ORIGIN + p.path, { waitUntil: "load" })
+    if (p.native)
+      await page.waitForTimeout(600).then(() => page.evaluate((kinds) => {
+        for (const img of document.querySelectorAll("[data-pic-frame] img")) {
+          const from = img.getAttribute("data-cover-from") || img.currentSrc || img.src
+          const file = from.split("?")[0].split("/").pop()
+          const k = kinds[file] || kinds[{ "tall45.jpg": "poster.jpg", "small600.jpg": "poster.jpg", "wide169.jpg": "wide.jpg", "landscape32.jpg": "wide.jpg", "square.jpg": "square.jpg", "portrait23.jpg": "square.jpg" }[file]]
+          if (k) img.setAttribute("data-probe", k)
+        }
+      }, NATIVE_KIND))
     await page.evaluate(async () => {
       const first = document.querySelector("img[data-probe]")
       first?.scrollIntoView({ block: "center" })
@@ -288,7 +328,7 @@ for (const p of PAGES) {
 }
 await browser.close()
 
-/* ---- the native theme (after only: its grid and gallery as this checkout draws them) ---- */
+
 const summary = (list) => {
   const by = {}
   for (const r of list) {
