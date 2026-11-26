@@ -13831,7 +13831,9 @@ const words: Record<string, string> = {
  "Can I change it once it is mine?": "Posso mudar o template depois que ele for meu?",
  "Yes. It is your own copy, so rename, move or delete anything in it.": "Sim. É a sua cópia, então renomeie, mova ou apague o que quiser.",
  "{name} comes with blocks for selling Notion templates. Add them under yours?": "{name} vem com blocos para vender templates de Notion. Adicionar abaixo dos seus?",
- "Add blocks": "Adicionar blocos"
+ "Add blocks": "Adicionar blocos",
+ "The code editor did not open": "O editor de código não abriu",
+ "You may have been signed out in another tab.": "Talvez você tenha saído da conta em outra aba."
 }
 
 export default words

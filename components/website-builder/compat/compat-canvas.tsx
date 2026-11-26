@@ -44,6 +44,7 @@ import { CANVAS_PRESS_EVENT, PREVIEW_ORDER_EVENT, type PreviewOrder } from "@/li
 import { HOLD_VIEW_EVENT } from "@/lib/website-builder/canvas-switch"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { CANVAS_BRIDGE, CANVAS_HEAD } from "@/lib/storelib-theme/compat/canvas-bridge"
+import { ownSitePath } from "@/lib/website-builder/canvas-links"
 import { useCanvasReviews } from "@/components/website-builder/use-canvas-reviews"
 import { useCanvasBlog } from "./use-canvas-blog"
 import { canvasBlogPage, canvasBlogSource, wantsCanvasBlog } from "@/lib/storelib-theme/compat/canvas-blog"
@@ -247,6 +248,8 @@ function canvasPricing(installId: string): CartPricing {
   never later than FIRST_PAINT_MS after it said it was ready.
 */
 const FIRST_PAINT_MS = 1200
+/** A page that said it was going and has not gone in this long (a download, an answer with no page) is shown again (A PAGE GOING ELSEWHERE). */
+const GONE_CHECK_MS = 4_000
 /** The longest the first page waits for the shop's product cards (dataReady) once everything else is in. */
 const DATA_WAIT_MS = 1200
 /**
@@ -2418,8 +2421,39 @@ export function CompatCanvas(props: CompatCanvasProps) {
     return () => clearTimeout(t)
   }, [leavingFrom])
   useEffect(() => { if (leavingFrom !== null && slots[0]?.n !== leavingFrom) setLeavingFrom(null) }, [slots, leavingFrom])
+  /*
+    ═════════════════════════════════════════════════════════════════════
+     A PAGE GOING ELSEWHERE IS HIDDEN AS IT GOES (round 66)
+    ═════════════════════════════════════════════════════════════════════
+    A theme's script that opens an address itself (location.href) sends the
+    frame to the builder's own host or to the live website, and both refuse
+    to be framed: the canvas showed "storelib.com refused to connect" until
+    the page had been drawn again behind it, and for good when it was not.
+    The page says it is going before it goes (canvas-bridge.ts, unloading),
+    and its frame's second load says it went (A PAGE THAT LEFT THE CANVAS):
+    either hides the frame at once, and the page drawn again behind it is
+    what is seen. Going nowhere after all (a download, a 204), it is shown
+    again.
+  */
+  const [goneFrom, setGoneFrom] = useState<number | null>(null)
+  const goneTimer = useRef(0)
+  const hideGone = (n: number, settled: boolean) => {
+    window.clearTimeout(goneTimer.current)
+    setGoneFrom(n)
+    if (!settled) {
+      const loadsAt = slotsRef.current.find((x) => x.n === n)?.loads ?? 0
+      goneTimer.current = window.setTimeout(() => {
+        const slot = slotsRef.current.find((x) => x.n === n)
+        if (slot && (slot.loads ?? 0) === loadsAt) setGoneFrom((g) => (g === n ? null : g))
+      }, GONE_CHECK_MS)
+    }
+  }
+  useEffect(() => { if (goneFrom !== null && slots[0]?.n !== goneFrom) setGoneFrom(null) }, [slots, goneFrom])
+  useEffect(() => () => window.clearTimeout(goneTimer.current), [])
   /* A link followed from the page: an account page drawn here, or the editor asked to open the page it goes to. True when another page is opening. */
-  const navigateFrom = (n: number, rawHref: string, chrome: boolean): boolean => {
+  const navigateFrom = (n: number, givenHref: string, chrome: boolean): boolean => {
+    /* A link written in full on the website's own host is that page here (lib/website-builder/canvas-links.ts). */
+    const rawHref = ownSitePath(givenHref, siteUrlRef.current) ?? givenHref
     const href = withoutLanguage(rawHref, langRef.current)
     const to = href.split(/[?#]/)[0].replace(/\/+$/, "") || "/"
     if ((CANVAS_ACCOUNT_PATHS as readonly string[]).includes(to)) {
@@ -2432,6 +2466,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
     if (onNavigate.current?.(href, chrome) === true) { setLeavingFrom(n); return true }
     return false
   }
+  const siteUrlRef = useRef(props.siteUrl)
+  siteUrlRef.current = props.siteUrl
   const navigateFromRef = useRef(navigateFrom)
   navigateFromRef.current = navigateFrom
   useEffect(() => {
@@ -2502,6 +2538,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
         answerRequestRef.current(win, m as never)
       } else if (m.type === "live-only" && isFront) {
         onLiveOnly.current?.((m as { what?: unknown }).what === "account" ? "account" : "checkout")
+      } else if (m.type === "unloading" && isFront) {
+        hideGone(slot.n, false)
       } else if (m.type === "leaving" && isFront && slot.ready) {
         /* A script opened another address in the frame (location.href = "/checkout"): the page is drawn again in its place. */
         if ((m as { checkout?: boolean }).checkout === true) onLiveOnly.current?.("checkout")
@@ -2646,6 +2684,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       slot.loads = (slot.loads ?? 0) + 1
       if (slot.loads > 1) {
         slot.ready = false
+        if (at === 0) hideGone(n, true)
         const taken = slot.taken && Date.now() - slot.taken.at < 8000 ? slot.taken : null
         slot.taken = undefined
         if (at === 0 && taken && navigateFromRef.current(n, taken.href, taken.chrome)) return
@@ -2661,6 +2700,11 @@ export function CompatCanvas(props: CompatCanvasProps) {
     }
     if (at < 0) {
       const away = keptRef.current.find((x) => x.n === n)
+      /* A kept page that went elsewhere is not that page any more: never brought back. */
+      if (away) {
+        away.loads = (away.loads ?? 0) + 1
+        if (away.loads > 1) { setKept((prev) => prev.filter((x) => x.n !== n)); return }
+      }
       if (away && !away.ready) sendTo(frames.current.get(n)?.contentWindow, { storelib: 1, type: "hello" })
       return
     }
@@ -2796,7 +2840,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
                 aria-hidden={i === 0 ? undefined : true}
                 tabIndex={i === 0 ? undefined : -1}
                 className="absolute inset-0 block h-full w-full border-0 bg-white"
-                style={role === "front" ? { zIndex: 1, pointerEvents: leavingFrom === slot.n ? "none" : undefined } : role === "leaving" ? { zIndex: 2, pointerEvents: "none" } : role === "kept" ? KEPT_STYLE : { zIndex: 0, pointerEvents: "none" }}
+                style={role === "front" ? { zIndex: 1, pointerEvents: leavingFrom === slot.n || goneFrom === slot.n ? "none" : undefined, ...(goneFrom === slot.n ? { visibility: "hidden" as const } : {}) } : role === "leaving" ? { zIndex: 2, pointerEvents: "none" } : role === "kept" ? KEPT_STYLE : { zIndex: 0, pointerEvents: "none" }}
               />
             )
           })}

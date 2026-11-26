@@ -179,6 +179,9 @@ export function CodePane({
 }) {
   const [everShown, setEverShown] = useState(visible)
   const [loaded, setLoaded] = useState(false)
+  /* The frame holds a page that is not the code editor (A PAGE THAT REFUSED THE FRAME), and how many times it was asked again. */
+  const [refused, setRefused] = useState(false)
+  const [frameTry, setFrameTry] = useState(0)
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
 
@@ -539,15 +542,39 @@ export function CodePane({
         */}
       <div className="relative min-h-0 flex-1">
         <iframe
+          key={frameTry}
           ref={frameRef}
           title={tt("Code editor")}
           src={`/website-builder/code/${installId}?embedded=1${srcRef.current ?? ""}`}
-          onLoad={() => setLoaded(true)}
+          onLoad={() => {
+            /*
+              A PAGE THAT REFUSED THE FRAME IS NEVER SHOWN (round 66). The code
+              page is ours and readable from here; a sign-in page, an error
+              page or anything else that refuses to be framed is not, and
+              showed as "storelib.com refused to connect". That is answered
+              here, in the pane, with a way back.
+            */
+            setRefused(!frameIsOurs(frameRef.current))
+            setLoaded(true)
+          }}
           className={cn(
             "h-full w-full border-0 bg-white transition-opacity duration-300",
-            loaded ? "opacity-100" : "opacity-0",
+            loaded && !refused ? "opacity-100" : "opacity-0",
           )}
         />
+        {refused && (
+          <div className={cn("absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center", dark ? "text-[#e5e7eb]" : "text-[#1a1a2e]")}>
+            <p className="text-[15px] font-semibold">{tt("The code editor did not open")}</p>
+            <p className={cn("max-w-[320px] text-[13px]", dark ? "text-[#9ca3af]" : "text-[#6b7280]")}>{tt("You may have been signed out in another tab.")}</p>
+            <button
+              type="button"
+              onClick={() => { setRefused(false); setLoaded(false); setFrameTry((n) => n + 1) }}
+              className={cn("mt-1 h-9 rounded-full px-4 text-[13px] font-semibold", dark ? "bg-white text-[#1a1a2e]" : "bg-[#1a1a2e] text-white")}
+            >
+              {tt("Try again")}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -561,4 +588,24 @@ export function CodePane({
   if (!fullScreen) return body
   if (!mounted) return null
   return createPortal(body, document.body)
+}
+
+/**
+ * Whether the code pane's frame holds the code editor: a page of this origin
+ * at its address. A page that refused to be framed is the browser's error
+ * page, which this origin cannot read (null), and a sign-in or error page
+ * of ours is at another address.
+ */
+export function frameIsOurs(frame: HTMLIFrameElement | null): boolean {
+  if (!frame) return true
+  try {
+    const doc = frame.contentDocument
+    if (!doc) return false
+    const path = doc.location?.pathname ?? ""
+    /* Still loading its first document (about:blank): not a refusal. */
+    if (doc.location?.href === "about:blank") return true
+    return path.startsWith("/website-builder/code/")
+  } catch {
+    return false
+  }
 }

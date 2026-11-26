@@ -3424,6 +3424,44 @@ export const CANVAS_REQUESTS = `
   };
   void formSubmit;
   /*
+    NOTHING A SCRIPT OPENS LEAVES THE CANVAS (round 66). "storelib.com
+    refused to connect" was this frame gone to an address of the builder's
+    own host or of the live website, both of which refuse to be framed. Two
+    ways a theme's script opens a page are taken here and opened as the
+    builder opens a link: window.open into this same frame (_self, _parent,
+    _top), and a link the script makes and clicks without putting it in the
+    page, whose click no listener of the document hears. A new tab is left
+    to the browser. location.href cannot be taken from inside a frame with no
+    origin; the builder hides the frame as it goes (unloading, below) and
+    draws the page again.
+  */
+  var openNative = window.open;
+  window.open = function (u, target) {
+    var t = String(target === undefined || target === null ? "" : target).toLowerCase();
+    if ((t === "_self" || t === "_parent" || t === "_top") && u !== undefined && u !== null && String(u) !== "") {
+      var href = String(u);
+      var path = routed(href);
+      post({ type: "navigate", href: path !== null ? path : href, chrome: false });
+      return null;
+    }
+    return openNative.apply(window, arguments);
+  };
+  var clickNative = HTMLAnchorElement.prototype.click;
+  HTMLAnchorElement.prototype.click = function () {
+    var raw = this.getAttribute("href");
+    if (!this.isConnected && raw && !this.hasAttribute("download") && !/^(blob|data|javascript|mailto|tel):/i.test(raw) && raw.charAt(0) !== "#") {
+      var tg = String(this.getAttribute("target") || "").toLowerCase();
+      if (tg !== "_blank") {
+        var path = routed(raw);
+        post({ type: "navigate", href: path !== null ? path : this.href, chrome: false });
+        return;
+      }
+    }
+    return clickNative.apply(this, arguments);
+  };
+  /* Said before the page goes, while this window is still the frame's (pagehide is heard from a window the builder no longer knows): the builder hides the frame at once, so whatever answers in its place is never seen. */
+  addEventListener("beforeunload", function () { post({ type: "unloading" }); });
+  /*
     A PAGE A SCRIPT OPENS (location.href = "/checkout") cannot be stopped from
     in here: a frame with no origin is told of no navigation it starts. The
     builder is told the page is leaving, draws it again in its place, and,
