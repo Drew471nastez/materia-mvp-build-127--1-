@@ -78,8 +78,11 @@ function blocks(list: [string, string, Json][]): { blocks: Json; block_order: st
 
 /** How many cards a row holds for this many products: two programmes side by side, never a row of three with a hole. */
 export function perRow(count: number): number {
-  if (count <= 2) return 2
-  if (count === 4) return 4
+  /*
+    Round 64: never fewer than three across on a computer. Two products at two across made each card 620x827, a
+    poster the height of the screen; at three they are the size any shop's cards are, and four fill a row of four.
+  */
+  if (count === 4 || count >= 7) return 4
   return 3
 }
 
@@ -126,7 +129,7 @@ export function homePage(c: CreatorSiteContent): Json {
           section_width: "container",
           items_to_show: Math.min(Math.max(c.products.length, 1), 12),
           items_per_row: perRow(c.products.length),
-          items_per_row_mobile: c.products.length <= 2 ? 1 : 2,
+          items_per_row_mobile: c.products.length === 1 ? 1 : 2,
           column_gap: 24,
           row_gap: 40,
           header_alignment: "left",
@@ -235,7 +238,24 @@ export function headerGroup(g: Json): Json {
   return { ...g, sections: Object.fromEntries(keep.map((k) => [k, sections[k]])), order: keep }
 }
 
-/** The footer: their name and bio in the store block, or neither; their logo when they have one. */
+/** The footer newsletter (round 64): the theme's own block, posted to the store's /contact as a subscriber (lib/storelib-theme/compat/site.ts formSubmit). */
+export const FOOTER_NEWSLETTER = {
+  type: "newsletter",
+  settings: {
+    heading: "Newsletter",
+    description: "New programmes and updates by email.",
+    email_placeholder: "Email address",
+    button_label: "Join",
+    note: "",
+    success_text: "You're on the list.",
+    error_text: "That did not send. Check the address and try again.",
+  },
+}
+
+/**
+ * The footer: their name and bio in the store block, or neither; their logo when they have one; a newsletter sign up
+ * (round 64); the social icons shown, which draw only the links they have (theme settings, themeSettings below).
+ */
 export function footerGroup(g: Json, c: CreatorSiteContent): Json {
   const sections = obj(g.sections)
   const out: Json = {}
@@ -250,7 +270,17 @@ export function footerGroup(g: Json, c: CreatorSiteContent): Json {
           ? { ...block, settings: { ...obj(block.settings), store_heading: c.name, store_description: c.bio ? paragraphs(c.bio) : "", show_logo: false, store_email: false } }
           : block
     }
-    out[k] = { ...s, blocks: nb }
+    if (s.type !== "footer") {
+      out[k] = { ...s, blocks: nb }
+      continue
+    }
+    const order = (Array.isArray(s.block_order) ? (s.block_order as string[]) : Object.keys(nb)).filter((id) => id in nb)
+    if (!Object.values(nb).some((b) => obj(b).type === "newsletter")) {
+      nb.newsletter_storelib = FOOTER_NEWSLETTER
+      const pay = order.findIndex((id) => obj(nb[id]).type === "payment_badges")
+      order.splice(pay >= 0 ? pay : order.length, 0, "newsletter_storelib")
+    }
+    out[k] = { ...s, settings: { ...obj(s.settings), show_social: true }, blocks: nb, block_order: order }
   }
   return { ...g, sections: out }
 }

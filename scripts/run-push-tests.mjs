@@ -554,6 +554,7 @@ const SUITES = [
   "tests/admin-routes.test.ts",
   /* Round 63: Build website for a creator from Storelib Default (app/api/admin/creators/site): admin only, a new draft beside their live site, the library limit, only their own content, none of the template's sample words. */
   "tests/creator-site-builder-r63.test.ts",
+  "tests/cover-trim-hosts-r64.test.ts",
   "tests/admin-logic.test.ts",
   "tests/cron-reachable.test.ts",
   "tests/theme-presets.test.ts",

@@ -112,7 +112,10 @@ export function installCoverTrim(doc: Document, win: Window): void {
     var across = sides(px, width, height, true)
     var down = sides(px, width, height, false)
     if (!across && !down) return null
-    var box = { x: across ? across[0] : 0, y: down ? down[0] : 0, w: across ? across[1] : 1, h: down ? down[1] : 1 }
+    /* Round 64: one axis only, the one with the most taken off (letterbox.ts). */
+    var onlyAcross = !!across && !!down && 1 - across[1] >= 1 - down[1]
+    var onlyDown = !!across && !!down && !onlyAcross
+    var box = { x: across && !onlyDown ? across[0] : 0, y: down && !onlyAcross ? down[0] : 0, w: across && !onlyDown ? across[1] : 1, h: down && !onlyAcross ? down[1] : 1 }
     if (box.w < 0.2 || box.h < 0.2) return null
     return box
   }
@@ -234,13 +237,27 @@ export function installCoverTrim(doc: Document, win: Window): void {
     var full = new Image()
     full.crossOrigin = "anonymous"
     full.decoding = "async"
+    /*
+      Round 64: the pixels are read through this site's own image route. A creator's site on its own host
+      (liam-bailey.storelib.com, a custom domain) reads storelib.com/media from another origin, which sends no CORS
+      header, so the read failed and the padded copy was drawn cut into the card. /_next/image on the page's own
+      origin gives the same 1280x720 picture (w=1920 is never enlarged) with nothing cross origin about it.
+    */
+    var readFrom = key
+    try {
+      var at = new URL(key, doc.baseURI)
+      var here = doc.location ? doc.location.origin : ""
+      if (here && at.origin !== here && /^https?:$/.test(at.protocol)) readFrom = here + "/_next/image?url=" + encodeURIComponent(at.href) + "&w=1920&q=90"
+    } catch {
+      readFrom = key
+    }
     full.onload = function () {
       if (!fromImage(full) && !fromImage(fallback)) settle(key, "")
     }
     full.onerror = function () {
       if (!fromImage(fallback)) settle(key, "")
     }
-    full.src = key
+    full.src = readFrom
   }
 
   var look = function (img: HTMLImageElement) {
