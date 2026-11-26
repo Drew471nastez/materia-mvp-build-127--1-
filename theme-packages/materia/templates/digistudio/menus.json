@@ -7,28 +7,32 @@
         "url": "/collections/all",
         "links": [
           {
-            "title": "Everything",
+            "title": "All products",
             "url": "/collections/all"
           },
           {
-            "title": "Fonts",
-            "url": "/collections/fonts"
+            "title": "Notion templates",
+            "url": "/collections/notion-templates"
           },
           {
-            "title": "Presets",
-            "url": "/collections/presets"
+            "title": "Canva templates",
+            "url": "/collections/canva-templates"
           },
           {
-            "title": "Brushes and textures",
-            "url": "/collections/brushes-textures"
+            "title": "Lightroom presets",
+            "url": "/collections/lightroom-presets"
           },
           {
-            "title": "Templates",
-            "url": "/collections/templates"
+            "title": "Ebooks and guides",
+            "url": "/collections/ebooks-guides"
           },
           {
-            "title": "Guides and courses",
-            "url": "/collections/guides-courses"
+            "title": "Planners and printables",
+            "url": "/collections/planners-printables"
+          },
+          {
+            "title": "Courses",
+            "url": "/collections/courses"
           },
           {
             "title": "Bundles",
@@ -37,16 +41,20 @@
         ]
       },
       {
-        "title": "Fonts",
-        "url": "/collections/fonts"
+        "title": "Notion",
+        "url": "/collections/notion-templates"
+      },
+      {
+        "title": "Canva",
+        "url": "/collections/canva-templates"
+      },
+      {
+        "title": "Presets",
+        "url": "/collections/lightroom-presets"
       },
       {
         "title": "Bundles",
         "url": "/collections/bundles"
-      },
-      {
-        "title": "Licence",
-        "url": "/pages/licence"
       },
       {
         "title": "Blog",
@@ -62,28 +70,32 @@
     "title": "Shop",
     "links": [
       {
-        "title": "Everything",
+        "title": "All products",
         "url": "/collections/all"
       },
       {
-        "title": "Fonts",
-        "url": "/collections/fonts"
+        "title": "Notion templates",
+        "url": "/collections/notion-templates"
       },
       {
-        "title": "Presets",
-        "url": "/collections/presets"
+        "title": "Canva templates",
+        "url": "/collections/canva-templates"
       },
       {
-        "title": "Brushes and textures",
-        "url": "/collections/brushes-textures"
+        "title": "Lightroom presets",
+        "url": "/collections/lightroom-presets"
       },
       {
-        "title": "Templates",
-        "url": "/collections/templates"
+        "title": "Ebooks and guides",
+        "url": "/collections/ebooks-guides"
       },
       {
-        "title": "Guides and courses",
-        "url": "/collections/guides-courses"
+        "title": "Planners and printables",
+        "url": "/collections/planners-printables"
+      },
+      {
+        "title": "Courses",
+        "url": "/collections/courses"
       },
       {
         "title": "Bundles",
@@ -92,31 +104,35 @@
     ]
   },
   "shop-filter": {
-    "title": "Shop by kind",
+    "title": "Shop by category",
     "links": [
       {
-        "title": "Everything",
+        "title": "All products",
         "url": "/collections/all"
       },
       {
-        "title": "Fonts",
-        "url": "/collections/fonts"
+        "title": "Notion templates",
+        "url": "/collections/notion-templates"
       },
       {
-        "title": "Presets",
-        "url": "/collections/presets"
+        "title": "Canva templates",
+        "url": "/collections/canva-templates"
       },
       {
-        "title": "Brushes and textures",
-        "url": "/collections/brushes-textures"
+        "title": "Lightroom presets",
+        "url": "/collections/lightroom-presets"
       },
       {
-        "title": "Templates",
-        "url": "/collections/templates"
+        "title": "Ebooks and guides",
+        "url": "/collections/ebooks-guides"
       },
       {
-        "title": "Guides and courses",
-        "url": "/collections/guides-courses"
+        "title": "Planners and printables",
+        "url": "/collections/planners-printables"
+      },
+      {
+        "title": "Courses",
+        "url": "/collections/courses"
       },
       {
         "title": "Bundles",
@@ -140,13 +156,13 @@
         "url": "/pages/contact"
       },
       {
-        "title": "Shop by kind",
+        "title": "All categories",
         "url": "/collections"
       }
     ]
   },
   "footer-more": {
-    "title": "Studio",
+    "title": "Wren Studio",
     "links": [
       {
         "title": "About",

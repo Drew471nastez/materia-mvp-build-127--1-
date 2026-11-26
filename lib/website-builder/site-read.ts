@@ -27,8 +27,9 @@ export class SiteReadError extends Error {
 export const SITE_READ_ATTEMPT_MS = 4000
 export const SITE_READ_BUDGET_MS = 7000
 
-export async function siteRead<T>(what: string, read: (signal: AbortSignal) => PromiseLike<ReadResult<T>>): Promise<T | null> {
-  const r = await readTwice(read, { attemptMs: SITE_READ_ATTEMPT_MS, budgetMs: SITE_READ_BUDGET_MS })
+/** `bound`: a caller that may wait longer than a page normally does (compat-site.ts, the read again after a Publish). */
+export async function siteRead<T>(what: string, read: (signal: AbortSignal) => PromiseLike<ReadResult<T>>, bound: { attemptMs: number; budgetMs: number } = { attemptMs: SITE_READ_ATTEMPT_MS, budgetMs: SITE_READ_BUDGET_MS }): Promise<T | null> {
+  const r = await readTwice(read, bound)
   if (r.error) throw new SiteReadError(what, r.error.message ?? r.error.code ?? "the read failed")
   return r.data
 }

@@ -8,7 +8,7 @@
         "reset_spacing": true,
         "heading": "Search",
         "sorting": true,
-        "empty_text": "Nothing matched. Try sawing, planing, joints or finishing.",
+        "empty_text": "Nothing matched. Try carousels, fonts, thumbnails or print.",
         "empty_link_label": "See everything",
         "empty_link_url": "/collections/all",
         "enable_filtering": false,

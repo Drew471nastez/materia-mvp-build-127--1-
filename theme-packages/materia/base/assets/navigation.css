@@ -29,22 +29,23 @@
     box-sizing: border-box;
     overflow: hidden;
     transform: translateX(-105%);
-    transition: transform 0.55s cubic-bezier(0.2, 0.7, 0.2, 1),
-      opacity 0.4s cubic-bezier(0.2, 0.7, 0.2, 1),
-      visibility 0s linear 0.55s;
+    /* Round 28: one 300ms slide, the links and pictures with it. */
+    transition: transform var(--mt-panel-out, 0.3s) var(--mt-panel-ease-out, cubic-bezier(0.2, 0.7, 0.2, 1)),
+      opacity var(--mt-panel-out, 0.24s) var(--mt-panel-ease-out, cubic-bezier(0.2, 0.7, 0.2, 1)),
+      visibility 0s linear var(--mt-panel-out, 0.3s);
     z-index: 30;
     box-shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.35);
   }
   .section-header {
-    transition: z-index 0s 0.55s;
+    transition: z-index 0s 0.3s;
   }
   html.nav-open .section-header {
     z-index: 40 !important;
     transition: z-index 0s 0s !important;
   }
   .nav-open .navigation.mobile {
-    transition: transform 0.55s cubic-bezier(0.2, 0.7, 0.2, 1),
-      opacity 0.4s cubic-bezier(0.2, 0.7, 0.2, 1),
+    transition: transform var(--mt-panel-in, 0.3s) var(--mt-panel-ease-in, cubic-bezier(0.2, 0.7, 0.2, 1)),
+      opacity var(--mt-panel-in, 0.24s) var(--mt-panel-ease-in, cubic-bezier(0.2, 0.7, 0.2, 1)),
       visibility 0s linear 0s;
   }
   .navigation.mobile open-children-toggle {
@@ -449,22 +450,9 @@ header[data-mega-label='button'] .submenu:not(.submenu-vertical) .collection-inf
       filter var(--dd-t) var(--dd-e),
       visibility 0s linear 0s;
   }
-  /* "Fade in + slide down" also walks the links and pictures in, one after
-     another, on the same speed and curve. */
-  .navigation.horizontal.fade-in-down .menu-parent > .submenu :is(.subchildmenu > li, .col-mega .grid > *, .menu-collections-only > *, .mm-cats__grid > li, .mm-cats__banner) {
-    opacity: 0;
-    transform: translate3d(12px, 0, 0);
-    transition: opacity var(--dd-t) var(--dd-e), transform var(--dd-t) var(--dd-e);
-  }
-  .navigation.horizontal.fade-in-down .menu-parent.visible > .submenu :is(.subchildmenu > li, .col-mega .grid > *, .menu-collections-only > *, .mm-cats__grid > li, .mm-cats__banner) {
-    opacity: 1;
-    transform: none;
-    transition-delay: calc(var(--dd-t) * 0.12);
-  }
-  .navigation.horizontal.fade-in-down .menu-parent.visible > .submenu :is(.subchildmenu > li, .col-mega .grid > *, .menu-collections-only > *, .mm-cats__grid > li, .mm-cats__banner):nth-child(2) { transition-delay: calc(var(--dd-t) * 0.2); }
-  .navigation.horizontal.fade-in-down .menu-parent.visible > .submenu :is(.subchildmenu > li, .col-mega .grid > *, .menu-collections-only > *, .mm-cats__grid > li, .mm-cats__banner):nth-child(3) { transition-delay: calc(var(--dd-t) * 0.28); }
-  .navigation.horizontal.fade-in-down .menu-parent.visible > .submenu :is(.subchildmenu > li, .col-mega .grid > *, .menu-collections-only > *, .mm-cats__grid > li, .mm-cats__banner):nth-child(4) { transition-delay: calc(var(--dd-t) * 0.36); }
-  .navigation.horizontal.fade-in-down .menu-parent.visible > .submenu :is(.subchildmenu > li, .col-mega .grid > *, .menu-collections-only > *, .mm-cats__grid > li, .mm-cats__banner):nth-child(n + 5) { transition-delay: calc(var(--dd-t) * 0.44); }
+  /* The links and pictures inside a panel move with the panel, as one
+     piece: they used to walk in one after another and, on close, could
+     still be fading after the panel had gone (round 28). */
 
   /* Simple dropdowns: width, padding and the space between links. */
   .navigation.horizontal .dropdown-menu .submenu .menu_item-link,
@@ -881,7 +869,7 @@ header[data-mega-label='below'] .submenu .collection-info .menu-card__label {
   }
 }
 /* ===== Materia: smoother mobile menu close =====
-   The drawer slides over 0.55s, but the dim page overlay was fading over 0.4s
+   The drawer slides over 0.3s (0.55s before round 28), but the dim page overlay was fading over 0.4s
    (var(--transition)), so the page brightened back a beat BEFORE the drawer
    finished sliding away, which read as an abrupt / glitchy close. Matching the
    overlay fade to the slide makes the dim lift in sync with the drawer leaving.
@@ -896,7 +884,7 @@ header[data-mega-label='below'] .submenu .collection-info .menu-card__label {
   }
 }
 .mobile-navigation__button.show-overlay::after {
-  transition: opacity 0.55s cubic-bezier(0.2, 0.7, 0.2, 1), visibility 0.55s;
+  transition: opacity 0.3s cubic-bezier(0.2, 0.7, 0.2, 1), visibility 0.3s;
   /* The overlay covers the whole screen with backdrop-filter: blur(2px). iOS
      re-renders that blur every frame while the overlay fades, which is what
      made the drawer close look stuttery/janky next to the smooth open. The

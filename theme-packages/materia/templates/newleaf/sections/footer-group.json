@@ -1,0 +1,72 @@
+{
+  "type": "footer",
+  "name": "t:sections.footer.name",
+  "sections": {
+    "wordmark": {
+      "type": "newleaf-wordmark",
+      "settings": {
+        "word": "",
+        "word_color": "",
+        "guess": 17,
+        "color_scheme": "scheme-nl-slate",
+        "section_width": "container",
+        "padding_top": 56,
+        "padding_bottom": 0,
+        "padding_top_mobile": 36,
+        "padding_bottom_mobile": 0
+      }
+    },
+    "footer": {
+      "type": "footer",
+      "settings": {
+        "color_scheme": "scheme-nl-slate",
+        "section_width": "container",
+        "padding_top": 24,
+        "padding_bottom": 36,
+        "reset_spacing": true,
+        "copyright_text": "© {{ 'now' | date: '%Y' }} New Leaf Templates",
+        "show_social": false,
+        "show_policy_links": true,
+        "show_payment_icons": true,
+        "separator_line": "unset",
+        "heading_weight": "500",
+        "footer_heading_size": 14,
+        "enable_country_selector": false,
+        "enable_language_selector": false,
+        "enable_custom_text_big": false
+      },
+      "blocks": {
+        "links": {
+          "type": "link_list",
+          "settings": {
+            "menu": "footer",
+            "heading": "",
+            "content_width": "100%"
+          }
+        },
+        "pay": {
+          "type": "payment_badges",
+          "settings": {
+            "alignment": "left",
+            "enable_amex": true,
+            "enable_visa": true,
+            "content_width": "100%",
+            "enable_klarna": false,
+            "enable_paypal": true,
+            "enable_apple_pay": true,
+            "enable_google_pay": true,
+            "enable_mastercard": true
+          }
+        }
+      },
+      "block_order": [
+        "links",
+        "pay"
+      ]
+    }
+  },
+  "order": [
+    "wordmark",
+    "footer"
+  ]
+}

@@ -22,13 +22,13 @@
           "type": "store_info",
           "settings": {
             "show_logo": false,
-            "store_heading": "Good Dog Press",
+            "store_heading": "Known For It",
             "image_width": 110,
             "store_email": true,
             "store_phone": false,
             "store_address": false,
             "content_width": "33%",
-            "store_description": "<p>Sit, Stay, Settle, a puppy training guide by Tess Moran. Ebook in PDF and EPUB, with an audiobook and printable training cards.</p>"
+            "store_description": "<p>Known For It, a LinkedIn playbook for building a personal brand by Hanna Reyes. Ebook in PDF and EPUB, with an audiobook and printable post prompts.</p>"
           }
         },
         "link_list_2": {
@@ -51,8 +51,8 @@
           "type": "newsletter",
           "settings": {
             "note": "",
-            "heading": "The puppy letter",
-            "description": "One short email every other week with one thing to practise with your dog. Free.",
+            "heading": "The Friday note",
+            "description": "One short email every other week with one post idea to try. Free.",
             "button_label": "Sign up",
             "content_width": "33%",
             "email_placeholder": "Your email"

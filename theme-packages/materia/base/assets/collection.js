@@ -822,6 +822,13 @@ eventCollectionShopify.init();
           if (event.newState === 'open' && event.target.hasAttribute && event.target.hasAttribute('data-facets-sort-panel')) {
             this.placeSortPanel();
           }
+          // The drawer's scroll lock in the same frame as the drawer itself:
+          // set in 'toggle', which comes a task later, it restyled the page in
+          // the drawer's second frame and the slide started late.
+          if (event.newState === 'open' && event.target.hasAttribute && event.target.hasAttribute('data-facets-panel') && this.contains(event.target)) {
+            this._facetsScrollY = window.scrollY;
+            document.documentElement.classList.add('facets-locked');
+          }
         },
         true
       );
@@ -1317,8 +1324,8 @@ eventCollectionShopify.init();
       if (pop.hasAttribute('data-facets-panel')) {
         // The page stays where it was: the scroll lock and the focus going
         // back to the Filter button used to leave it a few pixels lower.
-        if (open) this._facetsScrollY = window.scrollY;
-        document.documentElement.classList.toggle('facets-locked', open);
+        if (open && typeof this._facetsScrollY !== 'number') this._facetsScrollY = window.scrollY;
+        if (document.documentElement.classList.contains('facets-locked') !== open) document.documentElement.classList.toggle('facets-locked', open);
         if (!open && typeof this._facetsScrollY === 'number') {
           const y = this._facetsScrollY;
           this._facetsScrollY = null;

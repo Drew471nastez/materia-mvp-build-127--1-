@@ -16,7 +16,7 @@
         "heading_6nj4md": {
           "type": "heading",
           "settings": {
-            "heading": "This page fell off the bench",
+            "heading": "This page is off the grid",
             "font_size": 36,
             "uppercase": false,
             "font_weight": "heading_weight",
@@ -28,7 +28,7 @@
           "settings": {
             "font_size": 15,
             "uppercase": false,
-            "subheading": "The link may be old. The course and the workshop notes are still here.",
+            "subheading": "The link may be old. The course and the design notes are still here.",
             "font_weight": "body_weight",
             "spacing_bottom": 40
           }
@@ -54,8 +54,8 @@
     "cta": {
       "type": "course2-cta",
       "settings": {
-        "heading": "Make your first cut tonight",
-        "text": "<p>The first lesson takes eight minutes. Fifty six lessons, five projects and a 30 day refund, for one payment.</p>",
+        "heading": "Design your first post tonight",
+        "text": "<p>The first lesson takes nine minutes. Fifty six lessons, five projects and a 30 day refund, for one payment.</p>",
         "button_label": "Start learning",
         "to_checkout": true,
         "button_link": "/collections/all",

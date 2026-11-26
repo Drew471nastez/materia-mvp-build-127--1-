@@ -1,0 +1,50 @@
+/* Templates round 29: New Leaf. Every collection of templates. */
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "alignment": "center",
+        "height": "based_on_content",
+        "padding_top": 64,
+        "padding_bottom": 8
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "All templates",
+            "header_size": "large",
+            "vertical_gap": 10
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Study, planning, and home and life.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2"
+      ]
+    },
+    "main": {
+      "type": "main-list-collections",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 24,
+        "padding_bottom": 96
+      }
+    }
+  },
+  "order": [
+    "heading",
+    "main"
+  ]
+}

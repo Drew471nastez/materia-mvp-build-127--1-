@@ -1,29 +1,30 @@
-/* Templates round 25: Lowmoth, a sample label. Round 26: a hero with the illustrated pack covers (soundpacks-cover-hero), a genre ticker, how it works in four steps, lime in place of coral. */
+/* Templates round 25: Lowmoth, a sample label. Round 28: a darker, quieter label store: a straight grid of the pack covers (soundpacks-cover-hero, layout grid), a genre ticker, pack rows with a player on each cover, the studio, every demo in one table, bundles, why buy here, sample reviews, the blog and a monthly email. No lime: off-white on near black, so the covers carry the colour. */
 {
   "sections": {
     "hero": {
       "type": "soundpacks-cover-hero",
       "settings": {
         "label": "New: Night Bus, a UK garage pack",
-        "heading": "Sounds that <em>finish</em> tracks.",
-        "text": "<p>Drums, bass, keys and textures we make in one small room. Every pack has a demo and its sounds to play before you buy.</p>",
+        "heading": "Drums, bass and keys, recorded in one room",
+        "text": "<p>Royalty free sample packs for house, garage, trap and lo-fi. Every pack has a demo and a list of its sounds to play before you buy.</p>",
         "button_label": "Browse packs",
         "button_link": "/collections/packs",
         "button_2_label": "Get the free packs",
         "button_2_link": "/collections/free",
         "note": "",
-        "accent": "#c6f432",
-        "drift": true,
+        "accent": "#f2f0eb",
+        "drift": false,
         "cover_radius": 4,
-        "heading_size": 84,
-        "heading_size_mobile": 48,
+        "heading_size": 68,
+        "heading_size_mobile": 40,
         "min_height": 640,
         "color_scheme": "default",
         "section_width": "container",
         "padding_top": 56,
         "padding_bottom": 72,
         "padding_top_mobile": 40,
-        "padding_bottom_mobile": 40
+        "padding_bottom_mobile": 40,
+        "layout": "grid"
       },
       "blocks": {
         "cv_night_bus": {
@@ -123,7 +124,7 @@
     "premium": {
       "type": "soundpacks-pack-row",
       "settings": {
-        "heading": "Premium packs.",
+        "heading": "New and popular",
         "text": "<p>Royalty free sounds, each with a preview on its card.</p>",
         "link_label": "Shop all packs",
         "link_url": "/collections/packs",
@@ -131,16 +132,16 @@
         "columns": 4,
         "card_width_mobile": 76,
         "columns_mobile": 1,
-        "card_color": "#18181b",
+        "card_color": "#141416",
         "use_theme_radius": true,
         "card_radius": 20,
-        "title_uppercase": true,
-        "accent": "#c6f432",
+        "title_uppercase": false,
+        "accent": "#f2f0eb",
         "free_label": "Free",
         "heading_size": 44,
         "heading_size_mobile": 32,
-        "title_size": 24,
-        "title_size_mobile": 21,
+        "title_size": 19,
+        "title_size_mobile": 18,
         "color_scheme": "default",
         "section_width": "container",
         "padding_top": 64,
@@ -262,7 +263,7 @@
     "free": {
       "type": "soundpacks-pack-row",
       "settings": {
-        "heading": "Free packs.",
+        "heading": "Free packs",
         "text": "<p>The same quality and licence as the paid ones, for nothing.</p>",
         "link_label": "All free packs",
         "link_url": "/collections/free",
@@ -270,16 +271,16 @@
         "columns": 3,
         "card_width_mobile": 76,
         "columns_mobile": 1,
-        "card_color": "#18181b",
+        "card_color": "#141416",
         "use_theme_radius": true,
         "card_radius": 20,
-        "title_uppercase": true,
-        "accent": "#c6f432",
+        "title_uppercase": false,
+        "accent": "#f2f0eb",
         "free_label": "Free",
         "heading_size": 44,
         "heading_size_mobile": 32,
-        "title_size": 24,
-        "title_size_mobile": 21,
+        "title_size": 19,
+        "title_size_mobile": 18,
         "color_scheme": "default",
         "section_width": "container",
         "padding_top": 40,
@@ -410,14 +411,14 @@
           "type": "eyebrow",
           "settings": {
             "text": "Made by hand",
-            "color": "#c6f432",
+            "color": "#f2f0eb",
             "size": 14
           }
         },
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "Every sound comes from one room.",
+            "text": "Every sound comes from one room",
             "tag": "h2",
             "size_desktop": 48,
             "size_mobile": 34
@@ -454,7 +455,7 @@
       "type": "soundpacks-track-table",
       "settings": {
         "eyebrow": "Demos",
-        "heading": "Every pack, one list.",
+        "heading": "Every pack, one list",
         "text": "<p>One loop from each pack, as it comes out of the download. <strong>Press play, then drag along the wave</strong> to skip ahead.</p>",
         "heading_align": "left",
         "note": "<p>Previews are compressed renders of the 24 bit WAV files in each pack, with nothing added.</p>",
@@ -465,7 +466,7 @@
         "col_bpm": "BPM",
         "col_key": "Key",
         "bpm_suffix": true,
-        "accent": "#c6f432",
+        "accent": "#f2f0eb",
         "panel_color": "#141416",
         "use_theme_radius": false,
         "panel_radius": 28,
@@ -607,7 +608,7 @@
       "settings": {
         "color_scheme": "scheme-sp-panel",
         "eyebrow": "Bundles",
-        "heading": "More sounds, less per pack.",
+        "heading": "More sounds, less per pack",
         "intro": "<p>Every bundle is the same files as the single packs, in one download.</p>",
         "heading_size": "h2",
         "heading_align": "left",
@@ -694,7 +695,7 @@
         "header_gap": 40,
         "show_dividers": true,
         "enable_custom_style": true,
-        "label_color": "#c6f432",
+        "label_color": "#8e8e96",
         "item_heading_color": "#f3f3f4",
         "text_color": "#a3a3ab",
         "divider_color": "#26262a",
@@ -712,7 +713,7 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "Why Lowmoth.",
+            "text": "Why Lowmoth",
             "size_enable": true,
             "size_desktop": 44,
             "size_mobile": 32
@@ -722,7 +723,7 @@
           "type": "column",
           "settings": {
             "label": "Royalty free",
-            "heading": "Use them anywhere.",
+            "heading": "Use them anywhere",
             "text": "<p>Release, stream and sync your music. The sounds stay yours to use for good.</p>",
             "link_label": "",
             "link": ""
@@ -732,7 +733,7 @@
           "type": "column",
           "settings": {
             "label": "Made here",
-            "heading": "Played and recorded.",
+            "heading": "Played and recorded",
             "text": "<p>Every loop is played, programmed or recorded in our room. No sounds from other packs.</p>",
             "link_label": "",
             "link": ""
@@ -742,7 +743,7 @@
           "type": "column",
           "settings": {
             "label": "Try first",
-            "heading": "Hear every sound.",
+            "heading": "Hear every sound",
             "text": "<p>Each pack page has a demo and a table of its sounds. Play them before you pay.</p>",
             "link_label": "",
             "link": ""
@@ -752,7 +753,7 @@
           "type": "column",
           "settings": {
             "label": "Instant",
-            "heading": "Download right away.",
+            "heading": "Download right away",
             "text": "<p>A link on the receipt page and by email, as soon as the payment goes through.</p>",
             "link_label": "",
             "link": ""
@@ -813,7 +814,7 @@
           "type": "heading",
           "settings": {
             "enabled": true,
-            "text": "What producers say."
+            "text": "What producers say"
           }
         },
         "subheading": {
@@ -906,7 +907,7 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "heading": "Blog.",
+            "heading": "From the blog",
             "tag": "h2",
             "size": "custom",
             "custom_size": 44
@@ -954,7 +955,7 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "A free pack every month.",
+            "text": "A free pack every month",
             "tag": "h2",
             "size_enable": true,
             "size_desktop": 44,
@@ -979,7 +980,7 @@
         "speed": 40,
         "text_size": 22,
         "text_size_mobile": 17,
-        "accent": "#c6f432",
+        "accent": "#f2f0eb",
         "color_scheme": "scheme-sp-panel",
         "padding_top": 18,
         "padding_bottom": 18
@@ -1052,79 +1053,12 @@
         "w6",
         "w7"
       ]
-    },
-    "how": {
-      "type": "steps",
-      "settings": {
-        "color_scheme": "default",
-        "section_width": "container",
-        "reset_spacing": true,
-        "text_align": "left",
-        "head_gap": 14,
-        "steps_max_width": 760,
-        "step_style": "numbered",
-        "line_style": "solid",
-        "padding_top": 72,
-        "padding_bottom": 72
-      },
-      "blocks": {
-        "eyebrow": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "How it works"
-          }
-        },
-        "heading": {
-          "type": "heading",
-          "settings": {
-            "text": "Hear it, buy it, use it tonight.",
-            "tag": "h2"
-          }
-        },
-        "s1": {
-          "type": "step",
-          "settings": {
-            "title": "Press play",
-            "description": "<p>Every pack has a demo loop and a table of its sounds. Play as many as you like, no account needed.</p>"
-          }
-        },
-        "s2": {
-          "type": "step",
-          "settings": {
-            "title": "Pay once",
-            "description": "<p>Card, Apple Pay or Google Pay. Free packs check out at $0 with the same download.</p>"
-          }
-        },
-        "s3": {
-          "type": "step",
-          "settings": {
-            "title": "Download the ZIP",
-            "description": "<p>The link is on the receipt page and in your email straight away, and it keeps working.</p>"
-          }
-        },
-        "s4": {
-          "type": "step",
-          "settings": {
-            "title": "Make the track",
-            "description": "<p>Drag the WAV and MIDI into any DAW. Release it anywhere, no credit needed.</p>"
-          }
-        }
-      },
-      "block_order": [
-        "eyebrow",
-        "heading",
-        "s1",
-        "s2",
-        "s3",
-        "s4"
-      ]
     }
   },
   "order": [
     "hero",
     "ticker",
     "premium",
-    "how",
     "free",
     "studio",
     "demos",

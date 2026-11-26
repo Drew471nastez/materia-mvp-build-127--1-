@@ -112,7 +112,7 @@
         "section_width": "container",
         "padding_top": 48,
         "padding_bottom": 72,
-        "accent": "#c6f432"
+        "accent": "#f2f0eb"
       },
       "blocks": {
         "t_chrome_drums": {
@@ -189,7 +189,7 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "A free pack every month.",
+            "text": "A free pack every month",
             "tag": "h2",
             "size_enable": true,
             "size_desktop": 44,

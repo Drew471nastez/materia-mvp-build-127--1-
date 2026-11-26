@@ -24,7 +24,7 @@
         "description_2": {
           "type": "description",
           "settings": {
-            "description": "<p>Questions about a file, a licence or an order. We reply within two working days.</p>"
+            "description": "<p>Questions about a template, the licence or an order. Hana replies within two working days.</p>"
           }
         }
       },
@@ -63,7 +63,7 @@
           "type": "info",
           "settings": {
             "icon": "mail",
-            "line1": "hello@margin.studio",
+            "line1": "hello@wrenstudio.co",
             "line2": "Write any time"
           }
         },
@@ -95,59 +95,59 @@
         "allow_multiple_open": false,
         "open_icon": "plus",
         "content_alignment": "center",
-        "max_content_width": 860,
-        "gap_header_to_items": 32,
-        "gap_heading_to_subheading": 10,
-        "gap_between_items": 0,
-        "item_padding_y": 20,
-        "item_padding_x": 0,
-        "item_radius": 0,
-        "show_dividers": true,
+        "max_content_width": 820,
+        "gap_header_to_items": 36,
+        "gap_heading_to_subheading": 12,
+        "gap_between_items": 10,
+        "item_padding_y": 22,
+        "item_padding_x": 26,
+        "item_radius": 10,
+        "show_dividers": false,
         "enable_custom_style": true,
-        "card_bg": "rgba(0,0,0,0)",
-        "card_border_color": "#e4e3df",
-        "question_color": "#17181a",
-        "icon_color": "#17181a",
-        "answer_color": "#4a4c50",
+        "card_bg": "#f4f2ee",
+        "card_border_color": "rgba(0,0,0,0)",
+        "question_color": "#17171a",
+        "icon_color": "#17171a",
+        "answer_color": "#55565b",
         "heading_size_desktop": 40,
         "heading_size_mobile": 30,
-        "question_size_desktop": 18,
+        "question_size_desktop": 17,
         "question_size_mobile": 16,
         "enable_custom_question_weight": true,
         "question_weight": "500",
         "answer_size_desktop": 16,
         "answer_size_mobile": 15,
         "reveal": false,
-        "padding_top": 24,
+        "padding_top": 56,
         "padding_bottom": 96
       },
       "blocks": {
         "faq_item_1": {
           "type": "faq_item",
           "settings": {
-            "question": "How do I get my files?",
-            "answer": "<p>Straight after you pay. The download links are on the order confirmation page and in the email that arrives a minute later. Courses open in your account on this site.</p>"
+            "question": "When do I get my files?",
+            "answer": "<p>Straight after you pay. The download links are on the order confirmation page and in an email that arrives a minute later. Notion and Canva products open with a link, so there is nothing to install.</p>"
           }
         },
         "faq_item_2": {
           "type": "faq_item",
           "settings": {
-            "question": "Can I download them again later?",
-            "answer": "<p>Yes. Sign in to your account, or use the link in your email, and download as many times as you need. Keep a copy on your own drive as well.</p>"
+            "question": "Which apps do I need?",
+            "answer": "<p>Notion templates work on the free Notion plan. Canva templates open in the free Canva plan. Presets work in Lightroom Classic, Lightroom desktop and the free Lightroom mobile app. Ebooks and printables are PDFs, and the digital planner works in GoodNotes, Notability and other PDF apps.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "Can my team use them?",
-            "answer": "<p>The standard licence is for one person. Pick the team option on the product page and up to five people can install and use the files.</p>"
+            "question": "Can I download them again later?",
+            "answer": "<p>Yes. Use the link in your email or sign in to your account and download as many times as you need.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "Can I get a refund?",
-            "answer": "<p>Digital files cannot be returned, so look at the previews first. If a file is broken or not what the page describes, write within 14 days and you get your money back.</p>"
+            "question": "Do I get updates?",
+            "answer": "<p>Yes, for free. When a product changes, you get an email and the new version replaces the old one in your account.</p>"
           }
         }
       },

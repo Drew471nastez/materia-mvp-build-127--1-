@@ -22,13 +22,13 @@
           "type": "store_info",
           "settings": {
             "show_logo": false,
-            "store_heading": "Endgrain",
+            "store_heading": "Gridwork",
             "image_width": 110,
             "store_email": true,
             "store_phone": false,
             "store_address": false,
             "content_width": "40%",
-            "store_description": "<p>Woodworking lessons online, from your first straight cut to a side table. Hand tools, short videos and feedback on your own joints, taught by Tom Ashby.</p>"
+            "store_description": "<p>Design lessons online for small business owners and creators. Brand kits, social posts, thumbnails and print in Canva, taught by Clara Lind.</p>"
           }
         },
         "link_list_2": {

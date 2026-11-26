@@ -1,0 +1,70 @@
+
+  #shopify-section-about .sht__inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 40px;
+  }
+  /* One size up from the theme's section heading, moving with the screen the way the theme's own headings do. */
+  #shopify-section-about .sht .sht__heading { --size: clamp(3.2rem, calc(3.2rem + 12 * var(--responsive-rate, 0px)), 4.4rem); }
+  #shopify-section-about .sht__list { min-width: 0; counter-reset: sht-n; }
+  #shopify-section-about .sht__item {
+    counter-increment: sht-n;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 20px;
+    align-items: baseline;
+  }
+  #shopify-section-about .sht__item + .sht__item { margin-top: calc(var(--sht-item-gap) * 0.75); }
+  #shopify-section-about .sht[data-dividers="true"] .sht__item + .sht__item {
+    padding-top: calc(var(--sht-item-gap) * 0.75);
+    border-top: 1px solid var(--sht-divider);
+  }
+  /* The number sits above its text on a phone and beside it from 768px. */
+  #shopify-section-about .sht[data-numbers="true"] .sht__item { row-gap: 6px; }
+  #shopify-section-about .sht__num {
+    display: none;
+    font-size: 14px;
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
+    font-weight: var(--subheading-weight, 500);
+    color: var(--sht-num-ink);
+  }
+  #shopify-section-about .sht[data-numbers="true"] .sht__num { display: block; }
+  #shopify-section-about .sht__num::before { content: counter(sht-n, decimal-leading-zero); }
+  #shopify-section-about .sht__body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    min-width: 0;
+  }
+  #shopify-section-about .sht .sht__title {
+    margin: 0;
+    max-width: 100%;
+    font-family: var(--r7t-heading-font);
+    font-size: var(--sht-title-m);
+    color: var(--sht-title-ink);
+    overflow-wrap: anywhere;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-about .sht[data-numbers="true"] .sht__item { grid-template-columns: 2.4em minmax(0, 1fr); }
+    #shopify-section-about .sht .sht__title { font-size: var(--sht-title-d); }
+    #shopify-section-about .sht__item + .sht__item { margin-top: var(--sht-item-gap); }
+    #shopify-section-about .sht[data-dividers="true"] .sht__item + .sht__item { padding-top: var(--sht-item-gap); }
+  }
+  @media (min-width: 990px) {
+    #shopify-section-about .sht__inner {
+      grid-template-columns: var(--sht-cols);
+      column-gap: var(--sht-col-gap);
+      align-items: start;
+    }
+    #shopify-section-about .sht[data-side="right"] .sht__header { order: 2; }
+  }
+  /* Pinned only where there is room for it: two columns, and a screen tall enough to hold the heading side. */
+  @media (min-width: 990px) and (min-height: 560px) {
+    #shopify-section-about .sht[data-sticky="true"] .sht__header {
+      position: sticky;
+      top: calc(var(--sticky-top, 0px) + var(--sht-offset));
+      transition: top 0.4s cubic-bezier(0.22, 0.61, 0.36, 1);
+    }
+  }

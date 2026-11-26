@@ -81,7 +81,7 @@
           "type": "text",
           "settings": {
             "heading": "",
-            "content": "<p>A plain guide to the first twelve weeks with a puppy: routine, house training, the first cues and settling at home, by Tess Moran.</p>"
+            "content": "<p>A plain guide to building a personal brand on LinkedIn: positioning, your profile, writing posts and comments that start conversations, by Hanna Reyes.</p>"
           }
         },
         "price_4": {
@@ -180,7 +180,7 @@
           "type": "whats_included",
           "settings": {
             "heading": "What you get",
-            "items": "Fourteen chapters, 196 pages, PDF and EPUB\nA plan for each of the first twelve weeks\nForty common problems, each with a fix\nTen minute sessions you can do indoors",
+            "items": "Fourteen chapters, 196 pages, PDF and EPUB\nA plan for your first twelve weeks of posting\nNinety post prompts to start from\nTwenty minute habits that fit a working day",
             "two_columns": false,
             "boxed": true
           }
@@ -198,7 +198,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "Editions",
-            "content": "<p><strong>Ebook:</strong> PDF and EPUB. <strong>Ebook and audiobook:</strong> adds five hours of MP3 files read by Tess. <strong>Complete set:</strong> adds thirty printable training cards.</p>",
+            "content": "<p><strong>Ebook:</strong> PDF and EPUB. <strong>Ebook and audiobook:</strong> adds five hours of MP3 files read by Hanna. <strong>Complete set:</strong> adds ninety printable post prompts.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -211,10 +211,10 @@
             "first_open": false,
             "q_1": "Is this an ebook or a printed book?",
             "a_1": "<p>An ebook. You get a PDF and an EPUB file by email straight after you pay, and you can read them on any phone, tablet, computer or e-reader.</p>",
-            "q_2": "My puppy is driving me mad right now. Where do I start?",
-            "a_2": "<p>Start with chapter twelve, biting, chewing and jumping up, then look up your problem in the index. Most fixes start with more sleep and shorter sessions.</p>",
-            "q_3": "What age is it for?",
-            "a_3": "<p>Puppies from eight weeks, and young or rescue dogs up to about two years. If your dog shows aggression or serious fear, see a qualified behaviourist in person.</p>",
+            "q_2": "I have not posted in a year. Where do I start?",
+            "a_2": "<p>Start with chapter two and rewrite your headline, then use one prompt from the back of the book this week. Most people only need to post once to get going again.</p>",
+            "q_3": "Do I need a big network to start?",
+            "a_3": "<p>No. Most of the book is written for people with a few hundred connections, and chapter six covers growing them with people you would like to work with.</p>",
             "q_4": "What if it is not for me?",
             "a_4": "<p>Email within 30 days and you get your money back. No questions asked.</p>",
             "spacing_top": 12,
@@ -291,7 +291,7 @@
         "image_position": "left",
         "text_column_width": 46,
         "image": "shopify://shop_images/authorbook-spread-sit.webp",
-        "image_alt": "Two open pages from chapter five, Teach sit in five minutes",
+        "image_alt": "Two open pages from chapter five, Write a post in twenty minutes",
         "aspect_w": 16,
         "aspect_h": 11,
         "image_fit": "cover",
@@ -316,7 +316,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Every chapter is one thing to practise this week, with a short check at the end. Read it in a weekend, then keep the problem index open on your phone.</p>"
+            "text": "<p>Every chapter is one thing to practise this week, with a short check at the end. Read it in a weekend, then keep the prompts open on your phone.</p>"
           }
         },
         "button_4": {
@@ -387,30 +387,30 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>We followed the week one routine to the letter. By day ten there were no more accidents in the kitchen.</p>",
+            "quote": "<p>I rewrote my headline with the fifteen word test. The next client who messaged me quoted it back to me.</p>",
             "rating": 5,
-            "name": "Maya A.",
-            "role": "First puppy, a Labrador",
+            "name": "Priya N.",
+            "role": "Freelance designer",
             "avatar": "shopify://shop_images/authorbook-reader-1.webp"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Short, practical and honest. The loose lead chapter alone was worth it. Walks are a pleasure again.</p>",
+            "quote": "<p>Short, practical and honest. The twenty minute post chapter alone was worth it. I stopped rewriting drafts for days.</p>",
             "rating": 5,
             "name": "Daniel A.",
-            "role": "Rescue dog, two years old",
+            "role": "Accountant, small practice",
             "avatar": "shopify://shop_images/authorbook-reader-2.webp"
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I live in a flat with no garden. Chapter three had a plan for that, and it worked.</p>",
+            "quote": "<p>I hated the idea of selling myself. Chapter three showed me how to write about the work instead.</p>",
             "rating": 5,
             "name": "Lena M.",
-            "role": "Flat, no garden",
+            "role": "Looking for a new role",
             "avatar": "shopify://shop_images/authorbook-reader-3.webp"
           }
         }
@@ -430,7 +430,7 @@
         "color_scheme": "default",
         "section_width": "container",
         "reset_spacing": true,
-        "heading": "Also from Tess",
+        "heading": "Also from Hanna",
         "description": "",
         "header_size": "small",
         "header_alignment": "left",

@@ -1,0 +1,227 @@
+{%- comment -%}
+  New Leaf (templates round 29): "See them in action". A large player on
+  the left plays the chosen template's scene, a list of templates on the
+  right picks which one, and a caption and a button to the template sit
+  under the player.
+
+  A scene is the template's own: a video (muted, looping, with a Sound on
+  button when it has sound), or an illustrated scene made from two
+  pictures, a backdrop that drifts and a page that rises in and scrolls.
+  Choosing another template crossfades the player. With "Move on by
+  itself" the next one plays after a few seconds, until the visitor picks
+  one. Nothing moves in the editor or for a visitor who prefers less motion.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
+  assign items = section.blocks | where: 'type', 'template'
+-%}
+<style>
+  #shopify-section-{{ sid }} .nla { --nla-accent: {% if s.accent != blank %}{{ s.accent }}{% else %}var(--btn-primary-bg-color){% endif %}; --nla-dur: {{ s.seconds | default: 8 }}s; position: relative; padding-block: {{ s.padding_top_mobile }}px {{ s.padding_bottom_mobile }}px; scroll-margin-top: 60px; }
+  #shopify-section-{{ sid }} .nla__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 10px 32px; margin-bottom: 28px; }
+  #shopify-section-{{ sid }} .nla__head h2 { margin: 0; font-size: {{ s.heading_size_mobile }}px; line-height: 1.08; letter-spacing: -.015em; }
+  #shopify-section-{{ sid }} .nla__head p { margin: 0; font-size: 15px; color: var(--color-text); }
+  #shopify-section-{{ sid }} .nla__grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  #shopify-section-{{ sid }} .nla__player { position: relative; aspect-ratio: 16 / 9; border-radius: {{ s.radius }}px; overflow: hidden; background: #161615; isolation: isolate; box-shadow: 0 0 0 1px rgba(255, 255, 255, .06); }
+  #shopify-section-{{ sid }} .nla__scene { position: absolute; inset: 0; opacity: 0; transition: opacity .6s ease; }
+  #shopify-section-{{ sid }} .nla__scene.is-on { opacity: 1; z-index: 1; }
+  #shopify-section-{{ sid }} .nla__bg { position: absolute; inset: -4%; width: 108%; height: 108%; object-fit: cover; display: block; }
+  #shopify-section-{{ sid }} .nla__page { position: absolute; right: 7%; bottom: -6%; width: 44%; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: #fff; box-shadow: 0 30px 60px -20px rgba(0, 0, 0, .7); }
+  #shopify-section-{{ sid }} .nla__page img { width: 100%; display: block; }
+  #shopify-section-{{ sid }} .nla__video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  #shopify-section-{{ sid }} .nla__sound { position: absolute; right: 14px; bottom: 14px; z-index: 3; display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border: 1px solid rgba(255, 255, 255, .25); border-radius: 999px; background: rgba(20, 20, 20, .82); color: #fff; font: 600 13px/1 var(--font-body-family, sans-serif); cursor: pointer; }
+  #shopify-section-{{ sid }} .nla__sound[hidden] { display: none; }
+  #shopify-section-{{ sid }} .nla__bar { position: absolute; left: 0; bottom: 0; z-index: 3; height: 3px; width: 100%; background: rgba(255, 255, 255, .85); transform: scaleX(0); transform-origin: left center; }
+  #shopify-section-{{ sid }} .nla__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; align-content: start; }
+  #shopify-section-{{ sid }} .nla__item button { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 14px; align-items: start; width: 100%; padding: 14px; text-align: left; border: 1px solid rgba(var(--color-heading-rgb), .12); border-radius: {{ s.radius | times: 0.75 | round }}px; background: rgba(var(--color-heading-rgb), .05); color: inherit; font: inherit; cursor: pointer; transition: border-color .25s ease, background-color .25s ease; }
+  #shopify-section-{{ sid }} .nla__item button:hover { background: rgba(var(--color-heading-rgb), .08); }
+  #shopify-section-{{ sid }} .nla__item button:focus-visible { outline: 2px solid var(--nla-accent); outline-offset: 2px; }
+  #shopify-section-{{ sid }} .nla__item.is-on button { border-color: var(--nla-accent); background: rgba(var(--color-heading-rgb), .1); }
+  #shopify-section-{{ sid }} .nla__icon { width: 44px; height: 44px; border-radius: 9px; overflow: hidden; background: rgba(var(--color-heading-rgb), .1); }
+  #shopify-section-{{ sid }} .nla__icon img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #shopify-section-{{ sid }} .nla__name { display: block; font-family: var(--font-heading-family); font-size: 19px; line-height: 1.15; color: var(--color-heading); }
+  #shopify-section-{{ sid }} .nla__line { display: block; margin-top: 5px; font-size: 13.5px; line-height: 1.45; color: var(--color-text); }
+  #shopify-section-{{ sid }} .nla__foot { margin-top: 20px; }
+  #shopify-section-{{ sid }} .nla__caption { margin: 0 0 14px; font-size: 15px; color: var(--color-text); min-height: 1.5em; }
+  #shopify-section-{{ sid }} .nla__caption b { color: var(--color-heading); font-weight: 600; }
+  #shopify-section-{{ sid }} .nla__foot .button { gap: 8px; }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .nla { padding-block: {{ s.padding_top }}px {{ s.padding_bottom }}px; }
+    #shopify-section-{{ sid }} .nla__head { margin-bottom: 36px; }
+    #shopify-section-{{ sid }} .nla__head h2 { font-size: {{ s.heading_size }}px; }
+    #shopify-section-{{ sid }} .nla__grid { grid-template-columns: minmax(0, 2.5fr) minmax(0, 1fr); gap: 18px; }
+  }
+  @media (max-width: 989px) {
+    #shopify-section-{{ sid }} .nla__list { grid-auto-flow: column; grid-auto-columns: minmax(240px, 78%); overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; margin-inline: -16px; padding-inline: 16px; scroll-padding-inline: 16px; }
+    #shopify-section-{{ sid }} .nla__list::-webkit-scrollbar { display: none; }
+    #shopify-section-{{ sid }} .nla__item { scroll-snap-align: start; }
+    #shopify-section-{{ sid }} .nla__item button { height: 100%; }
+  }
+  {%- comment -%} The scene moves only once the script runs it (nla--live) and never in the editor. {%- endcomment -%}
+  #shopify-section-{{ sid }} .nla--live .nla__scene.is-on .nla__bg { animation: nla-drift-{{ sid | handleize }} calc(var(--nla-dur) + 2s) ease-in-out both; }
+  #shopify-section-{{ sid }} .nla--live .nla__scene.is-on .nla__page { animation: nla-rise-{{ sid | handleize }} 1s cubic-bezier(.2, .8, .2, 1) .2s both; }
+  #shopify-section-{{ sid }} .nla--live .nla__scene.is-on .nla__page img { animation: nla-scroll-{{ sid | handleize }} calc(var(--nla-dur) - 1.5s) ease-in-out 1.4s both; }
+  #shopify-section-{{ sid }} .nla--live.nla--auto .nla__bar.is-run { transform: scaleX(1); transition: transform var(--nla-dur) linear; }
+  @keyframes nla-drift-{{ sid | handleize }} { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.06) translate(-2.5%, -1.5%); } }
+  @keyframes nla-rise-{{ sid | handleize }} { from { transform: translateY(60%) rotate(-4deg); opacity: 0; } to { transform: none; opacity: 1; } }
+  @keyframes nla-scroll-{{ sid | handleize }} { from { transform: translateY(0); } to { transform: translateY(-15%); } }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} .nla__scene { transition: none; }
+    #shopify-section-{{ sid }} .nla--live .nla__scene.is-on * { animation: none !important; }
+  }
+</style>
+<div class="nla color-{{ color_scheme }} gradient" id="{{ s.anchor | default: 'in-action' | handleize }}" data-nla{% if s.autoplay %} data-auto{% endif %}>
+  <div class="{{ s.section_width | default: 'container' }}">
+    {%- if s.heading != blank or s.subheading != blank -%}
+      <div class="nla__head">
+        {%- if s.heading != blank -%}<h2 class="h2">{{ s.heading | escape }}</h2>{%- endif -%}
+        {%- if s.subheading != blank -%}<p>{{ s.subheading | escape }}</p>{%- endif -%}
+      </div>
+    {%- endif -%}
+    <div class="nla__grid">
+      <div class="nla__main">
+        <div class="nla__player">
+          {%- for block in items -%}
+            {%- assign b = block.settings -%}
+            {%- if forloop.first -%}{%- assign lazy_or_eager = 'eager' -%}{%- else -%}{%- assign lazy_or_eager = 'lazy' -%}{%- endif -%}
+            <div class="nla__scene{% if forloop.first %} is-on{% endif %}" data-i="{{ forloop.index0 }}">
+              {%- if b.video != blank -%}
+                {%- assign vsrc = b.video.sources | where: 'mime_type', 'video/mp4' | first -%}
+                <video class="nla__video" {% if forloop.first %}autoplay {% endif %}muted loop playsinline preload="{% if forloop.first %}metadata{% else %}none{% endif %}"{% if b.backdrop != blank %} poster="{{ b.backdrop | image_url: width: 1400 }}"{% endif %} data-has-sound="{{ b.has_sound }}">
+                  <source src="{{ vsrc.url | default: b.video.sources[0].url }}" type="video/mp4">
+                </video>
+              {%- else -%}
+                {%- if b.backdrop != blank -%}{{ b.backdrop | image_url: width: 1400 | image_tag: class: 'nla__bg', loading: lazy_or_eager, widths: '700, 1000, 1400', sizes: '(min-width: 990px) 60vw, 100vw', alt: '' }}{%- endif -%}
+                {%- if b.page != blank -%}<div class="nla__page">{{ b.page | image_url: width: 900 | image_tag: loading: lazy_or_eager, widths: '450, 700, 900', sizes: '(min-width: 990px) 28vw, 45vw', alt: b.title }}</div>{%- endif -%}
+              {%- endif -%}
+            </div>
+          {%- endfor -%}
+          <button type="button" class="nla__sound" hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="m22 9-6 6M16 9l6 6"/></svg><span>{{ s.sound_label | default: 'Sound on' | escape }}</span></button>
+          <span class="nla__bar" aria-hidden="true"></span>
+        </div>
+        <div class="nla__foot">
+          {%- for block in items -%}
+            {%- liquid
+              assign b = block.settings
+              assign link = b.link
+              if b.product != blank
+                assign want = b.product | handleize
+                assign p = all_products[want]
+                if p != blank and p.url != blank
+                  assign link = p.url
+                endif
+              endif
+            -%}
+            <div class="nla__cap"{% unless forloop.first %} hidden{% endunless %} data-i="{{ forloop.index0 }}">
+              <p class="nla__caption"><b>{{ b.title | escape }}</b>{% if b.caption != blank %} · {{ b.caption | escape }}{% endif %}</p>
+              {%- if s.button_label != blank and link != blank -%}<a class="button inline-block btn-secondary" data-theme-button="secondary" href="{{ link }}">{{ s.button_label | escape }} <span aria-hidden="true">→</span></a>{%- endif -%}
+            </div>
+          {%- endfor -%}
+        </div>
+      </div>
+      <ul class="nla__list" role="list">
+        {%- for block in items -%}
+          {%- assign b = block.settings -%}
+          <li class="nla__item{% if forloop.first %} is-on{% endif %}" {{ block.shopify_attributes }}>
+            <button type="button" data-i="{{ forloop.index0 }}" aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}">
+              <span class="nla__icon">{%- if b.icon != blank -%}{{ b.icon | image_url: width: 96 | image_tag: loading: 'lazy', alt: '' }}{%- endif -%}</span>
+              <span><span class="nla__name">{{ b.title | escape }}</span>{%- if b.line != blank -%}<span class="nla__line">{{ b.line | escape }}</span>{%- endif -%}</span>
+            </button>
+          </li>
+        {%- endfor -%}
+      </ul>
+    </div>
+  </div>
+</div>
+<script>
+  (function () {
+    var root = document.querySelector('#shopify-section-{{ sid }} [data-nla]');
+    if (!root || root.dataset.nlaInit) return;
+    root.dataset.nlaInit = '1';
+    var scenes = root.querySelectorAll('.nla__scene'), caps = root.querySelectorAll('.nla__cap'), items = root.querySelectorAll('.nla__item'), bar = root.querySelector('.nla__bar'), sound = root.querySelector('.nla__sound');
+    var calm = (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) || {{ request.design_mode | json }};
+    var auto = root.hasAttribute('data-auto') && !calm && scenes.length > 1, cur = 0, timer = 0, seen = false;
+    if (!calm) root.classList.add('nla--live');
+    if (auto) root.classList.add('nla--auto');
+    function video(i) { return scenes[i] && scenes[i].querySelector('video'); }
+    function run() {
+      clearTimeout(timer);
+      if (!auto || !seen) return;
+      bar.classList.remove('is-run'); void bar.offsetWidth; bar.classList.add('is-run');
+      timer = setTimeout(function () { show((cur + 1) % scenes.length, false); }, {{ s.seconds | default: 8 }} * 1000);
+    }
+    function show(i, byHand) {
+      if (byHand) { auto = false; root.classList.remove('nla--auto'); clearTimeout(timer); bar.classList.remove('is-run'); }
+      var old = video(cur); if (old) { old.pause(); old.muted = true; }
+      cur = i;
+      scenes.forEach(function (el, k) { el.classList.toggle('is-on', k === i); if (k === i) { el.querySelectorAll('*').forEach(function (n) { n.style.animation = 'none'; void n.offsetWidth; n.style.animation = ''; }); } });
+      caps.forEach(function (el, k) { el.hidden = k !== i; });
+      items.forEach(function (el, k) { el.classList.toggle('is-on', k === i); el.querySelector('button').setAttribute('aria-pressed', k === i ? 'true' : 'false'); });
+      var v = video(i);
+      if (v) { v.play().catch(function () {}); }
+      sound.hidden = !(v && v.dataset.hasSound === 'true');
+      sound.querySelector('span').textContent = {{ s.sound_label | default: 'Sound on' | json }};
+      run();
+    }
+    root.querySelectorAll('.nla__item button').forEach(function (b) { b.addEventListener('click', function () { show(+b.dataset.i, true); }); });
+    sound.addEventListener('click', function () { var v = video(cur); if (!v) return; v.muted = !v.muted; if (!v.muted) v.play().catch(function () {}); sound.querySelector('span').textContent = v.muted ? {{ s.sound_label | default: 'Sound on' | json }} : {{ s.sound_off_label | default: 'Sound off' | json }}; });
+    var v0 = video(0); sound.hidden = !(v0 && v0.dataset.hasSound === 'true');
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(function (es) { es.forEach(function (e) { var was = seen; seen = e.isIntersecting; if (seen && !was) run(); if (!seen) { clearTimeout(timer); bar.classList.remove('is-run'); } }); }, { threshold: .35 }).observe(root.querySelector('.nla__player'));
+    }
+  })();
+</script>
+{% schema %}
+{
+  "name": "Templates in action",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    { "type": "header", "content": "Content" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "See them in action" },
+    { "type": "text", "id": "subheading", "label": "Line on the right", "default": "A short tour of each template." },
+    { "type": "text", "id": "button_label", "label": "Button under the player", "default": "See the template" },
+    { "type": "text", "id": "anchor", "label": "Section id", "default": "in-action", "info": "Links to # and this id scroll here." },
+    { "type": "text", "id": "sound_label", "label": "Sound button", "default": "Sound on" },
+    { "type": "text", "id": "sound_off_label", "label": "Sound button when playing", "default": "Sound off" },
+    { "type": "header", "content": "Playing" },
+    { "type": "checkbox", "id": "autoplay", "label": "Move on by itself", "default": true, "info": "Until a visitor picks a template." },
+    { "type": "range", "id": "seconds", "label": "Seconds per template", "min": 4, "max": 20, "step": 1, "unit": "s", "default": 8 },
+    { "type": "header", "content": "Look" },
+    { "type": "color", "id": "accent", "label": "Highlight colour", "info": "The border of the chosen template. Left empty, the scheme's button colour." },
+    { "type": "range", "id": "radius", "label": "Corners", "min": 0, "max": 28, "step": 1, "unit": "px", "default": 14 },
+    { "type": "range", "id": "heading_size", "label": "Heading size", "min": 28, "max": 72, "step": 2, "unit": "px", "default": 44 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on phones", "min": 24, "max": 48, "step": 2, "unit": "px", "default": 32 },
+    { "type": "header", "content": "General" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default" },
+    { "type": "select", "id": "section_width", "label": "Section width", "default": "container", "options": [{ "value": "container", "label": "Default" }, { "value": "fluid_container", "label": "Fluid container" }, { "value": "stretch_width", "label": "Stretched" }] },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 88 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 88 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Top padding on phones", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Bottom padding on phones", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "blocks": [
+    {
+      "type": "template",
+      "name": "Template",
+      "limit": 6,
+      "settings": [
+        { "type": "text", "id": "title", "label": "Name", "default": "Template name" },
+        { "type": "text", "id": "line", "label": "One line", "default": "What it does, in a few words." },
+        { "type": "text", "id": "caption", "label": "Caption under the player" },
+        { "type": "image_picker", "id": "icon", "label": "Icon" },
+        { "type": "header", "content": "Scene" },
+        { "type": "video", "id": "video", "label": "Video", "info": "Plays muted and loops. Leave empty to use the two pictures below." },
+        { "type": "checkbox", "id": "has_sound", "label": "The video has sound", "default": false, "info": "Shows a Sound on button." },
+        { "type": "image_picker", "id": "backdrop", "label": "Backdrop", "info": "16:9. Drifts slowly behind the page. Also the video's poster." },
+        { "type": "image_picker", "id": "page", "label": "Page", "info": "A screenshot of the template, 3:2. Rises in and scrolls." },
+        { "type": "header", "content": "Link" },
+        { "type": "text", "id": "product", "label": "Product", "info": "The product's handle or exact name." },
+        { "type": "url", "id": "link", "label": "Link", "info": "Used when no product is set." }
+      ]
+    }
+  ],
+  "presets": [{ "name": "Templates in action", "blocks": [{ "type": "template" }, { "type": "template" }, { "type": "template" }] }]
+}
+{% endschema %}

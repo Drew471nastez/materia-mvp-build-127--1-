@@ -11,7 +11,7 @@
         "overlay_opacity": 38,
         "padding_top": 104,
         "padding_bottom": 104,
-        "background_image": "shopify://shop_images/rail-tile-hoodies.webp",
+        "background_image": "shopify://shop_images/rail-cat-hoodies.webp",
         "text_on_image": "light"
       },
       "blocks": {
@@ -121,7 +121,7 @@
             "button_label": "Shop now",
             "link": "/collections/all",
             "button_style": "light",
-            "image": "shopify://shop_images/rail-tile-hoodies.webp"
+            "image": "shopify://shop_images/rail-cat-hoodies.webp"
           }
         }
       },

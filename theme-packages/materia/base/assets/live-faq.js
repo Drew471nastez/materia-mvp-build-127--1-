@@ -216,8 +216,11 @@
     put(root, v('hw'), bool(s.enable_custom_heading_weight) ? String(s.heading_weight || 600) : null);
     put(root, v('gap-sub'), px(s.gap_heading_to_subheading, 12)); put(root, v('sub-m'), px(s.subheading_size_mobile, 14)); put(root, v('sub-d'), px(s.subheading_size_desktop, 16)); put(root, v('sub-color'), pick(o, s.subheading_color, 'var(--color-text)'));
     put(root, v('gap-items'), px(s.gap_between_items));
-    put(root, v('card-bg'), pick(o, s.card_bg, cardBg)); put(root, v('card-border'), pick(o, s.card_border_color, cardBorder)); put(root, v('radius'), px(s.item_radius)); put(root, v('divider'), pick(o, s.divider_color, 'var(--color-border)'));
-    put(root, v('py'), px(s.item_padding_y, 20)); put(root, v('px'), px(s.item_padding_x, 4));
+    const bgNow = pick(o, s.card_bg, cardBg), borderNow = pick(o, s.card_border_color, cardBorder);
+    put(root, v('card-bg'), bgNow); put(root, v('card-border'), borderNow); put(root, v('radius'), px(s.item_radius)); put(root, v('divider'), pick(o, s.divider_color, 'var(--color-border)'));
+    /* a question in a card keeps 16px from its edges, as snippets/faq-live-vars prints it (round 28) */
+    const boxed = bgNow !== 'transparent' || borderNow !== 'transparent';
+    put(root, v('py'), px(s.item_padding_y, 20)); put(root, v('px'), boxed ? 'max(' + px(s.item_padding_x, 4) + ', 16px)' : px(s.item_padding_x, 4));
     put(root, v('q-color'), pick(o, s.question_color, 'var(--color-heading)')); put(root, v('q-m'), px(s.question_size_mobile, 15)); put(root, v('q-d'), px(s.question_size_desktop, 18));
     put(root, v('qw'), bool(s.enable_custom_question_weight) ? String(s.question_weight || 600) : null);
     put(root, v('hover'), pick(o, s.hover_color, 'var(--color-primary)')); put(root, v('icon-color'), pick(o, s.icon_color, 'var(--color-heading)'));
@@ -244,7 +247,7 @@
     put(root, '--fsi-h-m', px(s.heading_size_mobile, 36)); put(root, '--fsi-h-d', px(s.heading_size_desktop, 56)); put(root, '--fsi-hw', hw !== 'theme' ? hw : 'var(--heading-weight, 700)');
     put(root, '--fsi-heading-color', pick(o, s.heading_color, 'var(--color-heading)')); put(root, '--fsi-sub-color', pick(o, s.sub_color, 'var(--color-text)'));
     put(root, '--fsi-list-bg', pick(o, s.list_bg, 'var(--color-background)')); put(root, '--fsi-list-border', pick(o, s.list_border, 'var(--color-border)')); put(root, '--fsi-divider', pick(o, s.divider_color, 'var(--color-border)'));
-    put(root, '--fsi-list-r', px(s.list_radius, 12)); put(root, '--fsi-py', px(s.item_padding_y, 22)); put(root, '--fsi-px', px(s.item_padding_x, 24));
+    put(root, '--fsi-list-r', px(s.list_radius, 12)); put(root, '--fsi-py', px(s.item_padding_y, 22)); put(root, '--fsi-px', 'max(' + px(s.item_padding_x, 24) + ', 16px)');
     put(root, '--fsi-icon', pick(o, s.icon_color, 'var(--color-heading)')); put(root, '--fsi-q-color', pick(o, s.q_color, 'var(--color-heading)')); put(root, '--fsi-q-size', px(s.q_size, 16)); put(root, '--fsi-q-weight', String(s.q_weight || 600));
     put(root, '--fsi-a-color', pick(o, s.a_color, 'var(--color-text)')); put(root, '--fsi-a-size', px(s.a_size, 15));
     put(root, '--fsi-img-bg', pick(o, s.image_bg, 'var(--color-background)')); put(root, '--fsi-img-r', px(s.image_radius)); put(root, '--fsi-ratio', RATIO[s.image_aspect] || '1 / 1'); put(root, '--fsi-fit', s.image_fit || 'cover'); put(root, '--fsi-img-minh', px(s.image_min_height_desktop));

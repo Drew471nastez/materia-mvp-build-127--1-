@@ -1,0 +1,195 @@
+{%- comment -%}
+  New Leaf (templates round 29): the home page's opening for a Notion
+  template shop. Ruled paper lines behind it, a large heading whose lines
+  rise in one after another, a short rule under it, a paragraph, a button
+  and a text link; on the right a fan of tilted template pages that fly in
+  and settle, and spread a little when the pointer is over them.
+
+  Each page is a block with a picture and a product (or a link). Fonts,
+  colours and buttons follow Theme settings and the colour scheme. Nothing
+  moves in the editor, for a visitor who prefers less motion, or before the
+  script runs, so the words and pages are always there to read.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
+  assign pages = section.blocks | where: 'type', 'page'
+  assign lines = s.heading | newline_to_br | split: '<br />'
+  assign animate = s.animate
+  if request.design_mode
+    assign animate = false
+  endif
+-%}
+<style>
+  #shopify-section-{{ sid }} .nlh { --nlh-accent: {% if s.accent != blank %}{{ s.accent }}{% else %}var(--btn-primary-bg-color){% endif %}; --nlh-rule: {{ s.line_gap }}px; position: relative; overflow: hidden; isolation: isolate; padding-block: {{ s.padding_top_mobile }}px {{ s.padding_bottom_mobile }}px; }
+  #shopify-section-{{ sid }} .nlh--ruled::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--nlh-rule) - 1px), rgba(var(--color-heading-rgb), .075) calc(var(--nlh-rule) - 1px), rgba(var(--color-heading-rgb), .075) var(--nlh-rule)); }
+  #shopify-section-{{ sid }} .nlh__grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 40px; align-items: center; }
+  #shopify-section-{{ sid }} .nlh__heading { margin: 0; font-size: {{ s.heading_size_mobile }}px; line-height: 1.04; letter-spacing: -.02em; color: var(--color-heading); }
+  #shopify-section-{{ sid }} .nlh__line { display: block; overflow: hidden; padding-bottom: .08em; margin-bottom: -.08em; }
+  #shopify-section-{{ sid }} .nlh__line > span { display: block; }
+  #shopify-section-{{ sid }} .nlh__rule { display: block; width: {{ s.rule_width }}px; max-width: 60%; height: 3px; margin: 26px 0 0; background: var(--nlh-accent); transform-origin: left center; }
+  #shopify-section-{{ sid }} .nlh__text { margin: 26px 0 0; max-width: 46ch; font-size: 16px; line-height: 1.85; color: var(--color-text); }
+  #shopify-section-{{ sid }} .nlh__text > * { margin: 0; }
+  #shopify-section-{{ sid }} .nlh__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 26px; margin-top: 30px; }
+  #shopify-section-{{ sid }} .nlh__link { font-weight: 600; font-size: 15px; color: var(--color-heading); text-decoration: none; background: linear-gradient(currentColor, currentColor) 0 100% / 0 1px no-repeat; transition: background-size .3s ease; padding-bottom: 2px; }
+  #shopify-section-{{ sid }} .nlh__link:hover { background-size: 100% 1px; }
+  #shopify-section-{{ sid }} .nlh__stage { position: relative; height: {{ s.stage_height_mobile }}px; }
+  #shopify-section-{{ sid }} .nlh__fan { position: absolute; inset: 0; list-style: none; margin: 0; padding: 0; }
+  #shopify-section-{{ sid }} .nlh__page { --x: 0px; --y: 0px; --r: 0deg; --sx: 0px; --sr: 0deg; position: absolute; left: 50%; top: 50%; width: 58%; aspect-ratio: 3 / 2; margin: 0; transform: translate(-50%, -50%) translate(var(--x), var(--y)) rotate(var(--r)); transition: transform .55s cubic-bezier(.2, .8, .2, 1); }
+  #shopify-section-{{ sid }} .nlh__page a, #shopify-section-{{ sid }} .nlh__page > div { display: block; width: 100%; height: 100%; border-radius: {{ s.page_radius }}px; overflow: hidden; background: #fff; box-shadow: 0 1px 2px rgba(20, 20, 20, .08), 0 22px 40px -18px rgba(20, 20, 20, .42); outline: 1px solid rgba(20, 20, 20, .06); }
+  #shopify-section-{{ sid }} .nlh__page img { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
+  #shopify-section-{{ sid }} .nlh__page a:focus-visible { outline: 2px solid var(--nlh-accent); outline-offset: 3px; }
+  {%- for i in (1..pages.size) -%}
+    {%- assign k = i | minus: 1 -%}
+    {%- assign mid = pages.size | minus: 1 | divided_by: 2.0 -%}
+    {%- assign d = k | minus: mid -%}
+    #shopify-section-{{ sid }} .nlh__page:nth-child({{ i }}) { --x: {{ d | times: 9 }}%; --y: {{ d | times: -3 | plus: 2 }}%; --r: {{ d | times: 1.6 | minus: 9 }}deg; --xd: calc({{ d | times: 10 }}% - 16%); --yd: {{ d | times: -4 | plus: 3 }}%; --rd: {{ d | times: 1.6 | minus: 9 }}deg; --sx: {{ d | times: 5 }}%; --sr: {{ d | times: 2 }}deg; z-index: {{ i }}; }
+  {%- endfor -%}
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .nlh { padding-block: {{ s.padding_top }}px {{ s.padding_bottom }}px; }
+    #shopify-section-{{ sid }} .nlh__grid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 24px; }
+    #shopify-section-{{ sid }} .nlh__line > span { white-space: nowrap; }
+    #shopify-section-{{ sid }} .nlh__heading { font-size: {{ s.heading_size }}px; }
+    #shopify-section-{{ sid }} .nlh__text { font-size: 17px; }
+    #shopify-section-{{ sid }} .nlh__stage { height: {{ s.stage_height }}px; }
+    #shopify-section-{{ sid }} .nlh__fan .nlh__page { width: 60%; --x: var(--xd); --y: var(--yd); --r: var(--rd); }
+    #shopify-section-{{ sid }} .nlh__stage:hover .nlh__page { transform: translate(-50%, -50%) translate(calc(var(--x) + var(--sx)), calc(var(--y) - 2%)) rotate(calc(var(--r) + var(--sr))); }
+    #shopify-section-{{ sid }} .nlh__stage .nlh__page:hover { transform: translate(-50%, -50%) translate(calc(var(--x) + var(--sx)), calc(var(--y) - 7%)) rotate(calc(var(--r) + var(--sr))); }
+  }
+  {%- comment -%} The motion: only once the script has said it will run it (nlh--go), so nothing is hidden without it. {%- endcomment -%}
+  #shopify-section-{{ sid }} .nlh--go .nlh__line > span { transform: translateY(105%); }
+  #shopify-section-{{ sid }} .nlh--go .nlh__rule { transform: scaleX(0); }
+  #shopify-section-{{ sid }} .nlh--go .nlh__text, #shopify-section-{{ sid }} .nlh--go .nlh__actions { opacity: 0; transform: translateY(14px); }
+  #shopify-section-{{ sid }} .nlh--go .nlh__page { opacity: 0; transform: translate(-50%, -50%) translate(calc(var(--x) + 40%), calc(var(--y) + 30%)) rotate(calc(var(--r) + 14deg)); }
+  #shopify-section-{{ sid }} .nlh--in .nlh__line > span { transform: none; transition: transform .9s cubic-bezier(.2, .75, .15, 1); }
+  #shopify-section-{{ sid }} .nlh--in .nlh__rule { transform: none; transition: transform .8s cubic-bezier(.6, 0, .2, 1) .45s; }
+  #shopify-section-{{ sid }} .nlh--in .nlh__text, #shopify-section-{{ sid }} .nlh--in .nlh__actions { opacity: 1; transform: none; transition: opacity .7s ease .55s, transform .7s cubic-bezier(.2, .75, .15, 1) .55s; }
+  #shopify-section-{{ sid }} .nlh--in .nlh__actions { transition-delay: .68s; }
+  #shopify-section-{{ sid }} .nlh--in .nlh__page { opacity: 1; transform: translate(-50%, -50%) translate(var(--x), var(--y)) rotate(var(--r)); transition: opacity .5s ease calc(.35s + var(--i) * .09s), transform 1s cubic-bezier(.2, .8, .2, 1) calc(.35s + var(--i) * .09s); }
+  #shopify-section-{{ sid }} .nlh--settled .nlh__page { transition: transform .55s cubic-bezier(.2, .8, .2, 1); }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} .nlh__page { transition: none; }
+  }
+</style>
+<div class="nlh color-{{ color_scheme }} gradient{% if s.ruled %} nlh--ruled{% endif %}" data-nlh>
+  <div class="{{ s.section_width | default: 'container' }}">
+    <div class="nlh__grid">
+      <div class="nlh__copy">
+        {%- if s.heading != blank -%}
+          <h1 class="nlh__heading h1">
+            {%- for line in lines -%}
+              {%- assign l = line | strip -%}
+              {%- if l != blank -%}<span class="nlh__line"><span style="transition-delay: {{ forloop.index0 | times: 0.12 }}s">{{ l | escape }}</span></span>{%- endif -%}
+            {%- endfor -%}
+          </h1>
+        {%- endif -%}
+        {%- if s.show_rule -%}<span class="nlh__rule" aria-hidden="true"></span>{%- endif -%}
+        {%- if s.text != blank -%}<div class="nlh__text rte">{{ s.text }}</div>{%- endif -%}
+        {%- if s.button_label != blank or s.link_label != blank -%}
+          <div class="nlh__actions">
+            {%- if s.button_label != blank -%}<a class="button inline-block btn-primary" data-theme-button="primary" href="{{ s.button_link | default: routes.all_products_collection_url }}">{{ s.button_label | escape }}</a>{%- endif -%}
+            {%- if s.link_label != blank -%}<a class="nlh__link" href="{{ s.link_url | default: '#' }}">{{ s.link_label | escape }}</a>{%- endif -%}
+          </div>
+        {%- endif -%}
+      </div>
+      <div class="nlh__stage">
+        {%- if pages.size > 0 -%}
+          <ul class="nlh__fan" role="list">
+            {%- for block in pages -%}
+              {%- liquid
+                assign b = block.settings
+                assign link = b.link
+                assign alt = b.title
+                if b.product != blank
+                  assign want = b.product | handleize
+                  assign p = all_products[want]
+                  if p != blank and p.url != blank
+                    assign link = p.url
+                    if alt == blank
+                      assign alt = p.title
+                    endif
+                  endif
+                endif
+              -%}
+              <li class="nlh__page" style="--i: {{ forloop.index0 }}" {{ block.shopify_attributes }}>
+                {%- if link != blank -%}<a href="{{ link }}" aria-label="{{ alt | escape }}">{%- else -%}<div>{%- endif -%}
+                  {%- if b.image != blank -%}{{ b.image | image_url: width: 900 | image_tag: loading: 'eager', widths: '450, 700, 900', sizes: '(min-width: 990px) 26vw, 60vw', alt: alt }}{%- endif -%}
+                {%- if link != blank -%}</a>{%- else -%}</div>{%- endif -%}
+              </li>
+            {%- endfor -%}
+          </ul>
+        {%- endif -%}
+      </div>
+    </div>
+  </div>
+</div>
+{%- if animate -%}
+<script>
+  (function () {
+    var root = document.querySelector('#shopify-section-{{ sid }} [data-nlh]');
+    if (!root || root.dataset.nlhInit) return;
+    root.dataset.nlhInit = '1';
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    root.classList.add('nlh--go');
+    function go() {
+      requestAnimationFrame(function () { requestAnimationFrame(function () { root.classList.add('nlh--in'); }); });
+      setTimeout(function () { root.classList.add('nlh--settled'); }, 2000);
+    }
+    {%- comment -%} After the opening board, when there is one, so the words rise as it lifts. {%- endcomment -%}
+    if (document.documentElement.classList.contains('nl-intro-on')) document.addEventListener('nl:intro-done', go, { once: true });
+    else go();
+  })();
+</script>
+{%- endif -%}
+{% schema %}
+{
+  "name": "Hero with fanned pages",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    { "type": "header", "content": "Content" },
+    { "type": "textarea", "id": "heading", "label": "Heading", "default": "Notion templates\nfor a calmer week.", "info": "Each line rises in on its own." },
+    { "type": "checkbox", "id": "show_rule", "label": "Show a short rule under the heading", "default": true },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Planners and study systems you duplicate into your own Notion, each with example pages to show how it works.</p>" },
+    { "type": "text", "id": "button_label", "label": "Button label", "default": "See the templates" },
+    { "type": "url", "id": "button_link", "label": "Button link" },
+    { "type": "text", "id": "link_label", "label": "Text link", "default": "or watch them in action" },
+    { "type": "text", "id": "link_url", "label": "Text link address", "default": "#in-action", "info": "A page address, or # and the id of a section on this page." },
+    { "type": "header", "content": "Look" },
+    { "type": "color", "id": "accent", "label": "Rule colour", "info": "Left empty, the scheme's button colour." },
+    { "type": "checkbox", "id": "ruled", "label": "Ruled paper lines", "default": true },
+    { "type": "range", "id": "line_gap", "label": "Space between lines", "min": 20, "max": 64, "step": 2, "unit": "px", "default": 32 },
+    { "type": "range", "id": "rule_width", "label": "Rule width", "min": 60, "max": 400, "step": 10, "unit": "px", "default": 220 },
+    { "type": "range", "id": "page_radius", "label": "Page corners", "min": 0, "max": 24, "step": 1, "unit": "px", "default": 10 },
+    { "type": "checkbox", "id": "animate", "label": "Animate the heading and pages", "default": true },
+    { "type": "range", "id": "heading_size", "label": "Heading size", "min": 36, "max": 110, "step": 2, "unit": "px", "default": 64 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on phones", "min": 28, "max": 60, "step": 2, "unit": "px", "default": 40 },
+    { "type": "range", "id": "stage_height", "label": "Pages area height", "min": 300, "max": 700, "step": 10, "unit": "px", "default": 440 },
+    { "type": "range", "id": "stage_height_mobile", "label": "Pages area height on phones", "min": 180, "max": 420, "step": 10, "unit": "px", "default": 250 },
+    { "type": "header", "content": "General" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default" },
+    { "type": "select", "id": "section_width", "label": "Section width", "default": "container", "options": [{ "value": "container", "label": "Default" }, { "value": "fluid_container", "label": "Fluid container" }, { "value": "stretch_width", "label": "Stretched" }] },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Top padding on phones", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 40 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Bottom padding on phones", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 32 }
+  ],
+  "blocks": [
+    {
+      "type": "page",
+      "name": "Template page",
+      "limit": 7,
+      "settings": [
+        { "type": "image_picker", "id": "image", "label": "Picture", "info": "A screenshot of the template, 3:2." },
+        { "type": "text", "id": "title", "label": "Name", "info": "Read by screen readers." },
+        { "type": "text", "id": "product", "label": "Product", "info": "The product's handle or exact name. The page links to it when it is in your store." },
+        { "type": "url", "id": "link", "label": "Link", "info": "Used when no product is set." }
+      ]
+    }
+  ],
+  "presets": [
+    { "name": "Hero with fanned pages", "blocks": [{ "type": "page" }, { "type": "page" }, { "type": "page" }, { "type": "page" }, { "type": "page" }] }
+  ]
+}
+{% endschema %}

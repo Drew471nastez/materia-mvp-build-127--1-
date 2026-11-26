@@ -95,7 +95,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "Editions",
-            "content": "<p>Self paced is the whole course. With feedback adds six video replies where Tom looks at photos of your joints and says what to change. Two seats gives two logins on one bill, for partners or a parent and child.</p>",
+            "content": "<p>Self paced is the whole course. With feedback adds six video replies where Clara looks at your designs and says what to change. Two seats gives two logins on one bill, for a partner or someone on your team.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -158,7 +158,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "Questions",
-            "content": "<p>You need eleven hand tools, listed with prices, and a sturdy table. No machines. Left handed notes are on every drawing.</p>",
+            "content": "<p>You need a laptop or tablet and a free Canva account. Pro features are shown, never required.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -173,7 +173,7 @@
           "type": "whats_included",
           "settings": {
             "heading": "In the course",
-            "items": "56 video lessons in 8 modules\n5 projects, from a cutting board to a side table\nPrintable drawings and cut lists\nThe tool list, with prices",
+            "items": "56 video lessons in 8 modules\n5 projects, from a brand kit to a price guide\n40 templates to copy into Canva\nThe brand kit workbook",
             "two_columns": false,
             "boxed": true,
             "spacing_top": 8,
@@ -183,7 +183,7 @@
         "quote_card_1": {
           "type": "quote_card",
           "settings": {
-            "quote": "<p>Sample quote. The offcut drills are the trick. Ten cuts on scrap and the real one goes straight.</p>",
+            "quote": "<p>Sample quote. The before and after exercises are the trick. Fix one thing, compare, and the next post is already better.</p>",
             "author": "Sample name",
             "detail": "Complete beginner",
             "avatar": "shopify://shop_images/course2-student-2.webp",
@@ -282,8 +282,8 @@
       "settings": {
         "tag": "Curriculum",
         "heading": "Eight modules,",
-        "heading_accent": "from a straight cut to a side table",
-        "text": "<p>Each module is a handful of short lessons and ends with something you build. Do them in order; every joint uses what the last one taught.</p>",
+        "heading_accent": "from a brand kit to a month of posts",
+        "text": "<p>Each module is a handful of short lessons and ends with something you make. Do them in order; every project uses what the last one taught.</p>",
         "totals": "8 modules, 56 lessons, about 7 hours",
         "first_open": true,
         "anchor": "lessons",
@@ -298,65 +298,65 @@
         "module_1": {
           "type": "module",
           "settings": {
-            "title": "Your bench and your tools",
+            "title": "Your brand kit",
             "meta": "6 lessons, 40 min",
-            "lessons": "A bench you can build or borrow\nThe eleven tools you need\nBuying second hand\nSetting up a block plane\nClamps, and how many\nWorking safely without fuss"
+            "lessons": "Free or Pro, and what you really need\nTwo fonts and no more\nA colour palette from one photo\nThe logo files you need\nSetting up the brand kit\nFolders that stay tidy"
           }
         },
         "module_2": {
           "type": "module",
           "settings": {
-            "title": "Measuring and marking",
+            "title": "Layout basics",
             "meta": "7 lessons, 48 min",
-            "lessons": "Rules, tapes and squares\nChecking a square is square\nThe knife line\nThe marking gauge\nFace side and face edge\nWriting a cut list\nProject: a cutting board"
+            "lessons": "Margins and grids\nLining things up\nOne thing first: hierarchy\nWhite space is not empty\nThe order people read in\nFixing a crowded design\nProject: an event poster"
           }
         },
         "module_3": {
           "type": "module",
           "settings": {
-            "title": "Sawing straight",
+            "title": "Type that reads",
             "meta": "8 lessons, 56 min",
-            "lessons": "Holding the saw\nStarting a cut\nCrosscuts\nRip cuts\nSawing to the line, not near it\nFixing a cut that wanders\nSawing a tenon cheek\nPractice on offcuts"
+            "lessons": "Pairing a heading and body font\nSizes that read on a phone\nLine length and spacing\nText on top of photos\nQuotes and big numbers\nCapitals, bold and italics\nWhen to use less text\nPractice: three headline layouts"
           }
         },
         "module_4": {
           "type": "module",
           "settings": {
-            "title": "Sharpening and planing",
+            "title": "Colour and photos",
             "meta": "8 lessons, 62 min",
-            "lessons": "Sharpening a chisel on stones\nSharpening a plane iron\nPlaning a face flat\nPlaning an edge square\nEnd grain without tear out\nReading the grain\nThicknessing by hand\nPractice on offcuts"
+            "lessons": "Using your palette on every post\nContrast you can read\nChoosing photos that fit\nCropping and framing\nRemoving a background\nShooting your own product photos\nA consistent filter\nPractice on real photos"
           }
         },
         "module_5": {
           "type": "module",
           "settings": {
-            "title": "Chisels and simple joints",
+            "title": "Posts and carousels",
             "meta": "7 lessons, 54 min",
-            "lessons": "Paring to a line\nChopping across the grain\nThe housing joint\nThe half lap\nThe rebate\nFixing a gappy joint\nProject: a wall shelf"
+            "lessons": "The sizes for each platform\nA first slide people stop for\nCarousels people swipe to the end\nTemplates you reuse every week\nBatching a month of posts\nScheduling and file names\nProject: a ten slide carousel"
           }
         },
         "module_6": {
           "type": "module",
           "settings": {
-            "title": "Mortise and tenon",
+            "title": "Stories and thumbnails",
             "meta": "8 lessons, 64 min",
-            "lessons": "Laying out the joint\nChopping a mortise\nSawing the tenon\nFitting it snug\nDrawboring with a peg\nA square glue up\nProject: a step stool, part one\nProject: a step stool, part two"
+            "lessons": "Story layouts\nThumbnails that read small\nCovers that match your grid\nFaces, arrows and big words\nSimple animation\nExporting video without blur\nProject: a thumbnail set, part one\nProject: a thumbnail set, part two"
           }
         },
         "module_7": {
           "type": "module",
           "settings": {
-            "title": "Dovetails",
+            "title": "Print and documents",
             "meta": "6 lessons, 44 min",
-            "lessons": "Through dovetails, tails first\nSawing the tails\nMarking and cutting pins\nGlue, clamps and a dry fit\nScraping, sanding and oil\nProject: a dovetailed box"
+            "lessons": "Flyers and menus\nBusiness cards\nBleed, margins and print settings\nOrdering from a printer\nPrice lists and PDFs\nProject: a two page price guide"
           }
         },
         "module_8": {
           "type": "module",
           "settings": {
-            "title": "Your first side table",
+            "title": "Slides and downloads",
             "meta": "6 lessons, 58 min",
-            "lessons": "Drawing the table\nThe cut list and the timber\nLegs and aprons\nGluing up the top\nAssembly in one evening\nThe finish, and what to build next"
+            "lessons": "A slide deck template\nChecklists and workbooks\nAn ebook layout\nExporting clean PDFs\nSharing files with clients\nWhat to design next"
           }
         }
       },
@@ -420,7 +420,7 @@
           "type": "heading",
           "settings": {
             "enabled": true,
-            "text": "What students build in the first month"
+            "text": "What students make in the first month"
           }
         },
         "subheading_1": {
@@ -433,17 +433,17 @@
         "testimonial_1": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I bought a saw at forty and it sat in a drawer for a year. Two months in, the shelf is on the kitchen wall.</p>",
+            "quote": "<p>I had a Canva account for two years and used the same three templates. Now my posts look like one brand.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Started at 40",
+            "role": "Runs a bakery",
             "avatar": "shopify://shop_images/course2-student-1.webp"
           }
         },
         "testimonial_2": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The offcut drills are the trick. Ten cuts on scrap and the real one goes straight.</p>",
+            "quote": "<p>The before and after exercises are the trick. Fix one thing, compare, and the next post is already better.</p>",
             "rating": 5,
             "name": "Sample name",
             "role": "Complete beginner",
@@ -453,17 +453,17 @@
         "testimonial_3": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>My first mortise was a mess. The fix in module six worked and the stool does not wobble.</p>",
+            "quote": "<p>My thumbnails were unreadable on a phone. Module six fixed that in one evening.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Self taught, came back",
+            "role": "YouTube channel",
             "avatar": "shopify://shop_images/course2-student-3.webp"
           }
         },
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>One evening a week in the spare room. The projects tell me what to do next, so I just do it.</p>",
+            "quote": "<p>Two hours on a Sunday. The projects tell me what to do next, so I just do it.</p>",
             "rating": 5,
             "name": "Sample name",
             "role": "Three months in",
@@ -473,7 +473,7 @@
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The feedback was worth it. Tom spotted why my saw drifts from one photo.</p>",
+            "quote": "<p>The feedback was worth it. Clara spotted why my carousel felt crowded in one look.</p>",
             "rating": 5,
             "name": "Sample name",
             "role": "With feedback",
@@ -483,7 +483,7 @@
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The side table is in the living room. Nobody believes I made it.</p>",
+            "quote": "<p>The price guide is on the counter and in every email. Customers ask who designed it.</p>",
             "rating": 5,
             "name": "Sample name",
             "role": "Finished the course",
@@ -554,43 +554,43 @@
         "faq_item_1": {
           "type": "faq_item",
           "settings": {
-            "question": "Do I need a workshop?",
-            "answer": "<p>No. A sturdy table in a spare room or a shed is enough for every project. Hand tools are quiet, so flats work too.</p>"
+            "question": "Do I need Canva Pro?",
+            "answer": "<p>No. Every project works on the free plan. Where a Pro feature saves time, the lesson shows it and a free way to do the same thing.</p>"
           }
         },
         "faq_item_2": {
           "type": "faq_item",
           "settings": {
-            "question": "Which tools do I need?",
-            "answer": "<p>Eleven hand tools, listed with prices in the first lesson. Second hand is fine for most of them, and we show you what to look for.</p>"
+            "question": "I have never designed anything. Is that a problem?",
+            "answer": "<p>No. The course starts with the brand kit and the basics of layout, and most students have never opened a design app before.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "How long until I build something?",
-            "answer": "<p>The cutting board is the end of module two. With one evening a week, most people get there in the second or third week.</p>"
+            "question": "How long until I make something?",
+            "answer": "<p>The brand kit is the end of module one. With two hours a week, most people have it in the first week and a poster in the second.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "I am left handed. Will it work?",
-            "answer": "<p>Yes. The lessons show which hand does what, and the drawings note where a left hander works from the other side.</p>"
+            "question": "Can I follow along on a tablet?",
+            "answer": "<p>Yes. The lessons are recorded on a laptop, and a short lesson shows where things are in the tablet and phone apps.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "What wood should I buy?",
-            "answer": "<p>Planed pine or poplar from any timber yard for the first projects, and oak or ash for the table. Every project has a cut list.</p>"
+            "question": "Can I use the templates for clients?",
+            "answer": "<p>Yes, for your own business and for client work. You cannot resell the templates themselves as templates.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
             "question": "How long do I have access?",
-            "answer": "<p>For good. You also get the new workshop notes added each month.</p>"
+            "answer": "<p>For good. You also get the new templates and notes added each month.</p>"
           }
         }
       },
@@ -668,7 +668,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Work through the first two modules. If woodwork is not for you, write one line and get every cent back.</p>"
+            "text": "<p>Work through the first two modules. If the course is not for you, write one line and get every cent back.</p>"
           }
         },
         "point_1": {
@@ -686,7 +686,7 @@
         "point_3": {
           "type": "point",
           "settings": {
-            "text": "Keep the drawings"
+            "text": "Keep the templates"
           }
         }
       },

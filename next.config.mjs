@@ -525,6 +525,19 @@ const nextConfig = {
         source: '/theme-previews/:dir/a/:file*',
         headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
       },
+      /*
+        ROUND 28: ON www.storelib.com THE WEBSITE HAS AN ORIGIN OF ITS OWN. A frame with no origin keeps no file between
+        two pages (Chromium measured: 96 of 104 files asked for again on the second page), so on storelib.com the
+        marketplace and the theme's page frame the website from www (lib/themes/marketplace-shared.ts,
+        templatePreviewFrame) with allow-same-origin: www's origin, never storelib.com's, and www serves nothing but
+        these files (the proxy sends every page there to storelib.com). Framed by storelib.com and www only. This
+        rule comes after the one above, so on www its policy is the one sent (Next: the last header of a key wins).
+      */
+      {
+        source: '/theme-previews/:path*',
+        has: [{ type: 'host', value: 'www\\.storelib\\.com' }],
+        headers: [{ key: 'Content-Security-Policy', value: "sandbox allow-scripts allow-same-origin; frame-ancestors https://storelib.com https://www.storelib.com" }],
+      },
       {
         /**
          * Product pages, the /p/<slug> address. NOT PUBLICLY CACHEABLE, for the

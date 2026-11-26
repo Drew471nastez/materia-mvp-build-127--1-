@@ -1,14 +1,19 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/sample-packs/a/cart.28888399849d.json",WISH_DATA="",QV_DATA="/theme-previews/sample-packs/a/quickview.932aed74dffd.json",RV_DATA="/theme-previews/sample-packs/a/recent.81cf874d8336.json";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/sample-packs/a/cart.5b0a9e27b710.json",WISH_DATA="",QV_DATA="/theme-previews/sample-packs/a/quickview.cad8a15bd05a.json",RV_DATA="/theme-previews/sample-packs/a/recent.16c351874ffe.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
 var ph=D.createElement("style");ph.textContent="@media (max-width: 767.98px){html{scrollbar-width:none}html::-webkit-scrollbar{display:none}}";(D.head||D.documentElement).appendChild(ph);
-function mem(){var m={};return{getItem:function(k){return Object.prototype.hasOwnProperty.call(m,k)?m[k]:null},setItem:function(k,v){m[k]=String(v)},removeItem:function(k){delete m[k]},clear:function(){m={}},key:function(i){return Object.keys(m)[i]||null},get length(){return Object.keys(m).length}}}
-["localStorage","sessionStorage"].forEach(function(n){try{W[n].getItem("x")}catch(e){try{Object.defineProperty(W,n,{value:mem(),configurable:true})}catch(_){}}});
-try{D.cookie}catch(e){var jar="";try{Object.defineProperty(D,"cookie",{get:function(){return jar},set:function(v){var kv=String(v).split(";")[0];jar=jar?jar+"; "+kv:kv},configurable:true})}catch(_){}}
+/* Round 28: the frame is sandboxed without storage, so its storage is kept in the frame's window.name (beside the cart's, preview-cart.ts) and lasts from page to page as a browser's would: a heart pressed on one page is still saved on the next, the header count and the Wishlist page show it. */
+function wn(){try{var n=JSON.parse(W.name||"null");return n&&typeof n==="object"&&n.slpv?n:null}catch(e){return null}}
+function mem(scope){var n0=wn(),m=n0&&n0.slls&&n0.slls[scope]&&typeof n0.slls[scope]==="object"?n0.slls[scope]:{};function save(){try{if(W.name&&!wn())return;var n=wn()||{slpv:{}};n.slls=n.slls||{};n.slls[scope]=m;var s=JSON.stringify(n);if(s.length<400000)W.name=s}catch(e){}}
+return{getItem:function(k){return Object.prototype.hasOwnProperty.call(m,k)?m[k]:null},setItem:function(k,v){m[k]=String(v);save()},removeItem:function(k){delete m[k];save()},clear:function(){m={};save()},key:function(i){return Object.keys(m)[i]||null},get length(){return Object.keys(m).length}}}
+/* Round 28 (framing): kept this way always. On storelib.com the frame has www's origin (templatePreviewFrame in lib/themes/marketplace-shared.ts), where storage and cookies would be real ones: the preview keeps to its own, and writes nothing for any Storelib host. */
+["localStorage","sessionStorage"].forEach(function(n){try{Object.defineProperty(W,n,{value:mem(n),configurable:true})}catch(_){}});
+var jar="";try{Object.defineProperty(D,"cookie",{get:function(){return jar},set:function(v){var kv=String(v).split(";")[0];jar=jar?jar+"; "+kv:kv},configurable:true})}catch(_){}
+try{Object.defineProperty(W,"cookieStore",{value:undefined,configurable:true})}catch(_){}
 var ROOT="/theme-previews/";
 function mine(u){try{var x=new URL(u,location.href);return x.host===location.host&&x.pathname.indexOf(ROOT)===0}catch(e){return false}}
 function path(u){try{return new URL(u,location.href).pathname}catch(e){return""}}
@@ -156,6 +161,25 @@ if(wait)return setTimeout(look,50);
 Promise.all(seen.slice(0,24).map(function(g){return g.decode?g.decode().catch(function(){}):0})).then(fin,fin)}
 look();setTimeout(fin,1500)}
 D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn)});
+var PAGES=["/","/collections","/collections/all","/cart","/search","/blogs/news","/pages/about","/pages/contact","/pages/faqs","/account/login","/account/register","/products/serum-presets-vol-1","/products/tech-house-sample-pack-master-bundle-2025","/products/tech-house-drum-kit-vol-i","/products/free-ambience-sample-pack-vol-i","/products/deep-house-production-suite-serenade","/products/tech-house-sample-pack-unitech","/products/tech-house-drums-collection-vol-i","/products/tech-house-bass-collection-vol-i","/collections/gifts","/collections/new-in","/collections/best-sellers","/blogs/news/layering-a-tech-house-kick","/blogs/news/sidechain-that-breathes-for-deep-house","/blogs/news/a-vocal-chop-hook-from-one-phrase","/policies/refund-policy","/policies/privacy-policy","/policies/terms-of-service","/pages/free","/pages/licence"];
+function siteOf(){return ROOT+SLUG+"/"}
+function pageFor(x){var p=x.pathname.replace(/\/+$/,"")||"/";if(p.indexOf(ROOT)===0)return p.indexOf(siteOf())===0?x.pathname+x.search+x.hash:null;p=p.replace(/^\/collections\/[^/]+(?=\/products\/)/,"");if(PAGES.indexOf(p)<0)return null;return siteOf()+(p==="/"?"index":p.slice(1))+".html"+x.search+x.hash}
+function goTo(how,u,from){var x;try{x=new URL(String(u),location.href)}catch(e){return}
+if(/^(javascript|mailto|tel|sms):$/i.test(x.protocol))return;
+var to=x.host===location.host?pageFor(x):null;
+if(!to){showNote(from||null);return}
+if(x.pathname.replace(/\/+$/,"")==="/cart"||/\/cart[.]html$/.test(x.pathname))to=carry(to);
+var y=new URL(to,location.href);if(y.pathname===location.pathname&&y.search===location.search){if(y.hash!==location.hash)location.hash=y.hash;return}
+if(HAND&&how!=="replace"&&handoff(y.pathname+y.search+y.hash))return;
+how==="replace"?location.replace(y.href):location.assign(y.href)}
+W.__slGo=function(how,u){goTo(how,u)};
+W.__slLoc={get href(){return location.href},set href(u){goTo("assign",u)},toString:function(){return location.href}};
+/* A link a script made after the page was written: pressed, it opens the website's own page or stays. */
+D.addEventListener("click",function(e){if(e.defaultPrevented||e.button!==0)return;var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(!a||a.hasAttribute("download")||a.hasAttribute("data-preview-inert"))return;var h=(a.getAttribute("href")||"").trim();if(!h||h.charAt(0)==="#"||/^(javascript|mailto|tel|sms|data):/i.test(h))return;var x;try{x=new URL(a.href)}catch(_){return}if(x.host===location.host&&x.pathname.indexOf(siteOf())===0)return;e.preventDefault();goTo("assign",a.href,a)},true);
+var IT=0,ITH="";function intent(a){if(!a||a.hasAttribute("download"))return;var to=nextPage(a.href);if(!to||to===ITH)return;ITH=to;try{parent.postMessage({type:"storelib:template-preview-intent",href:to},"*")}catch(e){}}
+D.addEventListener("pointerover",function(e){if(!HAND||e.pointerType==="touch")return;var a=e.target&&e.target.closest&&e.target.closest("a[href]");clearTimeout(IT);if(a)IT=setTimeout(function(){intent(a)},80)},{passive:true});
+D.addEventListener("touchstart",function(e){if(!HAND)return;intent(e.target&&e.target.closest&&e.target.closest("a[href]"))},{passive:true});
+
 })();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#0b0b0e}</style><script>
       (function () {
         function show(img) {
@@ -209,12 +233,12 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
         try {
           var l = document.createElement('link');
           l.rel = 'modulepreload';
-          l.href = new URL('/theme-previews/_base/a/cart-components.b6711c3796ec.js', new URL("/theme-previews/_base/a/theme.bbc3b899a286.js", location.href)).href;
+          l.href = new URL('/theme-previews/_base/a/cart-components.b6711c3796ec.js', new URL("/theme-previews/_base/a/theme.b49152a98599.js", location.href)).href;
           l.fetchPriority = 'low';
           document.head.appendChild(l);
         } catch (e) {}
       })();
-    </script><link href="/theme-previews/_base/a/base.8713243a6371.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":true,"card_atc_button":"primary","product_size":16,"price_size":15,"product_name_text_transform":"unset","card_atc_bg":"#7c3aed","card_atc_color":"#ffffff","card_atc_hover_bg":"#8b5cf6","card_atc_hover_color":"#ffffff","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
+    </script><link href="/theme-previews/_base/a/base.5b81ebfd1830.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":true,"card_atc_button":"primary","product_size":16,"price_size":15,"product_name_text_transform":"unset","card_atc_bg":"#7c3aed","card_atc_color":"#ffffff","card_atc_hover_bg":"#8b5cf6","card_atc_hover_color":"#ffffff","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = true === true ? 'true' : 'false';</script>
 <script type="application/json" data-badge-style-settings>false</script>
@@ -222,7 +246,7 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
 <script>(function(u){var done=false;function go(){if(done)return;done=true;for(var i=0;u.length>i;i++){if(document.querySelector('link[href="'+u[i]+'"]'))continue;var l=document.createElement('link');l.rel='stylesheet';l.href=u[i];document.head.appendChild(l)}}
     window.MateriaLateCss={now:go};if(document.readyState==='complete')setTimeout(go,0);else{addEventListener('load',function(){setTimeout(go,0)},{once:true});
     document.addEventListener('DOMContentLoaded',function(){setTimeout(go,4000)},{once:true})}
-    ['pointerdown','click','keydown','scroll','touchstart'].forEach(function(n){addEventListener(n,go,{once:true,passive:true,capture:true})})})(["/theme-previews/_base/a/popup.18cdf2513c31.css","/theme-previews/_base/a/tingle-min.ed947d9dd1c7.css"]);</script><link rel="stylesheet" href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" media="print" onload="this.media='all'">
+    ['pointerdown','click','keydown','scroll','touchstart'].forEach(function(n){addEventListener(n,go,{once:true,passive:true,capture:true})})})(["/theme-previews/_base/a/popup.537a49cfcb3e.css","/theme-previews/_base/a/tingle-min.ed947d9dd1c7.css"]);</script><link rel="stylesheet" href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" media="print" onload="this.media='all'">
 <noscript><link href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" rel="stylesheet" type="text/css" media="all"></noscript>
 <link rel="stylesheet" href="/theme-previews/_base/a/fonts.730be631a808.css" data-materia-fonts>
 <style data-materia-font-fallbacks>@font-face{font-family:"Barlow Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:96%;ascent-override:104.2%;descent-override:20.8%;line-gap-override:0%}@font-face{font-family:"Barlow Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:96%;ascent-override:104.2%;descent-override:20.8%;line-gap-override:0%}</style><style data-shopify>
@@ -236,20 +260,20 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
     --font-heading-family: var(--heading-font);
   }
 </style>
-<link rel="stylesheet" href="/theme-previews/sample-packs/a/i.fc6851207808.css" data-shopify><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
+<link rel="stylesheet" href="/theme-previews/sample-packs/a/i.fc6851207808.css" data-shopify><noscript><link href="/theme-previews/_base/a/popup.537a49cfcb3e.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.e2eadba68934.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/minicart.679b4fb18845.css" fetchpriority="low">
 <link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.6a68b7e13653.css" fetchpriority="low">
-<link rel="stylesheet" href="/theme-previews/sample-packs/a/i.28cfcd9bf59c.css"><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.82e20d1f8890.css"><link rel="modulepreload" href="/theme-previews/_base/a/theme.bbc3b899a286.js" fetchpriority="low"><link rel="preload" as="style" href="/theme-previews/_base/a/main-product.5f4af5a4145f.css">
-<link rel="preload" as="style" href="/theme-previews/_base/a/product-page-ui.e161626e99d1.css"><script data-storelib-head src="/theme-previews/sample-packs/a/i.24fee116adb1.js"></script>
+<link rel="stylesheet" href="/theme-previews/sample-packs/a/i.28cfcd9bf59c.css"><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.82e20d1f8890.css"><link rel="modulepreload" href="/theme-previews/_base/a/theme.b49152a98599.js" fetchpriority="low"><link rel="preload" as="style" href="/theme-previews/_base/a/main-product.52153be4f17d.css">
+<link rel="preload" as="style" href="/theme-previews/_base/a/product-page-ui.e161626e99d1.css"><script data-storelib-head src="/theme-previews/sample-packs/a/i.5a65bd1957a0.js"></script>
 <script src="/theme-previews/_base/a/swiper-bundle-min.31d164f7367d.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/motion-min.d1f8eb312b47.js" type="module" defer="defer" fetchpriority="low"></script>
-<script src="/theme-previews/_base/a/utils.26985d2d39f0.js" defer="defer" data-cart-count="0"></script>
-<script src="/theme-previews/_base/a/global.6451f87adf35.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/utils.3e8a73beb3e9.js" defer="defer" data-cart-count="0"></script>
+<script src="/theme-previews/_base/a/global.d6dc0d64340b.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-drawer-safety.b8d627a0381e.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/section-links.83dcb60cec8e.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/product-counters.9ef274d65c34.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/product-block-runtime.6868605d527a.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/product-dialogs.f42edf25d068.js" defer="defer"></script><script src="/theme-previews/_base/a/hero-image-one.9accbabb78ac.js" defer="defer"></script><script src="/theme-previews/sample-packs/a/i.c19642bd6029.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" rel="stylesheet" type="text/css" media="all"></noscript>
+<script src="/theme-previews/_base/a/product-dialogs.f42edf25d068.js" defer="defer"></script><script src="/theme-previews/_base/a/hero-image-one.9accbabb78ac.js" defer="defer"></script><script src="/theme-previews/sample-packs/a/i.d8f808a259c8.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" rel="stylesheet" type="text/css" media="all"></noscript>
 <script src="/theme-previews/_base/a/drift.eaae124afa1e.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/photoswipe-init.7fe034915110.js" type="module"></script>
 <script src="/theme-previews/sample-packs/a/i.69f67d6283fa.js"></script><script>(function(){try{var d=document.createElement('div');d.style.cssText='position:absolute;top:-99px;width:60px;height:60px;overflow:scroll;visibility:hidden';document.documentElement.appendChild(d);if(d.offsetWidth-d.clientWidth>0)document.documentElement.classList.add('sl-sb-room');d.remove()}catch(e){}})();</script><style>
@@ -269,7 +293,7 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
         body > #shopify-section-footer-group,
         body > #shopify-section-sections--footer-group,
         body > .shopify-section-group-footer-group { flex: 0 0 auto; }
-      </style><style data-sl-focus>[tabindex="-1"]:focus,dialog:focus,[role="dialog"]:focus,[aria-modal="true"]:focus,details-modal:focus,modal-dialog:focus{outline:none!important}</style><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.baba7fb2aa0e.css" data-sl-busy-buttons><style data-sl-missing-image>img[data-sl-missing]{background-color:#f3f4f6!important;background-image:none!important;object-fit:contain!important;object-position:50% 50%!important;color:transparent!important}html[data-sl-dark] img[data-sl-missing],[data-community-theme="dark"] img[data-sl-missing]{background-color:#26282c!important}</style><script data-sl-missing-image src="/theme-previews/sample-packs/a/i.d77d88883af7.js"></script><script data-sl-cover-trim src="/theme-previews/sample-packs/a/i.fc4335148114.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/fonts.bd14396acf32.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/_base/a/fonts.fb2ab27c2a4b.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.17f73b1756bd.css" data-storelib-bundle><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.0016b90be953.css" data-storelib-overrides><link rel="icon" href="data:,"></head>
+      </style><style data-sl-focus>[tabindex="-1"]:focus,dialog:focus,[role="dialog"]:focus,[aria-modal="true"]:focus,details-modal:focus,modal-dialog:focus{outline:none!important}</style><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.7102a93928a0.css" data-sl-busy-buttons><style data-sl-missing-image>img[data-sl-missing]{background-color:#f3f4f6!important;background-image:none!important;object-fit:contain!important;object-position:50% 50%!important;color:transparent!important}html[data-sl-dark] img[data-sl-missing],[data-community-theme="dark"] img[data-sl-missing]{background-color:#26282c!important}</style><script data-sl-missing-image src="/theme-previews/sample-packs/a/i.d77d88883af7.js"></script><script data-sl-cover-trim src="/theme-previews/sample-packs/a/i.fc19b2383f33.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/fonts.bd14396acf32.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/_base/a/fonts.fb2ab27c2a4b.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.17f73b1756bd.css" data-storelib-bundle><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.0016b90be953.css" data-storelib-overrides><link rel="icon" href="data:,"></head>
 <body
 class="gradient rounded-style  product"
 data-btn-style="solid"
@@ -356,7 +380,7 @@ data-transition="slide"
 </div>
 </div>
 </div>
-</div><div id="shopify-section-header" class="shopify-section shopify-section-group-header-group section-header has-popup" data-section-id="header" data-section-type="theme-header"><link href="/theme-previews/_base/a/header-section.d609d0b23c83.css" rel="stylesheet" type="text/css" media="all">
+</div><div id="shopify-section-header" class="shopify-section shopify-section-group-header-group section-header has-popup" data-section-id="header" data-section-type="theme-header"><link href="/theme-previews/_base/a/header-section.0b1f3e2d8175.css" rel="stylesheet" type="text/css" media="all">
 <script src="/theme-previews/_base/a/header-section.529bac1525b9.js" defer="defer"></script><style>
   #shopify-section-header {
     --hs-margin-top: 0px;
@@ -403,7 +427,7 @@ data-sticky-mobile="true" data-reset-spacing
 data-menu-hover="none" data-menu-hover-theme data-theme-hover="none"
 data-header-blocks="pill_glass_1:pill_glass menu_badges_1:menu_badges header_button_1:header_button " data-menu-type='{"on":false,"font":&quot;Bodoni Moda, serif&quot;,"size":15,"weight":&quot;theme&quot;}'
 data-mega-label="button" data-dd-tinted data-logo-m="left" data-hs-flush data-logo-x="0 0"
-style="--section-pt: 0;--section-pb: 0;--transparent-color: #1a1a1a;--menu-hover-color: var(--color-link-hover, currentColor);--dd-duration: 400ms;--dd-ease: cubic-bezier(0.187, 0.775, 0.435, 0.925);--dd-shadow: 0 5px 30px 0 rgba(0, 0, 0, 0.05);--dd-width: 260px;--dd-pad-y: 20px;--dd-pad-x: 30px;--dd-link-space: 3px;--dd-radius: 0px;--mega-gap: 32px;--mega-card-radius: 0px;--hs-act-size: 16px;--hs-act-weight: 400;--hs-act-case: none;--hs-logo-gap-m: 0px;"
+style="--section-pt: 0;--section-pb: 0;--transparent-color: #1a1a1a;--menu-hover-color: var(--color-link-hover, currentColor);--dd-duration: 220ms;--dd-ease: cubic-bezier(0.187, 0.775, 0.435, 0.925);--dd-shadow: 0 5px 30px 0 rgba(0, 0, 0, 0.05);--dd-width: 260px;--dd-pad-y: 20px;--dd-pad-x: 30px;--dd-link-space: 3px;--dd-radius: 0px;--mega-gap: 32px;--mega-card-radius: 0px;--hs-act-size: 16px;--hs-act-weight: 400;--hs-act-case: none;--hs-logo-gap-m: 0px;"
 ><div class="header__inner header__layout-1" id="header-sticky">
 <div class="fluid_container">
 <header-inner class="logo-position grid logo-left gap-10 gap-xl-50 header-middle align-center">
@@ -441,7 +465,7 @@ class="action nav-toggle overlay inline-flex pointer w-44 h-44 hidden-1025 heade
 <path d="M2 8H20C20.2812 8 20.5156 7.90625 20.7031 7.71875C20.9062 7.51562 21.0078 7.27344 21.0078 6.99219C21.0078 6.72656 20.9062 6.5 20.7031 6.3125C20.5156 6.10938 20.2812 6.00781 20 6.00781H2C1.71875 6.00781 1.47656 6.10938 1.27344 6.3125C1.08594 6.5 0.992188 6.72656 0.992188 6.99219C0.992188 7.27344 1.08594 7.51562 1.27344 7.71875C1.47656 7.90625 1.71875 8 2 8ZM2 2H20C20.2812 2 20.5156 1.90625 20.7031 1.71875C20.9062 1.51563 21.0078 1.27344 21.0078 0.992188C21.0078 0.726562 20.9062 0.5 20.7031 0.3125C20.5156 0.109375 20.2812 0.0078125 20 0.0078125H2C1.71875 0.0078125 1.47656 0.109375 1.27344 0.3125C1.08594 0.5 0.992188 0.726562 0.992188 0.992188C0.992188 1.27344 1.08594 1.51563 1.27344 1.71875C1.47656 1.90625 1.71875 2 2 2ZM2 14H20C20.2812 14 20.5156 13.9062 20.7031 13.7188C20.9062 13.5156 21.0078 13.2734 21.0078 12.9922C21.0078 12.7266 20.9062 12.5 20.7031 12.3125C20.5156 12.1094 20.2812 12.0078 20 12.0078H2C1.71875 12.0078 1.47656 12.1094 1.27344 12.3125C1.08594 12.5 0.992188 12.7266 0.992188 12.9922C0.992188 13.2734 1.08594 13.5156 1.27344 13.7188C1.47656 13.9062 1.71875 14 2 14Z" fill="currentColor"/>
 </svg>
 </button>
-<link href="/theme-previews/_base/a/navigation.9c20c549e3cf.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/navigation.e2eadba68934.css" rel="stylesheet" type="text/css" media="all">
 <nav
 class="flex flex-column block-1025 navigation horizontal fixed static-1025 visible-1025 inset-0 down-to-up"
 data-action-mobile="true"
@@ -773,7 +797,7 @@ aria-label="Español"
 <div class="disclosure relative flex align-center">
 <button type="button" aria-expanded="false" aria-controls="localization-country-header-drawer-options" aria-label="United States (USD)" class="button-localization pointer disclosure__button show-overlay flex align-center gap-10 ">
 <span class="flex align-center gap-10">
-<span class="rounded-50 border localization-flags "><img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2024%22%3E%3Ctext%20x%3D%2216%22%20y%3D%2219%22%20font-size%3D%2220%22%20text-anchor%3D%22middle%22%3E%F0%9F%87%BA%F0%9F%87%B8%3C%2Ftext%3E%3C%2Fsvg%3E" alt="United States"></span>
+<span class="rounded-50 border localization-flags "><img src="/flags/US.svg" alt="United States"></span>
 <span>
 United States
 (USD $)
@@ -814,7 +838,7 @@ United States
 <div class="disclosure relative flex align-center">
 <button type="button" aria-expanded="false" aria-controls="localization-country-header-options" aria-label="United States (USD)" class="button-localization pointer disclosure__button show-overlay flex align-center gap-10 ">
 <span class="flex align-center gap-10">
-<span class="rounded-50 border localization-flags "><img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2024%22%3E%3Ctext%20x%3D%2216%22%20y%3D%2219%22%20font-size%3D%2220%22%20text-anchor%3D%22middle%22%3E%F0%9F%87%BA%F0%9F%87%B8%3C%2Ftext%3E%3C%2Fsvg%3E" alt="United States"></span>
+<span class="rounded-50 border localization-flags "><img src="/flags/US.svg" alt="United States"></span>
 <span>
 USD $
 </span>
@@ -948,7 +972,7 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
 </div>
 </div></header><script src="/theme-previews/sample-packs/a/i.b8ec2f2ea707.js"></script>
 <link href="/theme-previews/_base/a/header-sticky.3e10a26b0bdf.css" rel="stylesheet" type="text/css" media="all">
-<script src="/theme-previews/sample-packs/a/i.9790def5bd53.js"></script><script src="/theme-previews/_base/a/header-sticky-extras.78e1fb4f310f.js" defer="defer"></script></div><script>(function(){var l=document.querySelectorAll('.shopify-section-group-header-group');for(var i=0;i < l.length && i < 6;i++)l[i].setAttribute('data-mt-hold',String(i))})();</script><script src="/theme-previews/sample-packs/a/i.0235c8b1fe44.js"></script>
+<script src="/theme-previews/sample-packs/a/i.adb13e5cafa5.js"></script><script src="/theme-previews/_base/a/header-sticky-extras.08c1323ecff8.js" defer="defer"></script></div><script>(function(){var l=document.querySelectorAll('.shopify-section-group-header-group');for(var i=0;i < l.length && i < 6;i++)l[i].setAttribute('data-mt-hold',String(i))})();</script><script src="/theme-previews/sample-packs/a/i.0235c8b1fe44.js"></script>
 <main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1"><div data-size-chart-data data-product="00000000-0000-4000-8000-000000000013" hidden></div><div id="shopify-section-breadcrumb" class="shopify-section s-tt s-breadcrumb" data-section-id="breadcrumb" data-section-type="breadcrumb"><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-breadcrumb :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
@@ -997,7 +1021,7 @@ style="--bc-link: color-mix(in srgb, var(--color-text) 72%, transparent); --bc-c
 <span class="bc__peek-title">Tech House Drum Kit Vol I</span><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
 <span class="visually-hidden">Regular price</span>
 <span class="price price-same-style heading-style">
-€0.00
+Free
 </span>
 </div>
 </div>
@@ -1029,7 +1053,7 @@ style="--bc-link: color-mix(in srgb, var(--color-text) 72%, transparent); --bc-c
   }
 </style>
 <link rel="stylesheet" href="/theme-previews/sample-packs/a/i.52c1725a5810.css" data-mp-sticky>
-<script src="/theme-previews/sample-packs/a/i.7f6e076724d8.js"></script><style data-rs-bulletproof>/* reset_spacing: bulletproof override of ALL section spacing mechanisms */
+<script src="/theme-previews/sample-packs/a/i.48df8cb51523.js"></script><style data-rs-bulletproof>/* reset_spacing: bulletproof override of ALL section spacing mechanisms */
     #shopify-section-main,
     #shopify-section-main > .section,
     #shopify-section-main > section,
@@ -1057,7 +1081,7 @@ style="--bc-link: color-mix(in srgb, var(--color-text) 72%, transparent); --bc-c
         #shopify-section-main .full_width {
           max-width: var(--fluid-container-width, 1500px) !important;
           padding-inline: 1.5rem !important;
-        }}</style><link href="/theme-previews/_base/a/main-product.5f4af5a4145f.css" rel="stylesheet" type="text/css" media="all">
+        }}</style><link href="/theme-previews/_base/a/main-product.52153be4f17d.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/product-page-ui.e161626e99d1.css" rel="stylesheet" type="text/css" media="all">
 <script src="/theme-previews/_base/a/product-page-ui.e34430f60fd0.js" defer="defer"></script><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.4bb9b3cb43c2.css"><style data-mp-own="main">
     #MainProduct-main sticky-add-cart .product-item__media--ratio { border-radius: 8px !important; }
@@ -1157,7 +1181,7 @@ data-cropped="true"
 style="--aspect-ratio: 1/1"
 data-pane-container
 >
-<img src="/theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp" srcset="/theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 720w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 660w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 550w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 480w, /theme-previews/sample-packs/a/samples-pack-ambience-kit-400.377cc2d16362.webp 330w, /theme-previews/sample-packs/a/samples-pack-ambience-kit-400.377cc2d16362.webp 240w, /theme-previews/sample-packs/a/samples-pack-ambience-kit-400.377cc2d16362.webp 185w" alt="Free Ambience Sample Pack Vol I" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) min(40vw, 660px), (min-width: 768px) 50vw, calc(100vw - 30px)" class="drift-trigger bls-loaded-image">
+<img src="/theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp" srcset="/theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 1440w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 1200w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 1080w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 900w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 720w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 660w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 550w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 480w, /theme-previews/sample-packs/a/samples-pack-ambience-kit-400.377cc2d16362.webp 330w, /theme-previews/sample-packs/a/samples-pack-ambience-kit-400.377cc2d16362.webp 240w, /theme-previews/sample-packs/a/samples-pack-ambience-kit-400.377cc2d16362.webp 185w" alt="Free Ambience Sample Pack Vol I" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) min(40vw, 660px), (min-width: 768px) 50vw, calc(100vw - 30px)" class="drift-trigger bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
 </a>
@@ -1203,7 +1227,7 @@ data-pane-container
 class="review_sold rs rs--stars"
 id="review-sold-pp23_rating"
 data-block-id="pp23_rating"
-style="--rs-size-m:calc(var(--body-font-size,16px) * .875); --rs-size-d:calc(var(--body-font-size,16px) * .875); --rs-pt: 0px; --rs-pb: 10px;"
+style="--rs-size-m:max(calc(14px * var(--sl-text-scale, 1)), calc(var(--body-font-size,16px) * .94)); --rs-size-d:max(calc(14px * var(--sl-text-scale, 1)), calc(var(--body-font-size,16px) * .94)); --rs-pt: 0px; --rs-pb: 10px;"
 ><span class="product-reviews rs__rating"><span class="rs__stars" style="--rs-fill: 98%;" aria-hidden="true"><span class="rs__stars-on">★★★★★</span>★★★★★</span><span class="visually-hidden">4.9 / 5,</span>
 <span class="rs__value" aria-hidden="true">4.9</span>
 <span class="rs__sep" aria-hidden="true"></span>
@@ -1227,21 +1251,20 @@ style="font-size: 30px;"
                   }
                 }
               </style>
-</motion-element></div><div class="pib-own" data-pib-block="price_1" data-pib-type="price" style="display: contents">
-<div
+</motion-element></div><div class="pib-own" data-pib-block="price_1" data-pib-type="price" style="display: contents"><div
 id="price-main"
 class="product-detail__price mb-10"
 data-block-id="price_1"
-style="font-size: 26px; font-weight: 700;"
+style="--mp-price-floor-m: calc(18px * var(--sl-text-scale, 1)); --mp-price-floor-d: calc(22px * var(--sl-text-scale, 1)); font-size: max(26px, var(--mp-price-floor-m)); font-weight: 700;"
 ><div class="card-product-price price-large flex align-center flex-wrap gap-5 relative"><div class="price-regular">
 <span class="visually-hidden">Regular price</span>
 <span class="price price-same-style heading-style">
-€0.00
+Free
 </span>
 </div>
 </div>
 </div>
-<link rel="stylesheet" href="/theme-previews/sample-packs/a/i.eb111d3cc8e4.css"></div><div class="pib-own" data-pib-block="badges_1" data-pib-type="badges" style="display: contents"><style>
+<link rel="stylesheet" href="/theme-previews/sample-packs/a/i.06044de06cce.css"></div><div class="pib-own" data-pib-block="badges_1" data-pib-type="badges" style="display: contents"><style>
 /* Minimal, non-destructive: turn the price wrapper into an inline-flex row
    so the badge sits next to the price text. No padding/margin resets on
    the badge itself — those would deform the badge pill. Just align-items
@@ -1308,7 +1331,7 @@ class="review_sold rs rs--stars"
 id="review-sold-pp23_sold"
 data-block-id="pp23_sold"
 data-live-sold-source="product" data-sold-window="24h" data-product-counter-id="00000000-0000-4000-8000-000000000013" data-product-counter-url="/products/free-ambience-sample-pack-vol-i"
-style="--rs-size-m:calc(var(--body-font-size,16px) * .875); --rs-size-d:calc(var(--body-font-size,16px) * .875); --rs-pt: 2px; --rs-pb: 16px;"
+style="--rs-size-m:max(calc(14px * var(--sl-text-scale, 1)), calc(var(--body-font-size,16px) * .94)); --rs-size-d:max(calc(14px * var(--sl-text-scale, 1)), calc(var(--body-font-size,16px) * .94)); --rs-pt: 2px; --rs-pb: 16px;"
 ><span class="product-sold rs__sold"><span class="product-sold__dot rs__dot" aria-hidden="true"></span><span data-verified-sold-count>4 sold in the last 24 hours</span>
 </span></div><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.b4f34e9faa6e.css"></div><div class="pib-own" data-pib-block="short_1" data-pib-type="short_description" style="display: contents"><div
 data-block-id="short_1"
@@ -1363,7 +1386,7 @@ RAR</span>
 </fieldset><script type="application/json" data-variant-data>
         [{"id":"00000000-0000-4000-8000-001300000001","title":"ZIP","option1":"ZIP","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"Free Ambience Sample Pack Vol I - ZIP","public_title":"ZIP","options":["ZIP"],"price":0,"weight":0,"compare_at_price":null,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001300000002","title":"RAR","option1":"RAR","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"Free Ambience Sample Pack Vol I - RAR","public_title":"RAR","options":["RAR"],"price":0,"weight":0,"compare_at_price":null,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}]
       </script><script type="application/json" data-variant-prices>
-  {"00000000-0000-4000-8000-001300000001": { "price": "€0.00", "compare_at_price": "" },"00000000-0000-4000-8000-001300000002": { "price": "€0.00", "compare_at_price": "" }}
+  {"00000000-0000-4000-8000-001300000001": { "price": "Free", "compare_at_price": "" },"00000000-0000-4000-8000-001300000002": { "price": "Free", "compare_at_price": "" }}
 </script>
 </variant-radios-detail>
 </div></div><div class="pib-own" data-pib-block="pp23_info" data-pib-type="infotables" style="display: contents"><div id="InfoTables-pp23_info" class="it-card" data-block-id="pp23_info"
@@ -1471,7 +1494,7 @@ style="--btn-padding-x: 2.5rem;"
 <use href="#icon-load"></use>
 </svg>
 </button>
-</div></div><script src="/theme-previews/_base/a/product-offers.8f6bb4c06f35.js" defer="defer"></script>
+</div></div><script src="/theme-previews/_base/a/product-offers.21c9720fafa2.js" defer="defer"></script>
 <div class="btn-checkout-dynamic w-full">
 <div class="shopify-payment-button" data-shopify="payment-button">
 <button
@@ -1670,7 +1693,7 @@ aria-label="Free Ambience Sample Pack Vol I"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 1/1;"
 >
-<img src="/theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp" srcset="/theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 720w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 660w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 550w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 480w, /theme-previews/sample-packs/a/samples-pack-ambience-kit-400.377cc2d16362.webp 330w, /theme-previews/sample-packs/a/samples-pack-ambience-kit-400.377cc2d16362.webp 240w, /theme-previews/sample-packs/a/samples-pack-ambience-kit-400.377cc2d16362.webp 185w" alt="Free Ambience Sample Pack Vol I" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, (min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp" srcset="/theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 1440w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 1200w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 1080w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 900w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 720w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 660w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 550w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 480w, /theme-previews/sample-packs/a/samples-pack-ambience-kit-400.377cc2d16362.webp 330w, /theme-previews/sample-packs/a/samples-pack-ambience-kit-400.377cc2d16362.webp 240w, /theme-previews/sample-packs/a/samples-pack-ambience-kit-400.377cc2d16362.webp 185w" alt="Free Ambience Sample Pack Vol I" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, (min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -2191,7 +2214,7 @@ aria-label="Serum Presets Vol 1"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 1/1;"
 >
-<img src="/theme-previews/sample-packs/a/samples-pack-serum-presets.5d3fd42635ee.webp" srcset="/theme-previews/sample-packs/a/samples-pack-serum-presets.5d3fd42635ee.webp 720w, /theme-previews/sample-packs/a/samples-pack-serum-presets.5d3fd42635ee.webp 660w, /theme-previews/sample-packs/a/samples-pack-serum-presets.5d3fd42635ee.webp 550w, /theme-previews/sample-packs/a/samples-pack-serum-presets.5d3fd42635ee.webp 480w, /theme-previews/sample-packs/a/samples-pack-serum-presets-400.a6b60913a274.webp 330w, /theme-previews/sample-packs/a/samples-pack-serum-presets-400.a6b60913a274.webp 240w, /theme-previews/sample-packs/a/samples-pack-serum-presets-400.a6b60913a274.webp 185w" alt="Serum Presets Vol 1" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, (min-width: 1200px) calc((1310px -  20px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 20px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/sample-packs/a/samples-pack-serum-presets.5d3fd42635ee.webp" srcset="/theme-previews/sample-packs/a/samples-pack-serum-presets.5d3fd42635ee.webp 1440w, /theme-previews/sample-packs/a/samples-pack-serum-presets.5d3fd42635ee.webp 1200w, /theme-previews/sample-packs/a/samples-pack-serum-presets.5d3fd42635ee.webp 1080w, /theme-previews/sample-packs/a/samples-pack-serum-presets.5d3fd42635ee.webp 900w, /theme-previews/sample-packs/a/samples-pack-serum-presets.5d3fd42635ee.webp 720w, /theme-previews/sample-packs/a/samples-pack-serum-presets.5d3fd42635ee.webp 660w, /theme-previews/sample-packs/a/samples-pack-serum-presets.5d3fd42635ee.webp 550w, /theme-previews/sample-packs/a/samples-pack-serum-presets.5d3fd42635ee.webp 480w, /theme-previews/sample-packs/a/samples-pack-serum-presets-400.a6b60913a274.webp 330w, /theme-previews/sample-packs/a/samples-pack-serum-presets-400.a6b60913a274.webp 240w, /theme-previews/sample-packs/a/samples-pack-serum-presets-400.a6b60913a274.webp 185w" alt="Serum Presets Vol 1" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, (min-width: 1200px) calc((1310px -  20px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 20px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -2274,7 +2297,7 @@ aria-label="Tech House Sample Pack, Master Bundle 2025"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 1/1;"
 >
-<img src="/theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.b70091dadde7.webp" srcset="/theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.b70091dadde7.webp 720w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.b70091dadde7.webp 660w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.b70091dadde7.webp 550w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.b70091dadde7.webp 480w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle-400.b9cee32173d8.webp 330w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle-400.b9cee32173d8.webp 240w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle-400.b9cee32173d8.webp 185w" alt="Tech House Sample Pack, Master Bundle 2025" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, (min-width: 1200px) calc((1310px -  20px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 20px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.b70091dadde7.webp" srcset="/theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.b70091dadde7.webp 1440w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.b70091dadde7.webp 1200w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.b70091dadde7.webp 1080w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.b70091dadde7.webp 900w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.b70091dadde7.webp 720w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.b70091dadde7.webp 660w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.b70091dadde7.webp 550w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.b70091dadde7.webp 480w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle-400.b9cee32173d8.webp 330w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle-400.b9cee32173d8.webp 240w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle-400.b9cee32173d8.webp 185w" alt="Tech House Sample Pack, Master Bundle 2025" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, (min-width: 1200px) calc((1310px -  20px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 20px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -2357,7 +2380,7 @@ aria-label="Tech House Drum Kit Vol I"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 1/1;"
 >
-<img src="/theme-previews/sample-packs/a/samples-pack-drum-kit.e2c822a7c5ea.webp" srcset="/theme-previews/sample-packs/a/samples-pack-drum-kit.e2c822a7c5ea.webp 720w, /theme-previews/sample-packs/a/samples-pack-drum-kit.e2c822a7c5ea.webp 660w, /theme-previews/sample-packs/a/samples-pack-drum-kit.e2c822a7c5ea.webp 550w, /theme-previews/sample-packs/a/samples-pack-drum-kit.e2c822a7c5ea.webp 480w, /theme-previews/sample-packs/a/samples-pack-drum-kit-400.d4132d3ba708.webp 330w, /theme-previews/sample-packs/a/samples-pack-drum-kit-400.d4132d3ba708.webp 240w, /theme-previews/sample-packs/a/samples-pack-drum-kit-400.d4132d3ba708.webp 185w" alt="Tech House Drum Kit Vol I" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, (min-width: 1200px) calc((1310px -  20px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 20px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/sample-packs/a/samples-pack-drum-kit.e2c822a7c5ea.webp" srcset="/theme-previews/sample-packs/a/samples-pack-drum-kit.e2c822a7c5ea.webp 1440w, /theme-previews/sample-packs/a/samples-pack-drum-kit.e2c822a7c5ea.webp 1200w, /theme-previews/sample-packs/a/samples-pack-drum-kit.e2c822a7c5ea.webp 1080w, /theme-previews/sample-packs/a/samples-pack-drum-kit.e2c822a7c5ea.webp 900w, /theme-previews/sample-packs/a/samples-pack-drum-kit.e2c822a7c5ea.webp 720w, /theme-previews/sample-packs/a/samples-pack-drum-kit.e2c822a7c5ea.webp 660w, /theme-previews/sample-packs/a/samples-pack-drum-kit.e2c822a7c5ea.webp 550w, /theme-previews/sample-packs/a/samples-pack-drum-kit.e2c822a7c5ea.webp 480w, /theme-previews/sample-packs/a/samples-pack-drum-kit-400.d4132d3ba708.webp 330w, /theme-previews/sample-packs/a/samples-pack-drum-kit-400.d4132d3ba708.webp 240w, /theme-previews/sample-packs/a/samples-pack-drum-kit-400.d4132d3ba708.webp 185w" alt="Tech House Drum Kit Vol I" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, (min-width: 1200px) calc((1310px -  20px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 20px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -2402,7 +2425,7 @@ style="--font-size: 15; --gap: 3px;"
 ><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
 <span class="visually-hidden">Regular price</span>
 <span class="price price-same-style heading-style">
-€0.00
+Free
 </span>
 </div>
 </div>
@@ -2433,7 +2456,7 @@ aria-label="Free Ambience Sample Pack Vol I"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 1/1;"
 >
-<img src="/theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp" srcset="/theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 720w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 660w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 550w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 480w, /theme-previews/sample-packs/a/samples-pack-ambience-kit-400.377cc2d16362.webp 330w, /theme-previews/sample-packs/a/samples-pack-ambience-kit-400.377cc2d16362.webp 240w, /theme-previews/sample-packs/a/samples-pack-ambience-kit-400.377cc2d16362.webp 185w" alt="Free Ambience Sample Pack Vol I" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, (min-width: 1200px) calc((1310px -  20px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 20px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp" srcset="/theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 1440w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 1200w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 1080w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 900w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 720w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 660w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 550w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.10d719d32ce7.webp 480w, /theme-previews/sample-packs/a/samples-pack-ambience-kit-400.377cc2d16362.webp 330w, /theme-previews/sample-packs/a/samples-pack-ambience-kit-400.377cc2d16362.webp 240w, /theme-previews/sample-packs/a/samples-pack-ambience-kit-400.377cc2d16362.webp 185w" alt="Free Ambience Sample Pack Vol I" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, (min-width: 1200px) calc((1310px -  20px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 20px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -2478,7 +2501,7 @@ style="--font-size: 15; --gap: 3px;"
 ><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
 <span class="visually-hidden">Regular price</span>
 <span class="price price-same-style heading-style">
-€0.00
+Free
 </span>
 </div>
 </div>
@@ -2494,7 +2517,7 @@ style="--font-size: 15; --gap: 3px;"
 <a class="button inline-block btn-primary" data-theme-button="primary" href="/theme-previews/sample-packs/collections/all.html">Shop every pack</a>
 </div></div>
 </div>
-</section><section id="shopify-section-recently_viewed" class="shopify-section s-tt" data-section-id="recently_viewed" data-section-type="recently-viewed"><script src="/theme-previews/_base/a/r7-products-runtime.e74c1e24b1d4.js" defer="defer"></script><style>
+</section><section id="shopify-section-recently_viewed" class="shopify-section s-tt" data-section-id="recently_viewed" data-section-type="recently-viewed"><script src="/theme-previews/_base/a/r7-products-runtime.3199eb482550.js" defer="defer"></script><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-recently_viewed :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
@@ -2794,7 +2817,7 @@ Contact
 <div class="disclosure relative flex align-center">
 <button type="button" aria-expanded="false" aria-controls="localization-country-footer-options" aria-label="United States (USD)" class="button-localization pointer disclosure__button show-overlay flex align-center gap-10 ">
 <span class="flex align-center gap-10">
-<span class="rounded-50 border localization-flags "><img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2024%22%3E%3Ctext%20x%3D%2216%22%20y%3D%2219%22%20font-size%3D%2220%22%20text-anchor%3D%22middle%22%3E%F0%9F%87%BA%F0%9F%87%B8%3C%2Ftext%3E%3C%2Fsvg%3E" alt="United States"></span>
+<span class="rounded-50 border localization-flags "><img src="/flags/US.svg" alt="United States"></span>
 <span>
 United States
 (USD $)
@@ -3037,7 +3060,7 @@ Sign up
 </section>
 <script src="/theme-previews/_base/a/materia-popups.b25a8780e75d.js" defer="defer"></script>
 <script src="/theme-previews/sample-packs/a/i.c5bec8068a88.js"></script>
-</section><script>window.__mtFillCounts&&window.__mtFillCounts(true)</script><link rel="stylesheet" href="/theme-previews/_base/a/search-type-default.fb1515a9c0d2.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/search-type-default.fb1515a9c0d2.css" rel="stylesheet" type="text/css" media="all"></noscript>
+</section><script>window.__mtFillCounts&&window.__mtFillCounts(true)</script><link rel="stylesheet" href="/theme-previews/_base/a/search-type-default.7a56178b1228.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/search-type-default.7a56178b1228.css" rel="stylesheet" type="text/css" media="all"></noscript>
 <header-search class="header_search search_type_popup">
 <div class="block block-quick-search block-search predictive_search_suggest search_popup"><div
 id="search-form"
@@ -3115,7 +3138,7 @@ aria-label="Close"
 <div class="predictive-search__results" data-predictive-search></div>
 <span class="predictive-search-status visually-hidden" role="status" aria-hidden="true"></span>
 </div>
-<div class="search__loading-state mt-15 "><link href="/theme-previews/_base/a/skeleton.19cc8fb18037.css" rel="stylesheet" type="text/css" media="all">
+<div class="search__loading-state mt-15 "><link href="/theme-previews/_base/a/skeleton.0c1ea714db3c.css" rel="stylesheet" type="text/css" media="all">
 <div slot="loading" class=" popup" style="opacity: 1; transform: translateY(0px);">
 <div class="v-stack  gap-custom">
 <span class="skeleton skeleton--tab heading"></span>
@@ -3175,7 +3198,7 @@ style=" ;--col-number: 1;--col-tablet: 1;--col-desktop-small:3;--col-desktop: 5;
 </div>
 </div>
 </header-search>
-<div class="overlay_search" popover="manual" aria-hidden="true"></div><script type="application/json" id="materia-country-options" data-current="US">[["US","United States","USD","$",""],["GB","United Kingdom","GBP","£",""],["CA","Canada","CAD","$",""],["AU","Australia","AUD","$",""],["DE","Germany","EUR","€",""],["FR","France","EUR","€",""]]</script><link rel="stylesheet" href="/theme-previews/_base/a/minicart.679b4fb18845.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/minicart.679b4fb18845.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="stylesheet" href="/theme-previews/_base/a/materia-experience.6a68b7e13653.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/materia-experience.6a68b7e13653.css" rel="stylesheet" type="text/css" media="all"></noscript><style data-cart-drawer-style="size">
+<div class="overlay_search" popover="manual" aria-hidden="true"></div><script type="application/json" id="materia-country-options" data-current="US">[["US","United States","USD","$","/flags/US.svg"],["GB","United Kingdom","GBP","£","/flags/GB.svg"],["CA","Canada","CAD","$","/flags/CA.svg"],["AU","Australia","AUD","$","/flags/AU.svg"],["DE","Germany","EUR","€","/flags/DE.svg"],["FR","France","EUR","€","/flags/FR.svg"]]</script><link rel="stylesheet" href="/theme-previews/_base/a/minicart.679b4fb18845.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/minicart.679b4fb18845.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="stylesheet" href="/theme-previews/_base/a/materia-experience.6a68b7e13653.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/materia-experience.6a68b7e13653.css" rel="stylesheet" type="text/css" media="all"></noscript><style data-cart-drawer-style="size">
   #minicart_wrapper.open_drawer .minicart__wrapper {
     --materia-cart-width: 500px;
     --materia-cart-gap: 12px;
@@ -3224,7 +3247,7 @@ Continue Shopping
 </button>
 </div></div></form>
 </div>
-</div></div><link rel="stylesheet" href="/theme-previews/_base/a/cart-drawer.980eb92e88b7.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/cart-drawer.980eb92e88b7.css" rel="stylesheet" type="text/css" media="all"></noscript>
+</div></div><link rel="stylesheet" href="/theme-previews/_base/a/cart-drawer.f00274b6fc4e.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/cart-drawer.f00274b6fc4e.css" rel="stylesheet" type="text/css" media="all"></noscript>
 <script src="/theme-previews/_base/a/cart-drawer.579386a6ba85.js" defer="defer"></script></cart-notification>
 <div class="overlayminicart">
 </div>
@@ -3239,13 +3262,13 @@ Continue Shopping
 </style>
 </div><script src="/theme-previews/sample-packs/a/i.7878e9c8a781.js"></script>
 <script src="/theme-previews/_base/a/animation.098515b1320f.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/tingle-min.9664ca3641cf.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/tingle-min.2433104e28fc.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-discount.31276c74b980.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/theme.bbc3b899a286.js"  defer="defer" type="module"></script>
+<script src="/theme-previews/_base/a/theme.b49152a98599.js"  defer="defer" type="module"></script>
 <script src="/theme-previews/_base/a/materia-experience.95a8a8fb6473.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/product-card-settings.6a080b7abf94.js" defer="defer"></script><script>(window.mtLazy||function(u){var s=document.createElement('script');s.src=u;document.head.appendChild(s)})("/theme-previews/_base/a/size-chart.cbff3f8443f7.js")</script>
 <script src="/theme-previews/_base/a/theme-navigation.56a40d956dde.js" defer="defer"></script>
-<script>(window.mtLazy||function(u){var s=document.createElement('script');s.src=u;document.head.appendChild(s)})("/theme-previews/_base/a/cart-variant-edit.8299a1d91738.js")</script><script src="/theme-previews/_base/a/main-product.0e1a3dfa27d4.js" defer="defer"></script><svg aria-hidden="true" focusable="false" role="presentation" xmlns="http://www.w3.org/2000/svg" class="hidden" hidden>
+<script>(window.mtLazy||function(u){var s=document.createElement('script');s.src=u;document.head.appendChild(s)})("/theme-previews/_base/a/cart-variant-edit.8299a1d91738.js")</script><script src="/theme-previews/_base/a/main-product.bcf59e3c0f34.js" defer="defer"></script><svg aria-hidden="true" focusable="false" role="presentation" xmlns="http://www.w3.org/2000/svg" class="hidden" hidden>
 <symbol id="icon-close" viewBox="0 0 13 14" fill="none">
 <path d="M0.282609 2.06784C0.0942029 1.89363 0 1.68314 0 1.43635C0 1.17504 0.0942029 0.950028 0.282609 0.761307C0.456522 0.587102 0.673913 0.5 0.934783 0.5C1.19565 0.5 1.41304 0.587102 1.58696 0.761307L6.5 5.68258L11.413 0.761307C11.587 0.587102 11.8043 0.5 12.0652 0.5C12.3261 0.5 12.5435 0.587102 12.7174 0.761307C12.9058 0.950028 13 1.17504 13 1.43635C13 1.68314 12.9058 1.89363 12.7174 2.06784L7.80435 6.98911L12.7174 11.9104C12.9058 12.0991 13 12.3241 13 12.5854C13 12.8322 12.9058 13.0427 12.7174 13.2169C12.5435 13.4056 12.3261 13.5 12.0652 13.5C11.8043 13.5 11.587 13.4056 11.413 13.2169L6.5 8.31742L1.58696 13.2169C1.41304 13.4056 1.19565 13.5 0.934783 13.5C0.673913 13.5 0.456522 13.4056 0.282609 13.2169C0.0942029 13.0427 0 12.8322 0 12.5854C0 12.3241 0.0942029 12.0991 0.282609 11.9104L5.19565 6.98911L0.282609 2.06784Z" fill="currentColor"/>
 </symbol>
@@ -3306,7 +3329,7 @@ window.__mtFormsUrl=u;if(/[?&](customer_posted|contact_posted|form_type)=/.test(
   }
   html.mt-img-reveal img.media-fade-hold { opacity: 0 !important; }
 </style>
-<script src="/theme-previews/sample-packs/a/i.01f9e21922b8.js"></script>
+<script src="/theme-previews/sample-packs/a/i.aa500cf99adf.js"></script>
 <style>
         :root {
           /* Wire the user's Animations & motion settings to the keyframe vars used by animation.css */

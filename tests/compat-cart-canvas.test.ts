@@ -176,11 +176,16 @@ async function main() {
       get length() { return store.size }
     }
     let cookie = ""
+    let fetchImpl: (url: string, init?: { method?: string; body?: string }) => Promise<unknown> = () => Promise.resolve({ ok: false })
+    const fired: { type: string; key?: string }[] = []
+    let readyState = "loading"
     const page = () => {
       const g: Record<string, unknown> = {
         Storage, location: { protocol: "https:" }, setTimeout, Promise, JSON, Object, Array, String, HTMLScriptElement: { supports: () => false }, addEventListener: () => {},
-        fetch: () => Promise.resolve({ ok: false }),
-        document: { readyState: "loading", addEventListener: () => {}, querySelectorAll: () => [], createElement: () => ({ setAttribute: () => {}, style: {} }), documentElement: { appendChild: () => {} }, get cookie() { return cookie }, set cookie(v: string) { cookie = v.split(";")[0] }, head: { appendChild: () => {} } },
+        fetch: (u: string, i?: { method?: string; body?: string }) => fetchImpl(u, i),
+        StorageEvent: class { type: string; key?: string; constructor(type: string, init: { key?: string }) { this.type = type; this.key = init.key } },
+        dispatchEvent: (e: { type: string; key?: string }) => { fired.push(e); return true },
+        document: { readyState, addEventListener: () => {}, querySelector: () => null, querySelectorAll: () => [], createElement: () => ({ setAttribute: () => {}, style: {} }), documentElement: { appendChild: () => {} }, get cookie() { return cookie }, set cookie(v: string) { cookie = v.split(";")[0] }, head: { appendChild: () => {} } },
       }
       g.window = g
       g.localStorage = new Storage()
@@ -197,6 +202,30 @@ async function main() {
     page()
     check("one saved on the Wishlist page is the theme's too on the next page, so its hearts and count agree", JSON.parse(store.get("materia__wishlist-items") ?? "[]").sort().join() === [ID(2), ID(3)].join())
     check("a key that is not a wishlist is left alone", (() => { const l = page(); l.setItem("recently-viewed", JSON.stringify([ID(4)])); return !mine().includes(ID(4)) })())
+
+    /* Round 28: a signed in visitor. Hearts saved as a guest, then signed in: the first page must not wipe them, and the account's list comes to the theme. */
+    store.clear()
+    cookie = ""
+    readyState = "complete"
+    page().setItem("materia__wishlist-items", JSON.stringify([ID(1)]))
+    check("as a guest a heart is in the guest list", mine().join() === ID(1))
+    const calls: { url: string; method: string; body: unknown }[] = []
+    fetchImpl = (url, init) => {
+      calls.push({ url, method: init?.method ?? "GET", body: init?.body ? JSON.parse(init.body) : null })
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ signedIn: true, available: true, ids: [ID(5), ID(1)] }) })
+    }
+    cookie = "sl_signed_in=1"
+    page()
+    check("the first page after signing in leaves the theme's hearts as they are until the account answers", JSON.parse(store.get("materia__wishlist-items") ?? "[]").join() === ID(1))
+    await new Promise((r) => setTimeout(r, 0))
+    check("it merges the guest list into the account once", calls.length === 1 && calls[0].url === "/api/site-account/wishlist" && calls[0].method === "POST" && (calls[0].body as { action?: string; ids?: string[] })?.action === "merge" && (calls[0].body as { ids: string[] }).ids.join() === ID(1), calls)
+    check("the account's list becomes the theme's, with a storage event so the hearts and the count follow", JSON.parse(store.get("materia__wishlist-items") ?? "[]").join() === [ID(5), ID(1)].join() && fired.some((e) => e.type === "storage" && e.key === "materia__wishlist-items"), { theme: store.get("materia__wishlist-items"), fired })
+    check("  and the guest list is emptied, as the Wishlist page does", store.get(`storelib:wishlist:${SID}`) === undefined && JSON.parse(store.get(`storelib:wishlist-account:${SID}`) ?? "[]").length === 2)
+    cookie = "sl_signed_in=1"
+    page()
+    await new Promise((r) => setTimeout(r, 0))
+    check("the next page does not ask again (at most every five minutes)", calls.length === 1, calls.length)
+    readyState = "loading"
   }
 
   console.log("\nCheck out, freed by its terms box, and a wishlist page's search\n")

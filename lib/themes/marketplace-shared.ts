@@ -186,6 +186,8 @@ export const CODE_TEMPLATES: readonly CodeTemplate[] = [
   { slug: "sound-packs", template: "soundpacks", name: "Sound packs", category: "digital" },
   /* Templates round 26: Offcut, a small design studio selling downloads of several kinds (fonts, Lightroom presets, Procreate brushes, paper textures, Figma and Canva templates, a pricing guide and a video course): a split hero with the products on a table, the featured font, the shop under tabs by kind, bundles, how buying works (pay, download, licence, updates), the maker, buyer notes, questions and a licence page, built from the theme's own sections. Product pictures are mockups drawn for it. */
   { slug: "digital-studio", template: "digistudio", name: "Digital studio", category: "digital" },
+  /* Templates round 29: New Leaf, a Notion template shop by Maya after the owner's cleanslatetemplates.com reference: an opening chalkboard an eraser wipes away, a ruled paper hero with a fan of template pages that fly in, counts that count up, the study templates playing in a dark player, shelves by category, how buying works in three small working scenes, the maker, a newsletter and a huge wordmark. Each product page is drawn from the product: a strip of its cover art, its category, What's inside rows from its description and more from the same category. */
+  { slug: "notion-template-shop", template: "newleaf", name: "New Leaf", category: "digital" },
 ]
 
 /** Where a template's pictures live: its home page whole at 1440 wide, and at a phone's width (scripts/build-theme-template-covers.ts takes both). */
@@ -197,6 +199,38 @@ export const templatePhonePath = (template: string) => `/themes/${CODE_THEME_PAC
  * writes them). The marketplace's Preview frames <root>/<slug>/index.html.
  */
 export const TEMPLATE_PREVIEW_ROOT = "/theme-previews"
+/**
+ * WHERE THE FRAME LOADS A TEMPLATE'S WEBSITE FROM (round 28).
+ *
+ * A frame sandboxed without allow-same-origin has no origin, and Chromium
+ * keeps no file for a frame with no origin: every page of the website asked
+ * again for the 100 or so stylesheets, scripts and fonts the last one had
+ * (measured: 96 of 104 on Clothing's second page,
+ * scripts/check-template-preview-speed.mjs), which is why moving between
+ * its pages was slow. The fix is an origin of its own, and it cannot be
+ * storelib.com's: the website's scripts would then read the visitor's
+ * Storelib session.
+ *
+ * So on storelib.com the website is framed from www.storelib.com, which
+ * serves the same static files (the proxy redirects every page on www to
+ * storelib.com, but leaves /theme-previews alone, so www holds nothing
+ * else), sandboxed with allow-scripts and allow-same-origin: a real origin,
+ * so its files are kept between pages and between templates, and not
+ * storelib.com's, so it reads nothing of Storelib's (the session's cookies
+ * are __Host- and never go to www). The page's shim keeps storage and
+ * cookies in memory there as before (scripts/build-template-previews.ts),
+ * and next.config.mjs lets only storelib.com and www frame it from that
+ * host. Anywhere else (a preview deployment, a developer's machine) the
+ * frame is as it was: the same address, no origin.
+ */
+export const TEMPLATE_PREVIEW_MAIN_HOST = "storelib.com"
+export function templatePreviewFrame(
+  path: string,
+  at: Pick<Location, "hostname" | "host" | "protocol"> | null = typeof window !== "undefined" ? window.location : null,
+): { src: string; sandbox: string } {
+  if (at && at.hostname.toLowerCase() === TEMPLATE_PREVIEW_MAIN_HOST && path.startsWith(`${TEMPLATE_PREVIEW_ROOT}/`)) return { src: `${at.protocol}//www.${at.host}${path}`, sandbox: "allow-scripts allow-same-origin" }
+  return { src: path, sandbox: "allow-scripts" }
+}
 /** The home page of a code template's prerendered website, or null for a listing that is not one. */
 export function templatePreviewPath(l: Pick<ThemeListing, "codePackage">): string | null {
   const t = l.codePackage ? CODE_TEMPLATES.find((c) => `${CODE_THEME_PACKAGE}/${c.template}` === l.codePackage) : null

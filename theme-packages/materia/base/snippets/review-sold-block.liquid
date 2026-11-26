@@ -165,7 +165,7 @@
   id="review-sold-{{ block.id }}"
   {{ block.shopify_attributes }}
   {% if mode == 'sold' and st.sold_source != 'manual' and st.refresh_sold_count != false %}data-live-sold-source="product" data-sold-window="{{ sold_window | escape }}" data-product-counter-id="{{ product.id }}" data-product-counter-url="{{ product.url | escape }}"{% endif %}
-  style="{% if mode != blank and rs_custom == false %}--rs-size-m:calc(var(--body-font-size,16px) * .875); --rs-size-d:calc(var(--body-font-size,16px) * .875);{% else %}--rs-size-m: {{ st.font_size_mobile | default: 13 }}px; --rs-size-d: {{ st.font_size_desktop | default: 14 }}px;{% endif %} --rs-pt: {{ st.padding_top | default: 0 }}px; --rs-pb: {{ st.padding_bottom | default: 0 }}px;
+  style="{% if mode != blank and rs_custom == false %}--rs-size-m:max(calc(14px * var(--sl-text-scale, 1)), calc(var(--body-font-size,16px) * .94)); --rs-size-d:max(calc(14px * var(--sl-text-scale, 1)), calc(var(--body-font-size,16px) * .94));{% else %}--rs-size-m: {{ st.font_size_mobile | default: 13 }}px; --rs-size-d: {{ st.font_size_desktop | default: 14 }}px;{% endif %} --rs-pt: {{ st.padding_top | default: 0 }}px; --rs-pb: {{ st.padding_bottom | default: 0 }}px;
     {%- if rs_custom and st.star_color != blank %} --rs-star: {{ st.star_color }};{% endif -%}
     {%- if rs_custom and st.text_color != blank %} --rs-text: {{ st.text_color }};{% endif -%}
     {%- if rs_custom and st.live_dot_color != blank %} --rs-dot: {{ st.live_dot_color }};{% endif %}"

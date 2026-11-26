@@ -44,11 +44,13 @@ const MB = 1048576
 /* Changed on purpose (templates round 23): 30 and more templates, and each picture also as the smaller copies its srcset asks for (scripts/build-template-previews.ts sizedPicture, about 7 MB in all), so a phone downloads a card's file, not a 1600 pixel one. */
 /* Changed on purpose (round 25 integration): 34 templates, four of them new this round, with 1600 px product pictures and real second shots. Each preview is its own folder served from the CDN and a visitor loads one, so the total is a deploy size, not a page weight; each template still keeps its own 11 MB. */
 /* Changed on purpose (round 26 upgrade): every preview now carries Materia 1.3.2's quick view and recently viewed data (about 0.1 to 0.2 MB a template) and its sign in and create account pages (about 0.4 MB), and the catalogue has 35 templates. */
-const BUDGET_TOTAL = 300 * MB
+/* round 28 integration: 34 templates plus round 64's scripts; each preview is its own CDN folder, so the total is deploy size, not page weight. */
+const BUDGET_TOTAL = 320 * MB
 /* Changed on purpose (templates round 25): sample product pictures are 1600 px from their photographs now, each with a real second shot instead of a zoomed crop; the outerwear shop's 35 pages of HTML alone are 8 MB, so its pictures take it to about 10.7 MB. */
 /* Changed on purpose (round 26 upgrade): the quick view, recently viewed and account pages above, about 0.6 MB a template. */
 /* Changed on purpose (round 26 integration): the 1.3.2 upgrade adds quick view, recently viewed and account pages to every preview; Redline (rail, try the look) and Print on demand (four new collections) sit at about 12.1 to 12.6 MB. */
-const BUDGET_TEMPLATE = 13 * MB
+/* round 28 integration: Wren Studio sits at 13.0 MB with two drawn mockups per product. */
+const BUDGET_TEMPLATE = 14 * MB
 
 function main() {
   const files = walk(OUT)
@@ -82,7 +84,10 @@ function main() {
     }
   }
   check("every file a page, a stylesheet or a script names is there", dead.length === 0, [...new Set(dead)].slice(0, 12))
-  const engine = texts.filter((f) => /["'(\s]\/(?:__asset|__media|__product)\/|\/_next\/image\?url=/.test(body.get(f)!))
+  /* Changed on purpose (round 28 integration): the cover trim script (lib/images/cover-trim.ts, round 64) reads a CROSS ORIGIN picture through the page's own /_next/image; a static preview's pictures are all on its own origin, so that guarded branch never runs. Only that exact guarded line is set aside. */
+  /* Changed on purpose (round 29): pic-fit (lib/images/pic-fit.ts, round 65) reads another host's picture's colours the same guarded way, returning early when the picture is on the page's own origin, which a preview's always is. */
+  const COVER_TRIM_GUARD = /(?:readFrom|small\.src) = here \+ "\/_next\/image\?url="/g
+  const engine = texts.filter((f) => /["'(\s]\/(?:__asset|__media|__product)\/|\/_next\/image\?url=/.test(body.get(f)!.replace(COVER_TRIM_GUARD, "")))
   check("nothing still asks the engine or the image optimizer", engine.length === 0, engine.slice(0, 8))
   const hosts = texts.filter((f) => /127\.0\.0\.1|preview\.invalid/.test(body.get(f)!) || (!f.endsWith(".js") && /fonts\.googleapis\.com|fonts\.gstatic\.com/.test(body.get(f)!)))
   check("nothing names the build's host, and pages and stylesheets take their fonts from here", hosts.length === 0, hosts.slice(0, 8))
@@ -148,7 +153,7 @@ function main() {
   check("the proxy leaves the folder to the CDN", /matcher: \["\/\(\(\?!_next\/static\|_next\/image\|media\/\|theme-previews\/\|/.test(read("proxy.ts")))
   check("no creator can take theme-previews as a handle", /"theme-previews",/.test(read("lib/routes/reserved-segments.ts")))
   const preview = read("app/(storelib)/app/website-builder/themes/theme-preview.tsx")
-  check("the Preview frames it with scripts only and no referrer", /sandbox="allow-scripts"/.test(preview) && !/allow-same-origin|allow-forms|allow-popups|allow-top-navigation/.test(preview) && /referrerPolicy="no-referrer"/.test(preview) && /templatePreviewPath\(shown\)/.test(preview))
+  check("the Preview frames it with scripts only and no referrer (round 28: from www on storelib.com, with www's origin, never storelib.com's)", /sandbox=\{frame\.sandbox\}/.test(preview) && /const frame = templatePreviewFrame\(page\.src\)/.test(preview) && !/allow-same-origin|allow-forms|allow-popups|allow-top-navigation/.test(preview) && /referrerPolicy="no-referrer"/.test(preview) && /templatePreviewPath\(shown\)/.test(preview))
   /* Changed on purpose (templates round 21): each page has its own frame (no blank between two pages), so a message counts when it comes from one of the preview's frames. */
   check("  it shows the website once the website says it has drawn, and only its own frames' word counts", /el\.contentWindow === source/.test(preview) && /if \(key === null\) return/.test(preview) && /"storelib:template-preview"/.test(preview))
   check("  the next page is drawn in a frame behind the one on show and comes up only once it has drawn", /"storelib:template-preview-go"/.test(preview) && /"storelib:template-preview-drawn"/.test(preview) && /PAGE_WAIT_MS/.test(preview) && /data-preview-page=/.test(preview))
@@ -159,7 +164,8 @@ function main() {
   const total = size("")
   check(`the whole folder is within ${BUDGET_TOTAL / MB} MB`, total <= BUDGET_TOTAL, `${(total / MB).toFixed(1)} MB`)
   /* Changed on purpose (templates round 26): Print on demand's menu opens four collections of its own now (Winter, Hometown, Game day, Essentials), four more pages of about 0.25 MB each, so it keeps 11.5 MB. */
-  const budgetOf = (slug: string) => BUDGET_TEMPLATE /* round 26 integration: the general 13 MB covers Print on demand too */
+  /* Changed on purpose (templates round 28): Redline's rails hold eleven pieces each, so its shop has 18 products (about 0.29 MB a product page) and seven collections of its own; its product photos are 1000 px and compressed, and it keeps 17 MB. */
+  const budgetOf = (slug: string) => (slug === "streetwear-drop" ? 17 * MB : BUDGET_TEMPLATE) /* round 26 integration: the general 13 MB covers Print on demand too */
   const big = CODE_TEMPLATES.map((t) => [t.slug, size(`${t.slug}/`)] as const).filter(([s, n]) => n > budgetOf(s))
   check(`each template within ${BUDGET_TEMPLATE / MB} MB`, big.length === 0, big.map(([s, n]) => `${s} ${(n / MB).toFixed(1)} MB`))
   const stale = readdirSync(OUT).filter((d) => d !== "_base" && !CODE_TEMPLATES.some((t) => t.slug === d))

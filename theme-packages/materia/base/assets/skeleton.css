@@ -38,7 +38,11 @@
   [class*='media-gallery__'].swiper-slide-thumb-active:after {
   border: none !important;
 }
-.skeleton .thumbnail-slide [class*='media-gallery__'] * {
+/* Round 28: the gallery's thumbnails by their names (snippets/product-media-layout), not
+   [class*='media-gallery__'] *: a * under a [class*=] test made every class change on the
+   page restyle everything below the element that changed (a drawer's class on <html>
+   restyled the whole page in the frame it was to start moving). */
+.skeleton .thumbnail-slide :is(.media-gallery__image, .media-gallery__local-video, .media-gallery__external-video, .media-gallery__model) * {
   opacity: 0;
 }
 .skeleton

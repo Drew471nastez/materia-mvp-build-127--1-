@@ -1,14 +1,19 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/digital-studio/a/cart.3759b9ae2eeb.json",WISH_DATA="",QV_DATA="/theme-previews/digital-studio/a/quickview.38b3de0a1687.json",RV_DATA="/theme-previews/digital-studio/a/recent.a45857f46007.json";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/digital-studio/a/cart.52997f61c53e.json",WISH_DATA="",QV_DATA="/theme-previews/digital-studio/a/quickview.3f7167dfcbe5.json",RV_DATA="/theme-previews/digital-studio/a/recent.11406a7eb6e3.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
 var ph=D.createElement("style");ph.textContent="@media (max-width: 767.98px){html{scrollbar-width:none}html::-webkit-scrollbar{display:none}}";(D.head||D.documentElement).appendChild(ph);
-function mem(){var m={};return{getItem:function(k){return Object.prototype.hasOwnProperty.call(m,k)?m[k]:null},setItem:function(k,v){m[k]=String(v)},removeItem:function(k){delete m[k]},clear:function(){m={}},key:function(i){return Object.keys(m)[i]||null},get length(){return Object.keys(m).length}}}
-["localStorage","sessionStorage"].forEach(function(n){try{W[n].getItem("x")}catch(e){try{Object.defineProperty(W,n,{value:mem(),configurable:true})}catch(_){}}});
-try{D.cookie}catch(e){var jar="";try{Object.defineProperty(D,"cookie",{get:function(){return jar},set:function(v){var kv=String(v).split(";")[0];jar=jar?jar+"; "+kv:kv},configurable:true})}catch(_){}}
+/* Round 28: the frame is sandboxed without storage, so its storage is kept in the frame's window.name (beside the cart's, preview-cart.ts) and lasts from page to page as a browser's would: a heart pressed on one page is still saved on the next, the header count and the Wishlist page show it. */
+function wn(){try{var n=JSON.parse(W.name||"null");return n&&typeof n==="object"&&n.slpv?n:null}catch(e){return null}}
+function mem(scope){var n0=wn(),m=n0&&n0.slls&&n0.slls[scope]&&typeof n0.slls[scope]==="object"?n0.slls[scope]:{};function save(){try{if(W.name&&!wn())return;var n=wn()||{slpv:{}};n.slls=n.slls||{};n.slls[scope]=m;var s=JSON.stringify(n);if(s.length<400000)W.name=s}catch(e){}}
+return{getItem:function(k){return Object.prototype.hasOwnProperty.call(m,k)?m[k]:null},setItem:function(k,v){m[k]=String(v);save()},removeItem:function(k){delete m[k];save()},clear:function(){m={};save()},key:function(i){return Object.keys(m)[i]||null},get length(){return Object.keys(m).length}}}
+/* Round 28 (framing): kept this way always. On storelib.com the frame has www's origin (templatePreviewFrame in lib/themes/marketplace-shared.ts), where storage and cookies would be real ones: the preview keeps to its own, and writes nothing for any Storelib host. */
+["localStorage","sessionStorage"].forEach(function(n){try{Object.defineProperty(W,n,{value:mem(n),configurable:true})}catch(_){}});
+var jar="";try{Object.defineProperty(D,"cookie",{get:function(){return jar},set:function(v){var kv=String(v).split(";")[0];jar=jar?jar+"; "+kv:kv},configurable:true})}catch(_){}
+try{Object.defineProperty(W,"cookieStore",{value:undefined,configurable:true})}catch(_){}
 var ROOT="/theme-previews/";
 function mine(u){try{var x=new URL(u,location.href);return x.host===location.host&&x.pathname.indexOf(ROOT)===0}catch(e){return false}}
 function path(u){try{return new URL(u,location.href).pathname}catch(e){return""}}
@@ -156,6 +161,25 @@ if(wait)return setTimeout(look,50);
 Promise.all(seen.slice(0,24).map(function(g){return g.decode?g.decode().catch(function(){}):0})).then(fin,fin)}
 look();setTimeout(fin,1500)}
 D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn)});
+var PAGES=["/","/collections","/collections/all","/cart","/search","/blogs/news","/pages/about","/pages/contact","/pages/faqs","/account/login","/account/register","/products/life-planner-for-notion","/products/content-planner-for-notion","/products/instagram-post-templates-for-canva","/products/brand-kit-for-canva","/products/golden-hour-lightroom-presets","/products/clean-film-lightroom-presets","/products/grow-on-instagram-a-practical-guide","/products/the-ai-prompt-playbook","/products/2027-digital-planner","/products/printable-weekly-planner","/products/habit-tracker-printable","/products/canva-design-basics","/products/creator-starter-bundle","/products/the-everything-bundle","/collections/gifts","/collections/new-in","/collections/best-sellers","/collections/notion-templates","/collections/canva-templates","/collections/lightroom-presets","/collections/ebooks-guides","/collections/planners-printables","/collections/courses","/collections/bundles","/blogs/news/how-i-plan-a-month-of-posts-in-one-afternoon","/blogs/news/a-notion-dashboard-you-will-actually-open","/blogs/news/five-lightroom-habits-for-a-consistent-feed","/policies/refund-policy","/policies/privacy-policy","/policies/terms-of-service","/pages/licence"];
+function siteOf(){return ROOT+SLUG+"/"}
+function pageFor(x){var p=x.pathname.replace(/\/+$/,"")||"/";if(p.indexOf(ROOT)===0)return p.indexOf(siteOf())===0?x.pathname+x.search+x.hash:null;p=p.replace(/^\/collections\/[^/]+(?=\/products\/)/,"");if(PAGES.indexOf(p)<0)return null;return siteOf()+(p==="/"?"index":p.slice(1))+".html"+x.search+x.hash}
+function goTo(how,u,from){var x;try{x=new URL(String(u),location.href)}catch(e){return}
+if(/^(javascript|mailto|tel|sms):$/i.test(x.protocol))return;
+var to=x.host===location.host?pageFor(x):null;
+if(!to){showNote(from||null);return}
+if(x.pathname.replace(/\/+$/,"")==="/cart"||/\/cart[.]html$/.test(x.pathname))to=carry(to);
+var y=new URL(to,location.href);if(y.pathname===location.pathname&&y.search===location.search){if(y.hash!==location.hash)location.hash=y.hash;return}
+if(HAND&&how!=="replace"&&handoff(y.pathname+y.search+y.hash))return;
+how==="replace"?location.replace(y.href):location.assign(y.href)}
+W.__slGo=function(how,u){goTo(how,u)};
+W.__slLoc={get href(){return location.href},set href(u){goTo("assign",u)},toString:function(){return location.href}};
+/* A link a script made after the page was written: pressed, it opens the website's own page or stays. */
+D.addEventListener("click",function(e){if(e.defaultPrevented||e.button!==0)return;var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(!a||a.hasAttribute("download")||a.hasAttribute("data-preview-inert"))return;var h=(a.getAttribute("href")||"").trim();if(!h||h.charAt(0)==="#"||/^(javascript|mailto|tel|sms|data):/i.test(h))return;var x;try{x=new URL(a.href)}catch(_){return}if(x.host===location.host&&x.pathname.indexOf(siteOf())===0)return;e.preventDefault();goTo("assign",a.href,a)},true);
+var IT=0,ITH="";function intent(a){if(!a||a.hasAttribute("download"))return;var to=nextPage(a.href);if(!to||to===ITH)return;ITH=to;try{parent.postMessage({type:"storelib:template-preview-intent",href:to},"*")}catch(e){}}
+D.addEventListener("pointerover",function(e){if(!HAND||e.pointerType==="touch")return;var a=e.target&&e.target.closest&&e.target.closest("a[href]");clearTimeout(IT);if(a)IT=setTimeout(function(){intent(a)},80)},{passive:true});
+D.addEventListener("touchstart",function(e){if(!HAND)return;intent(e.target&&e.target.closest&&e.target.closest("a[href]"))},{passive:true});
+
 })();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#ffffff}</style><script>
       (function () {
         function show(img) {
@@ -175,15 +199,15 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
 <script src="/theme-previews/digital-studio/a/i.59a2755e14fa.js"></script><meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content=""><script src="/theme-previews/digital-studio/a/i.5802c928e030.js"></script><link rel="icon" type="image/png" href="/theme-previews/digital-studio/a/digistudio-mark.e80ba5bcc8fe.webp"><title>Bundles | Offcut</title>
+<meta name="theme-color" content=""><script src="/theme-previews/digital-studio/a/i.5802c928e030.js"></script><link rel="icon" type="image/png" href="/theme-previews/digital-studio/a/digistudio-mark.f12bf8948778.webp"><title>Bundles | Wren Studio</title>
 <meta name="description" content="Several products in one download, for less.">
-<meta property="og:site_name" content="Offcut">
-<meta property="og:title" content="Bundles | Offcut">
+<meta property="og:site_name" content="Wren Studio">
+<meta property="og:title" content="Bundles | Wren Studio">
 <meta property="og:type" content="website">
 <meta property="og:description" content="Several products in one download, for less.">
 <meta property="og:image:width" content="1600">
 <meta property="og:image:height" content="1600"><meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Bundles | Offcut">
+<meta name="twitter:title" content="Bundles | Wren Studio">
 <meta name="twitter:description" content="Several products in one download, for less.">
 <style id="speed-optimization-css">
   @media (prefers-reduced-motion: reduce) {
@@ -208,26 +232,26 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
         try {
           var l = document.createElement('link');
           l.rel = 'modulepreload';
-          l.href = new URL('/theme-previews/_base/a/cart-components.b6711c3796ec.js', new URL("/theme-previews/_base/a/theme.bbc3b899a286.js", location.href)).href;
+          l.href = new URL('/theme-previews/_base/a/cart-components.b6711c3796ec.js', new URL("/theme-previews/_base/a/theme.b49152a98599.js", location.href)).href;
           l.fetchPriority = 'low';
           document.head.appendChild(l);
         } catch (e) {}
       })();
-    </script><link href="/theme-previews/_base/a/base-static.a8d00914696d.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"outline","product_size":17,"price_size":16,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
+    </script><link href="/theme-previews/_base/a/base-static.c7b74da5b1b4.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":true,"card_atc_button":"primary","product_size":16,"price_size":15,"product_name_text_transform":"unset","card_atc_bg":"#ffffff","card_atc_color":"#17171a","card_atc_hover_bg":"#17171a","card_atc_hover_color":"#ffffff","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
-<script>document.documentElement.dataset.cardCustom = false === true ? 'true' : 'false';</script>
+<script>document.documentElement.dataset.cardCustom = true === true ? 'true' : 'false';</script>
 <script type="application/json" data-badge-style-settings>true</script>
-<script>document.documentElement.dataset.badgeCustom = 'true';</script><script src="/theme-previews/digital-studio/a/i.1ce91c58da38.js"></script><style>:root { --pc-act-size: 44px; }</style>
+<script>document.documentElement.dataset.badgeCustom = 'true';</script><script src="/theme-previews/digital-studio/a/i.1ce91c58da38.js"></script><link rel="stylesheet" href="/theme-previews/digital-studio/a/i.6f14d6357c96.css" data-pc-custom-actions><style>:root { --pc-act-size: 44px; }</style>
 <script>(function(u){var done=false;function go(){if(done)return;done=true;for(var i=0;u.length>i;i++){if(document.querySelector('link[href="'+u[i]+'"]'))continue;var l=document.createElement('link');l.rel='stylesheet';l.href=u[i];document.head.appendChild(l)}}
     window.MateriaLateCss={now:go};if(document.readyState==='complete')setTimeout(go,0);else{addEventListener('load',function(){setTimeout(go,0)},{once:true});
     document.addEventListener('DOMContentLoaded',function(){setTimeout(go,4000)},{once:true})}
-    ['pointerdown','click','keydown','scroll','touchstart'].forEach(function(n){addEventListener(n,go,{once:true,passive:true,capture:true})})})(["/theme-previews/_base/a/popup.18cdf2513c31.css","/theme-previews/_base/a/tingle-min.ed947d9dd1c7.css"]);</script><link rel="stylesheet" href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" media="print" onload="this.media='all'">
+    ['pointerdown','click','keydown','scroll','touchstart'].forEach(function(n){addEventListener(n,go,{once:true,passive:true,capture:true})})})(["/theme-previews/_base/a/popup.537a49cfcb3e.css","/theme-previews/_base/a/tingle-min.ed947d9dd1c7.css"]);</script><link rel="stylesheet" href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" media="print" onload="this.media='all'">
 <noscript><link href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" rel="stylesheet" type="text/css" media="all"></noscript>
-<link rel="stylesheet" href="/theme-previews/_base/a/fonts.c1956e790ae1.css" data-materia-fonts>
-<style data-materia-font-fallbacks>@font-face{font-family:"Karla Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:102.7%;ascent-override:89.3%;descent-override:24.5%;line-gap-override:0%}@font-face{font-family:"Karla Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:102.7%;ascent-override:89.3%;descent-override:24.5%;line-gap-override:0%}@font-face{font-family:"Libre Caslon Text Fallback";src:local("Times New Roman"), local("TimesNewRomanPSMT"), local("Liberation Serif");font-weight:100 549;size-adjust:116.7%;ascent-override:83.1%;descent-override:22.3%;line-gap-override:0%}@font-face{font-family:"Libre Caslon Text Fallback";src:local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold");font-weight:550 1000;size-adjust:116.7%;ascent-override:83.1%;descent-override:22.3%;line-gap-override:0%}</style><style data-shopify>
+<link rel="stylesheet" href="/theme-previews/_base/a/fonts.382e0e169e31.css" data-materia-fonts>
+<style data-materia-font-fallbacks>@font-face{font-family:"Onest Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:105.7%;ascent-override:91.7%;descent-override:28.8%;line-gap-override:0%}@font-face{font-family:"Onest Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:105.7%;ascent-override:91.7%;descent-override:28.8%;line-gap-override:0%}</style><style data-shopify>
   :root {
-    --body-font: "Karla", "Karla Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --heading-font: "Libre Caslon Text", "Libre Caslon Text Fallback", Georgia, "Times New Roman", serif, sans-serif;
+    --body-font: "Onest", "Onest Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --heading-font: "Onest", "Onest Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --menu-font: var(--body-font);
     --btn-font: var(--body-font);
     --heading-font-style: normal;
@@ -235,19 +259,19 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
     --font-heading-family: var(--heading-font);
   }
 </style>
-<link rel="stylesheet" href="/theme-previews/digital-studio/a/i.a3abb9db2f29.css" data-shopify><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
+<link rel="stylesheet" href="/theme-previews/digital-studio/a/i.53c36fe1e4c4.css" data-shopify><noscript><link href="/theme-previews/_base/a/popup.537a49cfcb3e.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.e2eadba68934.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/minicart.679b4fb18845.css" fetchpriority="low">
 <link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.6a68b7e13653.css" fetchpriority="low">
-<link rel="stylesheet" href="/theme-previews/digital-studio/a/i.28e20f6617bd.css"><link rel="stylesheet" href="/theme-previews/digital-studio/a/i.f3362ffa1d4c.css"><link rel="modulepreload" href="/theme-previews/_base/a/theme.bbc3b899a286.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/digital-studio/a/i.585ec254f5fd.js"></script>
+<link rel="stylesheet" href="/theme-previews/digital-studio/a/i.a685fb35964d.css"><link rel="stylesheet" href="/theme-previews/digital-studio/a/i.320f4ae340b5.css"><link rel="modulepreload" href="/theme-previews/_base/a/theme.b49152a98599.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/digital-studio/a/i.2dfcabf4f604.js"></script>
 <script src="/theme-previews/_base/a/swiper-bundle-min.31d164f7367d.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/motion-min.d1f8eb312b47.js" type="module" defer="defer" fetchpriority="low"></script>
-<script src="/theme-previews/_base/a/utils.26985d2d39f0.js" defer="defer" data-cart-count="0"></script>
-<script src="/theme-previews/_base/a/global.6451f87adf35.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/utils.3e8a73beb3e9.js" defer="defer" data-cart-count="0"></script>
+<script src="/theme-previews/_base/a/global.d6dc0d64340b.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-drawer-safety.b8d627a0381e.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/section-links.83dcb60cec8e.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/product-counters.9ef274d65c34.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/product-block-runtime.6868605d527a.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/product-dialogs.f42edf25d068.js" defer="defer"></script><script src="/theme-previews/_base/a/hero-image-one.9accbabb78ac.js" defer="defer"></script><script src="/theme-previews/digital-studio/a/i.c19642bd6029.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" rel="stylesheet" type="text/css" media="all"></noscript>
+<script src="/theme-previews/_base/a/product-dialogs.f42edf25d068.js" defer="defer"></script><script src="/theme-previews/_base/a/hero-image-one.9accbabb78ac.js" defer="defer"></script><script src="/theme-previews/digital-studio/a/i.d8f808a259c8.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" rel="stylesheet" type="text/css" media="all"></noscript>
 <script src="/theme-previews/_base/a/drift.eaae124afa1e.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/photoswipe-init.7fe034915110.js" type="module"></script>
 <script src="/theme-previews/digital-studio/a/i.69f67d6283fa.js"></script><script>(function(){try{var d=document.createElement('div');d.style.cssText='position:absolute;top:-99px;width:60px;height:60px;overflow:scroll;visibility:hidden';document.documentElement.appendChild(d);if(d.offsetWidth-d.clientWidth>0)document.documentElement.classList.add('sl-sb-room');d.remove()}catch(e){}})();</script><style>
@@ -267,7 +291,7 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
         body > #shopify-section-footer-group,
         body > #shopify-section-sections--footer-group,
         body > .shopify-section-group-footer-group { flex: 0 0 auto; }
-      </style><style data-sl-focus>[tabindex="-1"]:focus,dialog:focus,[role="dialog"]:focus,[aria-modal="true"]:focus,details-modal:focus,modal-dialog:focus{outline:none!important}</style><link rel="stylesheet" href="/theme-previews/digital-studio/a/i.baba7fb2aa0e.css" data-sl-busy-buttons><style data-sl-missing-image>img[data-sl-missing]{background-color:#f3f4f6!important;background-image:none!important;object-fit:contain!important;object-position:50% 50%!important;color:transparent!important}html[data-sl-dark] img[data-sl-missing],[data-community-theme="dark"] img[data-sl-missing]{background-color:#26282c!important}</style><script data-sl-missing-image src="/theme-previews/digital-studio/a/i.d77d88883af7.js"></script><script data-sl-cover-trim src="/theme-previews/digital-studio/a/i.fc4335148114.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/fonts.bd14396acf32.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/_base/a/fonts.fb2ab27c2a4b.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/digital-studio/a/i.17f73b1756bd.css" data-storelib-bundle><link rel="stylesheet" href="/theme-previews/digital-studio/a/i.ef5b9308d070.css" data-storelib-overrides></head>
+      </style><style data-sl-focus>[tabindex="-1"]:focus,dialog:focus,[role="dialog"]:focus,[aria-modal="true"]:focus,details-modal:focus,modal-dialog:focus{outline:none!important}</style><link rel="stylesheet" href="/theme-previews/digital-studio/a/i.7102a93928a0.css" data-sl-busy-buttons><style data-sl-missing-image>img[data-sl-missing]{background-color:#f3f4f6!important;background-image:none!important;object-fit:contain!important;object-position:50% 50%!important;color:transparent!important}html[data-sl-dark] img[data-sl-missing],[data-community-theme="dark"] img[data-sl-missing]{background-color:#26282c!important}</style><script data-sl-missing-image src="/theme-previews/digital-studio/a/i.d77d88883af7.js"></script><script data-sl-cover-trim src="/theme-previews/digital-studio/a/i.fc19b2383f33.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/fonts.bd14396acf32.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/_base/a/fonts.fb2ab27c2a4b.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/digital-studio/a/i.17f73b1756bd.css" data-storelib-bundle><link rel="stylesheet" href="/theme-previews/digital-studio/a/i.485951d12d16.css" data-storelib-overrides></head>
 <body
 class="gradient rounded-style  collection"
 data-btn-style="solid"
@@ -302,13 +326,13 @@ data-menu-hover="underline"
   :where(html:not([data-font-priority='off'])) #shopify-section-offer_bar :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
-</style><span data-ti-no-reveal hidden></span><link rel="stylesheet" href="/theme-previews/digital-studio/a/i.19de36c766d9.css"><link rel="stylesheet" href="/theme-previews/digital-studio/a/i.1e83b1a45400.css"><section id="announcement-bar-offer_bar" class="unique-announcement-bar color-scheme-9d3e6b10-2a7c-4f55-8e19-6c0b1d4e3f02 gradient" data-an-root="announcement-bar-basic" data-an-section="offer_bar" data-an-close-days="1" data-an-fallback-href="/collections/all" data-width="full_width" data-reset="true" data-show="display_all" data-close-d="false" data-close-m="false" data-close-days="1" data-sticky-announcement="false" data-own-weight aria-label="Announcement" style="--ab-bg: #17181a;--ab-text: #e9e8e4;--ab-border: var(--color-border);--ab-bw: 0px;--ab-justify: center;--ab-ta: center;--ab-gap: 12px;--ab-px: 16px;--ab-px-m: 14px;--ab-ls: 0px;--ab-tt: none;--ab-ff: inherit;--ab-fw: 500;--ab-fs-d: 14px;--ab-fs-m: 13px;--ab-h-d: 40px;--ab-h-m: 49px;"><a href="/theme-previews/digital-studio/pages/licence.html" class="ab-msg" data-an-no-link="SPAN" data-vis="all" data-an-block="message_1" data-an-type="message" data-block-id="message_1" style=""><span class="ab-msg__d">Every file downloads the moment you pay, and updates are free</span><span class="ab-msg__m">Instant download, free updates</span></a><button type="button" class="close-button" data-an-close aria-label="Close announcement"><span aria-hidden="true">&times;</span></button>
+</style><span data-ti-no-reveal hidden></span><link rel="stylesheet" href="/theme-previews/digital-studio/a/i.19de36c766d9.css"><link rel="stylesheet" href="/theme-previews/digital-studio/a/i.1e83b1a45400.css"><section id="announcement-bar-offer_bar" class="unique-announcement-bar color-scheme-9d3e6b10-2a7c-4f55-8e19-6c0b1d4e3f02 gradient" data-an-root="announcement-bar-basic" data-an-section="offer_bar" data-an-close-days="1" data-an-fallback-href="/collections/all" data-width="full_width" data-reset="true" data-show="display_all" data-close-d="false" data-close-m="false" data-close-days="1" data-sticky-announcement="false" data-own-weight aria-label="Announcement" style="--ab-bg: #17181a;--ab-text: #e9e8e4;--ab-border: var(--color-border);--ab-bw: 0px;--ab-justify: center;--ab-ta: center;--ab-gap: 12px;--ab-px: 16px;--ab-px-m: 14px;--ab-ls: 0px;--ab-tt: none;--ab-ff: inherit;--ab-fw: 500;--ab-fs-d: 14px;--ab-fs-m: 13px;--ab-h-d: 40px;--ab-h-m: 49px;"><a href="/theme-previews/digital-studio/pages/faqs.html" class="ab-msg" data-an-no-link="SPAN" data-vis="all" data-an-block="message_1" data-an-type="message" data-block-id="message_1" style=""><span class="ab-msg__d">Instant download after checkout, and every update is free</span><span class="ab-msg__m">Instant download, free updates</span></a><button type="button" class="close-button" data-an-close aria-label="Close announcement"><span aria-hidden="true">&times;</span></button>
 </section><script>
   (function () {
     var bar = document.getElementById('announcement-bar-offer_bar');
     try { var until = +localStorage.getItem('announcementBarClosedUntil:offer_bar') || 0; if (until && Date.now() < until) bar.hidden = true; if (sessionStorage.getItem('announcementBarClosed:offer_bar') === '1') bar.hidden = true; } catch (e) {}
   })();
-</script></div><div id="shopify-section-header" class="shopify-section shopify-section-group-header-group section-header has-popup" data-section-id="header" data-section-type="theme-header"><link href="/theme-previews/_base/a/header-section.d609d0b23c83.css" rel="stylesheet" type="text/css" media="all">
+</script></div><div id="shopify-section-header" class="shopify-section shopify-section-group-header-group section-header has-popup" data-section-id="header" data-section-type="theme-header"><link href="/theme-previews/_base/a/header-section.0b1f3e2d8175.css" rel="stylesheet" type="text/css" media="all">
 <script src="/theme-previews/_base/a/header-section.529bac1525b9.js" defer="defer"></script><style>
   #shopify-section-header {
     --hs-margin-top: 0px;
@@ -328,8 +352,8 @@ data-menu-hover="underline"
   }
 </style><style data-shopify>#shopify-section-header {
     --hs-mnav-bg: #ffffff;
-    --hs-mnav-heading: #17181a;
-    --hs-mnav-text: #4a4c50;
+    --hs-mnav-heading: #17171a;
+    --hs-mnav-text: #55565b;
     --hs-hover-fill: #ffffff;
     --hs-logo-width: 128px;
     --hs-logo-width-mobile: 108px;
@@ -355,30 +379,30 @@ data-sticky-mobile="true" data-reset-spacing
 data-menu-hover="underline" data-menu-hover-theme data-theme-hover="underline"
 data-header-blocks="pill_glass_1:pill_glass " data-menu-type='{"on":false,"font":&quot;Assistant, sans-serif&quot;,"size":15,"weight":&quot;500&quot;}' data-own-weight
 data-mega-label="button" data-dd-tinted data-logo-m="left" data-hs-flush data-logo-custom data-logo-x="0 0"
-style="--section-pt: 0;--section-pb: 0;--transparent-color: #ffffff;--menu-hover-color: var(--color-link-hover, currentColor);--dd-duration: 400ms;--dd-ease: cubic-bezier(0.187, 0.775, 0.435, 0.925);--dd-shadow: 0 5px 30px 0 rgba(0, 0, 0, 0.05);--dd-width: 260px;--dd-pad-y: 20px;--dd-pad-x: 30px;--dd-link-space: 3px;--dd-radius: 0px;--mega-gap: 32px;--mega-card-radius: 0px;--hs-menu-weight: 500;--hs-act-size: 16px;--hs-act-weight: 400;--hs-act-case: none;--hs-logo-gap-m: 0px;"
+style="--section-pt: 0;--section-pb: 0;--transparent-color: #ffffff;--menu-hover-color: var(--color-link-hover, currentColor);--dd-duration: 220ms;--dd-ease: cubic-bezier(0.187, 0.775, 0.435, 0.925);--dd-shadow: 0 5px 30px 0 rgba(0, 0, 0, 0.05);--dd-width: 260px;--dd-pad-y: 20px;--dd-pad-x: 30px;--dd-link-space: 3px;--dd-radius: 0px;--mega-gap: 32px;--mega-card-radius: 0px;--hs-menu-weight: 500;--hs-act-size: 16px;--hs-act-weight: 400;--hs-act-case: none;--hs-logo-gap-m: 0px;"
 ><div class="header__inner header__layout-1" id="header-sticky">
 <div class="container">
 <header-inner class="logo-position grid logo-left gap-10 gap-xl-50 header-middle align-center">
 <div class="header__logo text-center text-left-1025 inline-flex align-center"><a
 class="logo-img no-underline inline-flex align-center h1 my-0"
 href="/theme-previews/digital-studio/index.html"
-aria-label="Offcut"
+aria-label="Wren Studio"
 >
 <span
 class="header__logo inline-flex align-center"
-style="--header-logo-width: 128px; --header-logo-width-mobile: 108px;"
+style="--header-logo-width: 150px; --header-logo-width-mobile: 124px;"
 ><img
-srcset="/theme-previews/digital-studio/a/digistudio-logo.534f2ff0eafc.webp 165w,/theme-previews/digital-studio/a/digistudio-logo.534f2ff0eafc.webp 330w,/theme-previews/digital-studio/a/digistudio-logo.534f2ff0eafc.webp 409w
+srcset="/theme-previews/digital-studio/a/digistudio-logo-400.118776e1b14d.webp 165w,/theme-previews/digital-studio/a/digistudio-logo-400.118776e1b14d.webp 330w,/theme-previews/digital-studio/a/digistudio-logo.4dd1bd21557d.webp 535w,/theme-previews/digital-studio/a/digistudio-logo.4dd1bd21557d.webp 750w,/theme-previews/digital-studio/a/digistudio-logo.4dd1bd21557d.webp 779w
 "
-src="/theme-previews/digital-studio/a/digistudio-logo.534f2ff0eafc.webp"
+src="/theme-previews/digital-studio/a/digistudio-logo-400.118776e1b14d.webp"
 sizes="(max-width: 1024.98px) 108px, 128px"
 loading="eager"
 decoding="sync"
 fetchpriority="high"
 class="header__normal-logo"
-width="128"
-height="35"
-alt="Offcut"
+width="150"
+height="18"
+alt="Wren Studio"
 ></span>
 </a>
 </div>
@@ -393,7 +417,7 @@ class="action nav-toggle overlay inline-flex pointer w-44 h-44 hidden-1025 heade
 <path d="M2 8H20C20.2812 8 20.5156 7.90625 20.7031 7.71875C20.9062 7.51562 21.0078 7.27344 21.0078 6.99219C21.0078 6.72656 20.9062 6.5 20.7031 6.3125C20.5156 6.10938 20.2812 6.00781 20 6.00781H2C1.71875 6.00781 1.47656 6.10938 1.27344 6.3125C1.08594 6.5 0.992188 6.72656 0.992188 6.99219C0.992188 7.27344 1.08594 7.51562 1.27344 7.71875C1.47656 7.90625 1.71875 8 2 8ZM2 2H20C20.2812 2 20.5156 1.90625 20.7031 1.71875C20.9062 1.51563 21.0078 1.27344 21.0078 0.992188C21.0078 0.726562 20.9062 0.5 20.7031 0.3125C20.5156 0.109375 20.2812 0.0078125 20 0.0078125H2C1.71875 0.0078125 1.47656 0.109375 1.27344 0.3125C1.08594 0.5 0.992188 0.726562 0.992188 0.992188C0.992188 1.27344 1.08594 1.51563 1.27344 1.71875C1.47656 1.90625 1.71875 2 2 2ZM2 14H20C20.2812 14 20.5156 13.9062 20.7031 13.7188C20.9062 13.5156 21.0078 13.2734 21.0078 12.9922C21.0078 12.7266 20.9062 12.5 20.7031 12.3125C20.5156 12.1094 20.2812 12.0078 20 12.0078H2C1.71875 12.0078 1.47656 12.1094 1.27344 12.3125C1.08594 12.5 0.992188 12.7266 0.992188 12.9922C0.992188 13.2734 1.08594 13.5156 1.27344 13.7188C1.47656 13.9062 1.71875 14 2 14Z" fill="currentColor"/>
 </svg>
 </button>
-<link href="/theme-previews/_base/a/navigation.9c20c549e3cf.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/navigation.e2eadba68934.css" rel="stylesheet" type="text/css" media="all">
 <nav
 class="flex flex-column block-1025 navigation horizontal fixed static-1025 visible-1025 inset-0 down-to-up"
 data-action-mobile="true"
@@ -463,42 +487,49 @@ class="subchildmenu list-unstyled px-30 px-1025-0"
 <a
 class="menu_item-link no-underline py-10 py-1025-5 min-h-55 min-h-1025-unset inline-flex align-center"
 href="/theme-previews/digital-studio/collections/all.html"
-><span class="menu-link-text">Everything</span></a></menu-item>
+><span class="menu-link-text">All products</span></a></menu-item>
 </li>
 <li class="menu-link level-1">
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0">
 <a
 class="menu_item-link no-underline py-10 py-1025-5 min-h-55 min-h-1025-unset inline-flex align-center"
-href="/theme-previews/digital-studio/collections/fonts.html"
-><span class="menu-link-text">Fonts</span></a></menu-item>
+href="/theme-previews/digital-studio/collections/notion-templates.html"
+><span class="menu-link-text">Notion templates</span></a></menu-item>
 </li>
 <li class="menu-link level-1">
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0">
 <a
 class="menu_item-link no-underline py-10 py-1025-5 min-h-55 min-h-1025-unset inline-flex align-center"
-href="/theme-previews/digital-studio/collections/presets.html"
-><span class="menu-link-text">Presets</span></a></menu-item>
+href="/theme-previews/digital-studio/collections/canva-templates.html"
+><span class="menu-link-text">Canva templates</span></a></menu-item>
 </li>
 <li class="menu-link level-1">
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0">
 <a
 class="menu_item-link no-underline py-10 py-1025-5 min-h-55 min-h-1025-unset inline-flex align-center"
-href="/theme-previews/digital-studio/collections/brushes-textures.html"
-><span class="menu-link-text">Brushes and textures</span></a></menu-item>
+href="/theme-previews/digital-studio/collections/lightroom-presets.html"
+><span class="menu-link-text">Lightroom presets</span></a></menu-item>
 </li>
 <li class="menu-link level-1">
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0">
 <a
 class="menu_item-link no-underline py-10 py-1025-5 min-h-55 min-h-1025-unset inline-flex align-center"
-href="/theme-previews/digital-studio/collections/templates.html"
-><span class="menu-link-text">Templates</span></a></menu-item>
+href="/theme-previews/digital-studio/collections/ebooks-guides.html"
+><span class="menu-link-text">Ebooks and guides</span></a></menu-item>
 </li>
 <li class="menu-link level-1">
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0">
 <a
 class="menu_item-link no-underline py-10 py-1025-5 min-h-55 min-h-1025-unset inline-flex align-center"
-href="/theme-previews/digital-studio/collections/guides-courses.html"
-><span class="menu-link-text">Guides and courses</span></a></menu-item>
+href="/theme-previews/digital-studio/collections/planners-printables.html"
+><span class="menu-link-text">Planners and printables</span></a></menu-item>
+</li>
+<li class="menu-link level-1">
+<menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0">
+<a
+class="menu_item-link no-underline py-10 py-1025-5 min-h-55 min-h-1025-unset inline-flex align-center"
+href="/theme-previews/digital-studio/collections/courses.html"
+><span class="menu-link-text">Courses</span></a></menu-item>
 </li>
 <li class="menu-link level-1">
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0">
@@ -515,9 +546,25 @@ class="level0 single"
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
 <a
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
-href="/theme-previews/digital-studio/collections/fonts.html"
-><span>Fonts</span></a></menu-item></li>
+href="/theme-previews/digital-studio/collections/notion-templates.html"
+><span>Notion</span></a></menu-item></li>
 <li data-hs-i="2"
+class="level0 single"
+>
+<menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
+<a
+class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
+href="/theme-previews/digital-studio/collections/canva-templates.html"
+><span>Canva</span></a></menu-item></li>
+<li data-hs-i="3"
+class="level0 single"
+>
+<menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
+<a
+class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
+href="/theme-previews/digital-studio/collections/lightroom-presets.html"
+><span>Presets</span></a></menu-item></li>
+<li data-hs-i="4"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -525,15 +572,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/digital-studio/collections/bundles.html"
 ><span>Bundles</span></a></menu-item></li>
-<li data-hs-i="3"
-class="level0 single"
->
-<menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
-<a
-class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
-href="/theme-previews/digital-studio/pages/licence.html"
-><span>Licence</span></a></menu-item></li>
-<li data-hs-i="4"
+<li data-hs-i="5"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -541,7 +580,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/digital-studio/blogs/news.html"
 ><span>Blog</span></a></menu-item></li>
-<li data-hs-i="5"
+<li data-hs-i="6"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -576,32 +615,37 @@ href="/theme-previews/digital-studio/collections/all.html"
 <a
 class="menu_item-link no-underline py-1025-5 inline-flex align-center"
 href="/theme-previews/digital-studio/collections/all.html"
-><span class="menu-link-text">Everything</span></a>
+><span class="menu-link-text">All products</span></a>
 </li><li class="menu-link level-2">
 <a
 class="menu_item-link no-underline py-1025-5 inline-flex align-center"
-href="/theme-previews/digital-studio/collections/fonts.html"
-><span class="menu-link-text">Fonts</span></a>
+href="/theme-previews/digital-studio/collections/notion-templates.html"
+><span class="menu-link-text">Notion templates</span></a>
 </li><li class="menu-link level-2">
 <a
 class="menu_item-link no-underline py-1025-5 inline-flex align-center"
-href="/theme-previews/digital-studio/collections/presets.html"
-><span class="menu-link-text">Presets</span></a>
+href="/theme-previews/digital-studio/collections/canva-templates.html"
+><span class="menu-link-text">Canva templates</span></a>
 </li><li class="menu-link level-2">
 <a
 class="menu_item-link no-underline py-1025-5 inline-flex align-center"
-href="/theme-previews/digital-studio/collections/brushes-textures.html"
-><span class="menu-link-text">Brushes and textures</span></a>
+href="/theme-previews/digital-studio/collections/lightroom-presets.html"
+><span class="menu-link-text">Lightroom presets</span></a>
 </li><li class="menu-link level-2">
 <a
 class="menu_item-link no-underline py-1025-5 inline-flex align-center"
-href="/theme-previews/digital-studio/collections/templates.html"
-><span class="menu-link-text">Templates</span></a>
+href="/theme-previews/digital-studio/collections/ebooks-guides.html"
+><span class="menu-link-text">Ebooks and guides</span></a>
 </li><li class="menu-link level-2">
 <a
 class="menu_item-link no-underline py-1025-5 inline-flex align-center"
-href="/theme-previews/digital-studio/collections/guides-courses.html"
-><span class="menu-link-text">Guides and courses</span></a>
+href="/theme-previews/digital-studio/collections/planners-printables.html"
+><span class="menu-link-text">Planners and printables</span></a>
+</li><li class="menu-link level-2">
+<a
+class="menu_item-link no-underline py-1025-5 inline-flex align-center"
+href="/theme-previews/digital-studio/collections/courses.html"
+><span class="menu-link-text">Courses</span></a>
 </li><li class="menu-link level-2">
 <a
 class="menu_item-link no-underline py-1025-5 inline-flex align-center"
@@ -610,20 +654,24 @@ href="/theme-previews/digital-studio/collections/bundles.html"
 </li></ul></li><li class="menu-link level-1" data-hs-more-i="1" hidden>
 <a
 class="menu_item-link no-underline py-1025-5 inline-flex align-center"
-href="/theme-previews/digital-studio/collections/fonts.html"
-><span class="menu-link-text">Fonts</span></a></li><li class="menu-link level-1" data-hs-more-i="2" hidden>
+href="/theme-previews/digital-studio/collections/notion-templates.html"
+><span class="menu-link-text">Notion</span></a></li><li class="menu-link level-1" data-hs-more-i="2" hidden>
+<a
+class="menu_item-link no-underline py-1025-5 inline-flex align-center"
+href="/theme-previews/digital-studio/collections/canva-templates.html"
+><span class="menu-link-text">Canva</span></a></li><li class="menu-link level-1" data-hs-more-i="3" hidden>
+<a
+class="menu_item-link no-underline py-1025-5 inline-flex align-center"
+href="/theme-previews/digital-studio/collections/lightroom-presets.html"
+><span class="menu-link-text">Presets</span></a></li><li class="menu-link level-1" data-hs-more-i="4" hidden>
 <a
 class="menu_item-link no-underline py-1025-5 inline-flex align-center"
 href="/theme-previews/digital-studio/collections/bundles.html"
-><span class="menu-link-text">Bundles</span></a></li><li class="menu-link level-1" data-hs-more-i="3" hidden>
-<a
-class="menu_item-link no-underline py-1025-5 inline-flex align-center"
-href="/theme-previews/digital-studio/pages/licence.html"
-><span class="menu-link-text">Licence</span></a></li><li class="menu-link level-1" data-hs-more-i="4" hidden>
+><span class="menu-link-text">Bundles</span></a></li><li class="menu-link level-1" data-hs-more-i="5" hidden>
 <a
 class="menu_item-link no-underline py-1025-5 inline-flex align-center"
 href="/theme-previews/digital-studio/blogs/news.html"
-><span class="menu-link-text">Blog</span></a></li><li class="menu-link level-1" data-hs-more-i="5" hidden>
+><span class="menu-link-text">Blog</span></a></li><li class="menu-link level-1" data-hs-more-i="6" hidden>
 <a
 class="menu_item-link no-underline py-1025-5 inline-flex align-center"
 href="/theme-previews/digital-studio/pages/about.html"
@@ -741,42 +789,49 @@ class="subchildmenu list-unstyled px-30 px-1025-0"
 <a
 class="menu_item-link no-underline py-10 py-1025-5 min-h-55 min-h-1025-unset inline-flex align-center"
 href="/theme-previews/digital-studio/collections/all.html"
-><span class="menu-link-text">Everything</span></a></menu-item>
+><span class="menu-link-text">All products</span></a></menu-item>
 </li>
 <li class="menu-link level-1">
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0">
 <a
 class="menu_item-link no-underline py-10 py-1025-5 min-h-55 min-h-1025-unset inline-flex align-center"
-href="/theme-previews/digital-studio/collections/fonts.html"
-><span class="menu-link-text">Fonts</span></a></menu-item>
+href="/theme-previews/digital-studio/collections/notion-templates.html"
+><span class="menu-link-text">Notion templates</span></a></menu-item>
 </li>
 <li class="menu-link level-1">
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0">
 <a
 class="menu_item-link no-underline py-10 py-1025-5 min-h-55 min-h-1025-unset inline-flex align-center"
-href="/theme-previews/digital-studio/collections/presets.html"
-><span class="menu-link-text">Presets</span></a></menu-item>
+href="/theme-previews/digital-studio/collections/canva-templates.html"
+><span class="menu-link-text">Canva templates</span></a></menu-item>
 </li>
 <li class="menu-link level-1">
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0">
 <a
 class="menu_item-link no-underline py-10 py-1025-5 min-h-55 min-h-1025-unset inline-flex align-center"
-href="/theme-previews/digital-studio/collections/brushes-textures.html"
-><span class="menu-link-text">Brushes and textures</span></a></menu-item>
+href="/theme-previews/digital-studio/collections/lightroom-presets.html"
+><span class="menu-link-text">Lightroom presets</span></a></menu-item>
 </li>
 <li class="menu-link level-1">
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0">
 <a
 class="menu_item-link no-underline py-10 py-1025-5 min-h-55 min-h-1025-unset inline-flex align-center"
-href="/theme-previews/digital-studio/collections/templates.html"
-><span class="menu-link-text">Templates</span></a></menu-item>
+href="/theme-previews/digital-studio/collections/ebooks-guides.html"
+><span class="menu-link-text">Ebooks and guides</span></a></menu-item>
 </li>
 <li class="menu-link level-1">
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0">
 <a
 class="menu_item-link no-underline py-10 py-1025-5 min-h-55 min-h-1025-unset inline-flex align-center"
-href="/theme-previews/digital-studio/collections/guides-courses.html"
-><span class="menu-link-text">Guides and courses</span></a></menu-item>
+href="/theme-previews/digital-studio/collections/planners-printables.html"
+><span class="menu-link-text">Planners and printables</span></a></menu-item>
+</li>
+<li class="menu-link level-1">
+<menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0">
+<a
+class="menu_item-link no-underline py-10 py-1025-5 min-h-55 min-h-1025-unset inline-flex align-center"
+href="/theme-previews/digital-studio/collections/courses.html"
+><span class="menu-link-text">Courses</span></a></menu-item>
 </li>
 <li class="menu-link level-1">
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0">
@@ -793,9 +848,25 @@ class="level0 single"
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
 <a
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
-href="/theme-previews/digital-studio/collections/fonts.html"
-><span>Fonts</span></a></menu-item></li>
+href="/theme-previews/digital-studio/collections/notion-templates.html"
+><span>Notion</span></a></menu-item></li>
 <li data-hs-i="2"
+class="level0 single"
+>
+<menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
+<a
+class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
+href="/theme-previews/digital-studio/collections/canva-templates.html"
+><span>Canva</span></a></menu-item></li>
+<li data-hs-i="3"
+class="level0 single"
+>
+<menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
+<a
+class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
+href="/theme-previews/digital-studio/collections/lightroom-presets.html"
+><span>Presets</span></a></menu-item></li>
+<li data-hs-i="4"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -803,15 +874,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/digital-studio/collections/bundles.html"
 ><span>Bundles</span></a></menu-item></li>
-<li data-hs-i="3"
-class="level0 single"
->
-<menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
-<a
-class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
-href="/theme-previews/digital-studio/pages/licence.html"
-><span>Licence</span></a></menu-item></li>
-<li data-hs-i="4"
+<li data-hs-i="5"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -819,7 +882,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/digital-studio/blogs/news.html"
 ><span>Blog</span></a></menu-item></li>
-<li data-hs-i="5"
+<li data-hs-i="6"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -903,7 +966,7 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
 </div>
 </div></header><script src="/theme-previews/digital-studio/a/i.b8ec2f2ea707.js"></script>
 <link href="/theme-previews/_base/a/header-sticky.3e10a26b0bdf.css" rel="stylesheet" type="text/css" media="all">
-<script src="/theme-previews/digital-studio/a/i.9790def5bd53.js"></script><script src="/theme-previews/_base/a/header-sticky-extras.78e1fb4f310f.js" defer="defer"></script></div><script>(function(){var l=document.querySelectorAll('.shopify-section-group-header-group');for(var i=0;i < l.length && i < 6;i++)l[i].setAttribute('data-mt-hold',String(i))})();</script><script src="/theme-previews/digital-studio/a/i.0235c8b1fe44.js"></script>
+<script src="/theme-previews/digital-studio/a/i.adb13e5cafa5.js"></script><script src="/theme-previews/_base/a/header-sticky-extras.08c1323ecff8.js" defer="defer"></script></div><script>(function(){var l=document.querySelectorAll('.shopify-section-group-header-group');for(var i=0;i < l.length && i < 6;i++)l[i].setAttribute('data-mt-hold',String(i))})();</script><script src="/theme-previews/digital-studio/a/i.0235c8b1fe44.js"></script>
 <main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1"><section id="shopify-section-main-collection-heading" class="shopify-section page-title s-tt" data-section-id="main-collection-heading" data-section-type="main-collection-heading"><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-main-collection-heading :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
@@ -995,7 +1058,7 @@ data-block-id="description_2">
   #shopify-section-main-collection-product { font-weight: var(--body-weight, inherit); isolation: isolate; position: relative; }
   :where(#shopify-section-main-collection-product) :is(h1, h2, h3, h4, h5, h6) { font-weight: var(--heading-weight, inherit); }
 </style><link rel="stylesheet" href="/theme-previews/digital-studio/a/i.39752e0a959d.css"><link rel="stylesheet" href="/theme-previews/digital-studio/a/i.d283edfd6bac.css">
-<script src="/theme-previews/digital-studio/a/i.911cfed98be7.js"></script><link href="/theme-previews/_base/a/collection-page.d54a62119cca.css" rel="stylesheet" type="text/css" media="all">
+<script src="/theme-previews/digital-studio/a/i.911cfed98be7.js"></script><link href="/theme-previews/_base/a/collection-page.ea212761c899.css" rel="stylesheet" type="text/css" media="all">
 <section
 class="section pt-min sec__collection-main none bls-image-js color-default gradient"
 data-section-id="main-collection-product"
@@ -1207,9 +1270,9 @@ type="number"
 name="filter.v.price.gte"
 inputmode="decimal"
 min="0"
-max="298"
+max="129"
 step="any"
-placeholder="79"
+placeholder="59"
 value=""
 data-facets-key="price-min"
 >
@@ -1225,9 +1288,9 @@ type="number"
 name="filter.v.price.lte"
 inputmode="decimal"
 min="0"
-max="298"
+max="129"
 step="any"
-placeholder="298"
+placeholder="129"
 value=""
 data-facets-key="price-max"
 >
@@ -1236,44 +1299,13 @@ data-facets-key="price-max"
 </div>
 <button type="submit" class="facets-price__apply btn btn-secondary" data-theme-button="secondary" data-button-role="secondary" data-facets-key="price-apply">Apply</button>
 </form></div>
-</details><details class="facets-group" data-facets-group="licence">
-<summary class="facets-group__summary" data-facets-key="group-licence">
-<span class="facets-group__name">Licence</span><svg class="facets-group__chevron" width="12" height="8" viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1 1.5 5 5 5-5"/></svg>
-</summary>
-<div class="facets-group__content"><ul class="facets-values" role="list"><li>
-<a
-class="facets-value"
-href="/theme-previews/digital-studio/collections/bundles.html"
-role="checkbox"
-aria-checked="false"
-data-facets-link
-data-facets-key="value-licence-standard"
-data-facets-param="filter.v.option.licence"
-data-facets-value="Standard"
->
-<span class="facets-value__box" aria-hidden="true"></span>
-<span class="facets-value__label">Standard</span></a>
-</li><li>
-<a
-class="facets-value"
-href="/theme-previews/digital-studio/collections/bundles.html"
-role="checkbox"
-aria-checked="false"
-data-facets-link
-data-facets-key="value-licence-team-of-five"
-data-facets-param="filter.v.option.licence"
-data-facets-value="Team of five"
->
-<span class="facets-value__box" aria-hidden="true"></span>
-<span class="facets-value__label">Team of five</span></a>
-</li></ul></div>
 </details><details class="facets-group facets-group--links" data-facets-group="menu-categories_1" data-block-id="categories_1">
 <summary class="facets-group__summary" data-facets-key="group-menu-categories_1">
-<span class="facets-group__name">Shop by kind</span>
+<span class="facets-group__name">Shop by category</span>
 <svg class="facets-group__chevron" width="12" height="8" viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1 1.5 5 5 5-5"/></svg>
 </summary>
 <div class="facets-group__content">
-<ul class="facets-links" role="list"><li><a class="facets-links__link" href="/theme-previews/digital-studio/collections/all.html">Everything</a></li><li><a class="facets-links__link" href="/theme-previews/digital-studio/collections/fonts.html">Fonts</a></li><li><a class="facets-links__link" href="/theme-previews/digital-studio/collections/presets.html">Presets</a></li><li><a class="facets-links__link" href="/theme-previews/digital-studio/collections/brushes-textures.html">Brushes and textures</a></li><li><a class="facets-links__link" href="/theme-previews/digital-studio/collections/templates.html">Templates</a></li><li><a class="facets-links__link" href="/theme-previews/digital-studio/collections/guides-courses.html">Guides and courses</a></li><li><a class="facets-links__link" href="/theme-previews/digital-studio/collections/bundles.html" aria-current="page">Bundles</a></li></ul>
+<ul class="facets-links" role="list"><li><a class="facets-links__link" href="/theme-previews/digital-studio/collections/all.html">All products</a></li><li><a class="facets-links__link" href="/theme-previews/digital-studio/collections/notion-templates.html">Notion templates</a></li><li><a class="facets-links__link" href="/theme-previews/digital-studio/collections/canva-templates.html">Canva templates</a></li><li><a class="facets-links__link" href="/theme-previews/digital-studio/collections/lightroom-presets.html">Lightroom presets</a></li><li><a class="facets-links__link" href="/theme-previews/digital-studio/collections/ebooks-guides.html">Ebooks and guides</a></li><li><a class="facets-links__link" href="/theme-previews/digital-studio/collections/planners-printables.html">Planners and printables</a></li><li><a class="facets-links__link" href="/theme-previews/digital-studio/collections/courses.html">Courses</a></li><li><a class="facets-links__link" href="/theme-previews/digital-studio/collections/bundles.html" aria-current="page">Bundles</a></li></ul>
 </div>
 </details></div>
 <div class="facets-panel__foot">
@@ -1317,15 +1349,15 @@ style="--animation-order: 1;  "
 <div class="product-item__inner hover-effect overflow-hidden relative">
 <a
 draggable="false"
-href="/theme-previews/digital-studio/products/brand-starter-bundle.html"
-aria-label="Brand Starter Bundle"
+href="/theme-previews/digital-studio/products/creator-starter-bundle.html"
+aria-label="Creator Starter Bundle"
 class="product__media product-item__media--ratio rounded block show_secondary"
 style="--aspect-ratio: 1/1;"
 >
-<img src="/theme-previews/digital-studio/a/digistudio-bundle-brand.68720f90bae6.webp" srcset="/theme-previews/digital-studio/a/digistudio-bundle-brand-800.7ba5098d7b99.webp 720w, /theme-previews/digital-studio/a/digistudio-bundle-brand-800.7ba5098d7b99.webp 660w, /theme-previews/digital-studio/a/digistudio-bundle-brand-800.7ba5098d7b99.webp 550w, /theme-previews/digital-studio/a/digistudio-bundle-brand-800.7ba5098d7b99.webp 480w, /theme-previews/digital-studio/a/digistudio-bundle-brand-400.1470e4de9f82.webp 330w, /theme-previews/digital-studio/a/digistudio-bundle-brand-400.1470e4de9f82.webp 240w, /theme-previews/digital-studio/a/digistudio-bundle-brand-400.1470e4de9f82.webp 185w" alt="Brand Starter Bundle" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1240px -  24px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 24px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
+<img src="/theme-previews/digital-studio/a/digistudio-bundle-starter.aff9ca39df17.webp" srcset="/theme-previews/digital-studio/a/digistudio-bundle-starter.aff9ca39df17.webp 1440w, /theme-previews/digital-studio/a/digistudio-bundle-starter.aff9ca39df17.webp 1200w, /theme-previews/digital-studio/a/digistudio-bundle-starter.aff9ca39df17.webp 1080w, /theme-previews/digital-studio/a/digistudio-bundle-starter.aff9ca39df17.webp 900w, /theme-previews/digital-studio/a/digistudio-bundle-starter-800.032da5241bfd.webp 720w, /theme-previews/digital-studio/a/digistudio-bundle-starter-800.032da5241bfd.webp 660w, /theme-previews/digital-studio/a/digistudio-bundle-starter-800.032da5241bfd.webp 550w, /theme-previews/digital-studio/a/digistudio-bundle-starter-800.032da5241bfd.webp 480w, /theme-previews/digital-studio/a/digistudio-bundle-starter-400.9178a239935f.webp 330w, /theme-previews/digital-studio/a/digistudio-bundle-starter-400.9178a239935f.webp 240w, /theme-previews/digital-studio/a/digistudio-bundle-starter-400.9178a239935f.webp 185w" alt="Creator Starter Bundle" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1280px -  24px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 24px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/digital-studio/a/digistudio-bundle-brand-contents.fb5435cf981d.webp" srcset="/theme-previews/digital-studio/a/digistudio-bundle-brand-contents-800.1aded45ac418.webp 720w, /theme-previews/digital-studio/a/digistudio-bundle-brand-contents-800.1aded45ac418.webp 660w, /theme-previews/digital-studio/a/digistudio-bundle-brand-contents-800.1aded45ac418.webp 550w, /theme-previews/digital-studio/a/digistudio-bundle-brand-contents-800.1aded45ac418.webp 480w, /theme-previews/digital-studio/a/digistudio-bundle-brand-contents-400.5df1034ef2ba.webp 330w, /theme-previews/digital-studio/a/digistudio-bundle-brand-contents-400.5df1034ef2ba.webp 240w, /theme-previews/digital-studio/a/digistudio-bundle-brand-contents-400.5df1034ef2ba.webp 185w" alt="Brand Starter Bundle" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, (min-width: 1200px) calc((1240px -  24px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 24px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/digital-studio/a/digistudio-bundle-starter-2.85ab2bae779e.webp" srcset="/theme-previews/digital-studio/a/digistudio-bundle-starter-2.85ab2bae779e.webp 1440w, /theme-previews/digital-studio/a/digistudio-bundle-starter-2.85ab2bae779e.webp 1200w, /theme-previews/digital-studio/a/digistudio-bundle-starter-2.85ab2bae779e.webp 1080w, /theme-previews/digital-studio/a/digistudio-bundle-starter-2.85ab2bae779e.webp 900w, /theme-previews/digital-studio/a/digistudio-bundle-starter-2-800.738860495bc0.webp 720w, /theme-previews/digital-studio/a/digistudio-bundle-starter-2-800.738860495bc0.webp 660w, /theme-previews/digital-studio/a/digistudio-bundle-starter-2-800.738860495bc0.webp 550w, /theme-previews/digital-studio/a/digistudio-bundle-starter-2-800.738860495bc0.webp 480w, /theme-previews/digital-studio/a/digistudio-bundle-starter-2-400.60395c7aef15.webp 330w, /theme-previews/digital-studio/a/digistudio-bundle-starter-2-400.60395c7aef15.webp 240w, /theme-previews/digital-studio/a/digistudio-bundle-starter-2-400.60395c7aef15.webp 185w" alt="Creator Starter Bundle" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, (min-width: 1200px) calc((1280px -  24px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 24px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1333,7 +1365,7 @@ data-max="4"
 data-sale-color="#ffffff"
 data-sold-out-color="#ffffff"
 data-pre-order-color="#ffffff"
-data-sale-bg="#e2552b"
+data-sale-bg="#1e4a3b"
 data-sold-out-bg="#666666"
 data-pre-order-bg="#6a33d8"
 data-show-sale="true"
@@ -1342,15 +1374,15 @@ data-show-preorder="true"
 data-sale-badge-type="percent"
 ><div
 class="product__badges-sale product__badges-type-percent product__badges-inner align-self-start px-15 sale inline-flex content-center subheading_weight text-center lh-normal"
->-25%
+>-26%
 </div>
 </div>
 <div class="pc-actions pc-actions--side"><button-quickview
 tabindex="0"
 role="button"
-aria-label="Quick view: Brand Starter Bundle"
+aria-label="Quick view: Creator Starter Bundle"
 class="pc-action pointer"
-data-url="/theme-previews/digital-studio/products/brand-starter-bundle.html?section_id=product-quickview"
+data-url="/theme-previews/digital-studio/products/creator-starter-bundle.html?section_id=product-quickview"
 data-custom-class="quickview"
 aria-haspopup="dialog"
 >
@@ -1358,56 +1390,51 @@ aria-haspopup="dialog"
 <span class="pc-tip" aria-hidden="true">Quick view</span>
 </button-quickview></div></div>
 <div class="product-item__action pc-atc-slot">
-<div class="product-item__product-form pc-form pc-form--media">
-<button-quickview
-role="button"
-tabindex="0"
-class="product__add-cart product-item__button-submit pc-atc btn text-center pointer"
-data-url="/theme-previews/digital-studio/products/brand-starter-bundle.html?section_id=product-quickview"
-data-custom-class="quickview"
-aria-haspopup="dialog"
-aria-label="Select Options: Brand Starter Bundle"
+<product-form class="product-item__product-form pc-form pc-form--media"><form id="quick-add-main-collection-product00000000-0000-4000-8000-000000000022" accept-charset="UTF-8" class="form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000022"><input type="hidden" name="id" value="00000000-0000-4000-8000-000000000022" disabled>
+<button
+id="quick-add-main-collection-product00000000-0000-4000-8000-000000000022-submit"
+type="submit"
+name="add"
+class="product__add-cart product-item__button-submit pc-atc btn text-center"
 data-sl-button data-button-role="primary" data-theme-button="primary" data-button-local-appearance="theme"
+aria-haspopup="dialog"
+aria-live="polite"
+data-sold-out-message="true"
 >
 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="pc-atc__icon hidden-on-load icon-cart" aria-hidden="true" focusable="false"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="spin opacity-0 icon-load" aria-hidden="true" focusable="false"><use href="#icon-load"></use></svg>
-<span class="pc-atc__label hidden-on-load btn-action">Select Options</span>
-</button-quickview>
-</div>
+<span class="pc-atc__label hidden-on-load btn-action">Add to Cart</span>
+<span class="sold-out-message hidden">Out of Stock</span>
+</button></form></product-form>
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
 <a
-aria-label="Brand Starter Bundle"
+aria-label="Creator Starter Bundle"
 class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
-style="--font-size: 17;"            
-href="/theme-previews/digital-studio/products/brand-starter-bundle.html"
->Brand Starter Bundle</a>
+style="--font-size: 16;"            
+href="/theme-previews/digital-studio/products/creator-starter-bundle.html"
+>Creator Starter Bundle</a>
 <span class="product-reviews">
-<span aria-hidden="true">★</span> 5 / 5 · 14
+<span aria-hidden="true">★</span> 5 / 5 · 58
 </span>
 <div
 class="product-item__price justify-content-start fs-custom flex gap-custom lh-normal "
-style="--font-size: 16; --gap: 3px;"
+style="--font-size: 15; --gap: 3px;"
 ><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular primary-color">
 <span class="visually-hidden">Sale price</span>
 <span class="price heading_weight primary-color price-same-style price--special">
-$79.00
+$59.00
 </span>
 </div>
 <div class="price-regular">
 <span class="visually-hidden">Regular price</span>
-<s class="price-item compare-price dark-grey">$106.00</s>
+<s class="price-item compare-price dark-grey">$80.00</s>
 </div>
 </div>
 </div>
 </div>
-<script type="application/json" class="product-variant__quantity">
-            [{ "option":"Standard","qty":11,"available":true,"mamagement":""},{ "option":"Team of five","qty":11,"available":true,"mamagement":""}]
-          </script>
-</motion-element><script type="application/json" class="productItemVariantsQty">
-        [{ "option":"Standard","qty":11,"available":true,"mamagement":""},{ "option":"Team of five","qty":11,"available":true,"mamagement":""}]
-      </script></div>
+</motion-element></div>
 </div><div
 class="grid__item"
 >
@@ -1426,15 +1453,15 @@ style="--animation-order: 2;  "
 <div class="product-item__inner hover-effect overflow-hidden relative">
 <a
 draggable="false"
-href="/theme-previews/digital-studio/products/the-whole-studio.html"
-aria-label="The Whole Studio"
+href="/theme-previews/digital-studio/products/the-everything-bundle.html"
+aria-label="The Everything Bundle"
 class="product__media product-item__media--ratio rounded block show_secondary"
 style="--aspect-ratio: 1/1;"
 >
-<img src="/theme-previews/digital-studio/a/digistudio-bundle-studio.dc13697535fd.webp" srcset="/theme-previews/digital-studio/a/digistudio-bundle-studio-800.72aaa3162ab5.webp 720w, /theme-previews/digital-studio/a/digistudio-bundle-studio-800.72aaa3162ab5.webp 660w, /theme-previews/digital-studio/a/digistudio-bundle-studio-800.72aaa3162ab5.webp 550w, /theme-previews/digital-studio/a/digistudio-bundle-studio-800.72aaa3162ab5.webp 480w, /theme-previews/digital-studio/a/digistudio-bundle-studio-400.f4952240d848.webp 330w, /theme-previews/digital-studio/a/digistudio-bundle-studio-400.f4952240d848.webp 240w, /theme-previews/digital-studio/a/digistudio-bundle-studio-400.f4952240d848.webp 185w" alt="The Whole Studio" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1240px -  24px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 24px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
+<img src="/theme-previews/digital-studio/a/digistudio-bundle-all.62b373748252.webp" srcset="/theme-previews/digital-studio/a/digistudio-bundle-all.62b373748252.webp 1440w, /theme-previews/digital-studio/a/digistudio-bundle-all.62b373748252.webp 1200w, /theme-previews/digital-studio/a/digistudio-bundle-all.62b373748252.webp 1080w, /theme-previews/digital-studio/a/digistudio-bundle-all.62b373748252.webp 900w, /theme-previews/digital-studio/a/digistudio-bundle-all-800.a2e0a3fddf92.webp 720w, /theme-previews/digital-studio/a/digistudio-bundle-all-800.a2e0a3fddf92.webp 660w, /theme-previews/digital-studio/a/digistudio-bundle-all-800.a2e0a3fddf92.webp 550w, /theme-previews/digital-studio/a/digistudio-bundle-all-800.a2e0a3fddf92.webp 480w, /theme-previews/digital-studio/a/digistudio-bundle-all-400.ff5e0dc0b600.webp 330w, /theme-previews/digital-studio/a/digistudio-bundle-all-400.ff5e0dc0b600.webp 240w, /theme-previews/digital-studio/a/digistudio-bundle-all-400.ff5e0dc0b600.webp 185w" alt="The Everything Bundle" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1280px -  24px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 24px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/digital-studio/a/digistudio-bundle-studio-contents.22a75b3d3098.webp" srcset="/theme-previews/digital-studio/a/digistudio-bundle-studio-contents-800.26cafa2fe1a6.webp 720w, /theme-previews/digital-studio/a/digistudio-bundle-studio-contents-800.26cafa2fe1a6.webp 660w, /theme-previews/digital-studio/a/digistudio-bundle-studio-contents-800.26cafa2fe1a6.webp 550w, /theme-previews/digital-studio/a/digistudio-bundle-studio-contents-800.26cafa2fe1a6.webp 480w, /theme-previews/digital-studio/a/digistudio-bundle-studio-contents-400.c08331a5a2f9.webp 330w, /theme-previews/digital-studio/a/digistudio-bundle-studio-contents-400.c08331a5a2f9.webp 240w, /theme-previews/digital-studio/a/digistudio-bundle-studio-contents-400.c08331a5a2f9.webp 185w" alt="The Whole Studio" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, (min-width: 1200px) calc((1240px -  24px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 24px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/digital-studio/a/digistudio-bundle-all-2.56e633cd2226.webp" srcset="/theme-previews/digital-studio/a/digistudio-bundle-all-2.56e633cd2226.webp 1440w, /theme-previews/digital-studio/a/digistudio-bundle-all-2.56e633cd2226.webp 1200w, /theme-previews/digital-studio/a/digistudio-bundle-all-2.56e633cd2226.webp 1080w, /theme-previews/digital-studio/a/digistudio-bundle-all-2.56e633cd2226.webp 900w, /theme-previews/digital-studio/a/digistudio-bundle-all-2-800.2f6e38bb4f31.webp 720w, /theme-previews/digital-studio/a/digistudio-bundle-all-2-800.2f6e38bb4f31.webp 660w, /theme-previews/digital-studio/a/digistudio-bundle-all-2-800.2f6e38bb4f31.webp 550w, /theme-previews/digital-studio/a/digistudio-bundle-all-2-800.2f6e38bb4f31.webp 480w, /theme-previews/digital-studio/a/digistudio-bundle-all-2-400.de26f491d936.webp 330w, /theme-previews/digital-studio/a/digistudio-bundle-all-2-400.de26f491d936.webp 240w, /theme-previews/digital-studio/a/digistudio-bundle-all-2-400.de26f491d936.webp 185w" alt="The Everything Bundle" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, (min-width: 1200px) calc((1280px -  24px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 24px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1442,7 +1469,7 @@ data-max="4"
 data-sale-color="#ffffff"
 data-sold-out-color="#ffffff"
 data-pre-order-color="#ffffff"
-data-sale-bg="#e2552b"
+data-sale-bg="#1e4a3b"
 data-sold-out-bg="#666666"
 data-pre-order-bg="#6a33d8"
 data-show-sale="true"
@@ -1451,15 +1478,15 @@ data-show-preorder="true"
 data-sale-badge-type="percent"
 ><div
 class="product__badges-sale product__badges-type-percent product__badges-inner align-self-start px-15 sale inline-flex content-center subheading_weight text-center lh-normal"
->-46%
+>-50%
 </div>
 </div>
 <div class="pc-actions pc-actions--side"><button-quickview
 tabindex="0"
 role="button"
-aria-label="Quick view: The Whole Studio"
+aria-label="Quick view: The Everything Bundle"
 class="pc-action pointer"
-data-url="/theme-previews/digital-studio/products/the-whole-studio.html?section_id=product-quickview"
+data-url="/theme-previews/digital-studio/products/the-everything-bundle.html?section_id=product-quickview"
 data-custom-class="quickview"
 aria-haspopup="dialog"
 >
@@ -1467,56 +1494,51 @@ aria-haspopup="dialog"
 <span class="pc-tip" aria-hidden="true">Quick view</span>
 </button-quickview></div></div>
 <div class="product-item__action pc-atc-slot">
-<div class="product-item__product-form pc-form pc-form--media">
-<button-quickview
-role="button"
-tabindex="0"
-class="product__add-cart product-item__button-submit pc-atc btn text-center pointer"
-data-url="/theme-previews/digital-studio/products/the-whole-studio.html?section_id=product-quickview"
-data-custom-class="quickview"
-aria-haspopup="dialog"
-aria-label="Select Options: The Whole Studio"
+<product-form class="product-item__product-form pc-form pc-form--media"><form id="quick-add-main-collection-product00000000-0000-4000-8000-000000000023" accept-charset="UTF-8" class="form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000023"><input type="hidden" name="id" value="00000000-0000-4000-8000-000000000023" disabled>
+<button
+id="quick-add-main-collection-product00000000-0000-4000-8000-000000000023-submit"
+type="submit"
+name="add"
+class="product__add-cart product-item__button-submit pc-atc btn text-center"
 data-sl-button data-button-role="primary" data-theme-button="primary" data-button-local-appearance="theme"
+aria-haspopup="dialog"
+aria-live="polite"
+data-sold-out-message="true"
 >
 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="pc-atc__icon hidden-on-load icon-cart" aria-hidden="true" focusable="false"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="spin opacity-0 icon-load" aria-hidden="true" focusable="false"><use href="#icon-load"></use></svg>
-<span class="pc-atc__label hidden-on-load btn-action">Select Options</span>
-</button-quickview>
-</div>
+<span class="pc-atc__label hidden-on-load btn-action">Add to Cart</span>
+<span class="sold-out-message hidden">Out of Stock</span>
+</button></form></product-form>
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
 <a
-aria-label="The Whole Studio"
+aria-label="The Everything Bundle"
 class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
-style="--font-size: 17;"            
-href="/theme-previews/digital-studio/products/the-whole-studio.html"
->The Whole Studio</a>
+style="--font-size: 16;"            
+href="/theme-previews/digital-studio/products/the-everything-bundle.html"
+>The Everything Bundle</a>
 <span class="product-reviews">
-<span aria-hidden="true">★</span> 5 / 5 · 11
+<span aria-hidden="true">★</span> 5 / 5 · 41
 </span>
 <div
 class="product-item__price justify-content-start fs-custom flex gap-custom lh-normal "
-style="--font-size: 16; --gap: 3px;"
+style="--font-size: 15; --gap: 3px;"
 ><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular primary-color">
 <span class="visually-hidden">Sale price</span>
 <span class="price heading_weight primary-color price-same-style price--special">
-$149.00
+$129.00
 </span>
 </div>
 <div class="price-regular">
 <span class="visually-hidden">Regular price</span>
-<s class="price-item compare-price dark-grey">$276.00</s>
+<s class="price-item compare-price dark-grey">$257.00</s>
 </div>
 </div>
 </div>
 </div>
-<script type="application/json" class="product-variant__quantity">
-            [{ "option":"Standard","qty":11,"available":true,"mamagement":""},{ "option":"Team of five","qty":11,"available":true,"mamagement":""}]
-          </script>
-</motion-element><script type="application/json" class="productItemVariantsQty">
-        [{ "option":"Standard","qty":11,"available":true,"mamagement":""},{ "option":"Team of five","qty":11,"available":true,"mamagement":""}]
-      </script></div>
+</motion-element></div>
 </div></div>
 </div>
 </div>
@@ -1565,9 +1587,9 @@ class="newsletter-icon mb-15 flex justify-content-center"
 data-nl-icon
 style="--nl-icon: 40px;"
 hidden
-><span class="newsletter-icon__glyph" data-nl-glyph><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span></motion-element><link rel="stylesheet" href="/theme-previews/digital-studio/a/i.900d41942fcc.css"><motion-element data-motion="fade-up-lg" data-motion-delay="50" hold class="block" data-ct-block="heading_1" data-ct-type="heading" data-block-id="heading_1"><h2 class="section__header-heading heading-letter-spacing  mt-0 mb-0 ct-h" id="block-heading_1" data-ct-el data-own-size style="--ch-fs-d:40px;--ch-fs-m:30px;--ch-lh:1.1;--ch-ls:0px;">New files, once a month</h2>
+><span class="newsletter-icon__glyph" data-nl-glyph><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span></motion-element><link rel="stylesheet" href="/theme-previews/digital-studio/a/i.900d41942fcc.css"><motion-element data-motion="fade-up-lg" data-motion-delay="50" hold class="block" data-ct-block="heading_1" data-ct-type="heading" data-block-id="heading_1"><h2 class="section__header-heading heading-letter-spacing  mt-0 mb-0 ct-h" id="block-heading_1" data-ct-el data-own-size style="--ch-fs-d:40px;--ch-fs-m:30px;--ch-lh:1.1;--ch-ls:0px;">A free template every month</h2>
 </motion-element><motion-element data-motion="fade-up-lg" data-motion-delay="150" hold class="section__header-des block rich__text-m0" data-ct-block="subheading_2" data-ct-type="subheading" data-block-id="subheading_2">
-<div class="ct-s" id="block-subheading_2" data-ct-el><p>What we made, what we updated and a free file for subscribers. Nothing else.</p></div>
+<div class="ct-s" id="block-subheading_2" data-ct-el><p>Subscribers get one free file on the first of the month and hear about new products first.</p></div>
 </motion-element></div><template data-ct-icons><svg data-icon="envelope" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" data-icon-default><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg><svg data-icon="paper_plane" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4Z"/></svg><svg data-icon="bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><svg data-icon="gift" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 0 1 0 5"/></svg><svg data-icon="sparkles" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><path d="m6.3 6.3 2.4 2.4M15.3 15.3l2.4 2.4M17.7 6.3l-2.4 2.4M8.7 15.3l-2.4 2.4"/></svg></template><motion-element 
 data-motion="fade-up-lg"
 data-motion-delay="150"
@@ -1664,9 +1686,9 @@ data-block-id="store_info_1"
 <div
 class="store-info-content"
 >
-<img src="/theme-previews/digital-studio/a/digistudio-logo.534f2ff0eafc.webp" srcset="/theme-previews/digital-studio/a/digistudio-logo.534f2ff0eafc.webp 720w, /theme-previews/digital-studio/a/digistudio-logo.534f2ff0eafc.webp 660w, /theme-previews/digital-studio/a/digistudio-logo.534f2ff0eafc.webp 550w, /theme-previews/digital-studio/a/digistudio-logo.534f2ff0eafc.webp 480w, /theme-previews/digital-studio/a/digistudio-logo.534f2ff0eafc.webp 360w, /theme-previews/digital-studio/a/digistudio-logo.534f2ff0eafc.webp 240w, /theme-previews/digital-studio/a/digistudio-logo.534f2ff0eafc.webp 185w, /theme-previews/digital-studio/a/digistudio-logo.534f2ff0eafc.webp 120w, /theme-previews/digital-studio/a/digistudio-logo.534f2ff0eafc.webp 60w" alt="Offcut" width="128" height="35" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, 128px">
+<img src="/theme-previews/digital-studio/a/digistudio-logo.4dd1bd21557d.webp" srcset="/theme-previews/digital-studio/a/digistudio-logo.4dd1bd21557d.webp 720w, /theme-previews/digital-studio/a/digistudio-logo.4dd1bd21557d.webp 660w, /theme-previews/digital-studio/a/digistudio-logo.4dd1bd21557d.webp 550w, /theme-previews/digital-studio/a/digistudio-logo.4dd1bd21557d.webp 480w, /theme-previews/digital-studio/a/digistudio-logo-400.118776e1b14d.webp 360w, /theme-previews/digital-studio/a/digistudio-logo-400.118776e1b14d.webp 240w, /theme-previews/digital-studio/a/digistudio-logo-400.118776e1b14d.webp 185w, /theme-previews/digital-studio/a/digistudio-logo-400.118776e1b14d.webp 120w, /theme-previews/digital-studio/a/digistudio-logo-400.118776e1b14d.webp 60w" alt="Wren Studio" width="150" height="18" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, 150px">
 <div class="footer__block-info rich__text-mt-0 mb-20" data-ft-desc>
-<p>Fonts, presets, brushes, templates and guides from Offcut, a small design studio in Porto. Every product is a download with a licence for client work.</p>
+<p>Notion and Canva templates, Lightroom presets, ebooks and planners by Hana Lee. Every product is an instant download with free updates.</p>
 </div>
 </div>
 </div><div
@@ -1693,50 +1715,58 @@ style="--font-size: 14"
 <ul class="list-unstyled"><li class="pb-8">
 <a
 href="/theme-previews/digital-studio/collections/all.html"
-aria-label="Everything"
+aria-label="All products"
 class="no-underline word-break reversed-links relative"
 >
-Everything
+All products
 </a>
 </li><li class="pb-8">
 <a
-href="/theme-previews/digital-studio/collections/fonts.html"
-aria-label="Fonts"
+href="/theme-previews/digital-studio/collections/notion-templates.html"
+aria-label="Notion templates"
 class="no-underline word-break reversed-links relative"
 >
-Fonts
+Notion templates
 </a>
 </li><li class="pb-8">
 <a
-href="/theme-previews/digital-studio/collections/presets.html"
-aria-label="Presets"
+href="/theme-previews/digital-studio/collections/canva-templates.html"
+aria-label="Canva templates"
 class="no-underline word-break reversed-links relative"
 >
-Presets
+Canva templates
 </a>
 </li><li class="pb-8">
 <a
-href="/theme-previews/digital-studio/collections/brushes-textures.html"
-aria-label="Brushes and textures"
+href="/theme-previews/digital-studio/collections/lightroom-presets.html"
+aria-label="Lightroom presets"
 class="no-underline word-break reversed-links relative"
 >
-Brushes and textures
+Lightroom presets
 </a>
 </li><li class="pb-8">
 <a
-href="/theme-previews/digital-studio/collections/templates.html"
-aria-label="Templates"
+href="/theme-previews/digital-studio/collections/ebooks-guides.html"
+aria-label="Ebooks and guides"
 class="no-underline word-break reversed-links relative"
 >
-Templates
+Ebooks and guides
 </a>
 </li><li class="pb-8">
 <a
-href="/theme-previews/digital-studio/collections/guides-courses.html"
-aria-label="Guides and courses"
+href="/theme-previews/digital-studio/collections/planners-printables.html"
+aria-label="Planners and printables"
 class="no-underline word-break reversed-links relative"
 >
-Guides and courses
+Planners and printables
+</a>
+</li><li class="pb-8">
+<a
+href="/theme-previews/digital-studio/collections/courses.html"
+aria-label="Courses"
+class="no-underline word-break reversed-links relative"
+>
+Courses
 </a>
 </li><li class="pb-8">
 <a
@@ -1799,10 +1829,10 @@ Contact
 </li><li class="pb-8">
 <a
 href="/theme-previews/digital-studio/collections.html"
-aria-label="Shop by kind"
+aria-label="All categories"
 class="no-underline word-break reversed-links relative"
 >
-Shop by kind
+All categories
 </a>
 </li></ul>
 </div>
@@ -1819,7 +1849,7 @@ data-block-id="link_list_3"
 class="footer__block-heading collapsible-heading heading-letter-spacing relative fs-custom my-0 py-20 mb-md-5"
 style="--font-size: 14"
 ><button type="button" class="footer-acc__toggle" data-footer-acc-toggle aria-expanded="false" aria-controls="FooterAcc-link_list_3">
-<span data-ft-heading data-ft-fallback="Studio">Studio</span>
+<span data-ft-heading data-ft-fallback="Wren Studio">Wren Studio</span>
 <span class="open-children-toggle hidden-md absolute inset-0 flex flex-end">
 <span class="arrow-toggle" aria-hidden="true">
 <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1878,7 +1908,7 @@ Pinterest
 <div class="disclosure relative flex align-center">
 <button type="button" aria-expanded="false" aria-controls="localization-country-footer-options" aria-label="United States (USD)" class="button-localization pointer disclosure__button show-overlay flex align-center gap-10 ">
 <span class="flex align-center gap-10">
-<span class="rounded-50 border localization-flags "><img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2024%22%3E%3Ctext%20x%3D%2216%22%20y%3D%2219%22%20font-size%3D%2220%22%20text-anchor%3D%22middle%22%3E%F0%9F%87%BA%F0%9F%87%B8%3C%2Ftext%3E%3C%2Fsvg%3E" alt="United States"></span>
+<span class="rounded-50 border localization-flags "><img src="/flags/US.svg" alt="United States"></span>
 <span>
 United States
 (USD $)
@@ -2032,7 +2062,7 @@ viewBox="0 0 165.521 105.965">
 </div>
 <div class="footer-bottom__row footer-bottom__row--legal">
 <div class="footer-bottom__legal">
-<div class="footer__copyright" data-ft-copyright>© 2026 Offcut</div>
+<div class="footer__copyright" data-ft-copyright>© 2026 Wren Studio</div>
 <ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/digital-studio/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/digital-studio/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/digital-studio/policies/terms-of-service.html">Terms of service</a></li></ul><div class="footer__powered" data-ft-powered><a href="#" data-preview-inert data-storelib-badge="" style="display:inline-flex;align-items:center;gap:.45em;white-space:nowrap;vertical-align:middle"><svg data-storelib-badge-mark="" aria-hidden="true" focusable="false" viewBox="0 0 200 200" width="14" height="14" style="display:block;flex:none;width:1.2em;height:1.2em;overflow:visible"><mask id="sl-pb-s" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="200"><rect width="200" height="200" fill="#fff"/><path transform="translate(48.97 38.44) scale(1.08) translate(-54 -43) translate(134.125,52.875)" d="M0 0 C0.99749268 0.36665771 0.99749268 0.36665771 2.01513672 0.74072266 C6.62777473 2.59663113 6.62777473 2.59663113 7.68823242 4.86303711 C7.94652165 7.99120666 7.02705902 10.04467511 5.85546875 12.94921875 C5.41009766 14.05974609 4.96472656 15.17027344 4.50585938 16.31445312 C4.02955078 17.46880859 3.55324219 18.62316406 3.0625 19.8125 C2.59779297 20.97845703 2.13308594 22.14441406 1.65429688 23.34570312 C-1.85471661 31.98985831 -1.85471661 31.98985831 -4.125 33.125 C-6.02961204 32.43054915 -7.90085447 31.64344514 -9.75 30.8125 C-19.66422998 26.58368153 -27.26609106 25.85047702 -38.125 26.125 C-38.455 27.115 -38.785 28.105 -39.125 29.125 C-38.14402344 29.36734375 -37.16304687 29.6096875 -36.15234375 29.859375 C-33.31305776 30.56236873 -30.47635159 31.27497918 -27.640625 31.9921875 C-24.80213536 32.70970135 -21.95989766 33.40235421 -19.109375 34.0703125 C-6.69949938 37.1089446 3.02755655 40.84926977 9.875 52.125 C13.29151905 58.95803811 12.61307566 67.23479967 10.625 74.4375 C7.53029491 83.45189328 1.37513276 90.18616729 -7.02734375 94.67578125 C-26.20884362 103.04454374 -49.04415352 101.90170642 -68.5 94.625 C-72.25964144 93.07749587 -75.67848864 91.2806362 -79.125 89.125 C-78.55593823 84.90468545 -77.56543969 81.39586411 -75.83984375 77.5078125 C-75.39189453 76.48945313 -74.94394531 75.47109375 -74.48242188 74.421875 C-73.77956055 72.85179688 -73.77956055 72.85179688 -73.0625 71.25 C-72.59005859 70.18007812 -72.11761719 69.11015625 -71.63085938 68.0078125 C-70.46832699 65.3774362 -69.29955398 62.75002483 -68.125 60.125 C-63.80181734 61.13483216 -60.07150265 62.96083682 -56.07421875 64.87109375 C-49.32009515 67.74271451 -43.48344492 68.41757298 -36.25 68.3125 C-35.38375 68.31185547 -34.5175 68.31121094 -33.625 68.31054688 C-29.55080641 68.64235092 -29.55080641 68.64235092 -26.125 67.125 C-32.43853708 64.84703882 -38.66045093 62.93279428 -45.25 61.625 C-56.73505022 59.25968679 -67.31315991 55.21661495 -74.125 45.125 C-77.1608836 40.09281577 -77.67121961 36.10082917 -77.625 30.375 C-77.62072998 29.57876221 -77.61645996 28.78252441 -77.61206055 27.9621582 C-77.37730644 19.82208022 -74.95520496 14.3797357 -69.625 8.25 C-68.8 7.54875 -67.975 6.8475 -67.125 6.125 C-66.403125 5.465 -65.68125 4.805 -64.9375 4.125 C-46.69751714 -8.84565448 -20.22397968 -7.61423584 0 0 Z" fill="#000"/></mask><rect width="200" height="200" rx="48" fill="currentColor" mask="url(#sl-pb-s)"/></svg><span>Powered by Storelib</span></a></div></div>
 </div></div>
 </div>
@@ -2056,7 +2086,7 @@ viewBox="0 0 165.521 105.965">
 </div>
 <script src="/theme-previews/_base/a/materia-popups.b25a8780e75d.js" defer="defer"></script>
 <script src="/theme-previews/digital-studio/a/i.f4b585a5b120.js"></script>
-</div><script>window.__mtFillCounts&&window.__mtFillCounts(true)</script><link rel="stylesheet" href="/theme-previews/_base/a/search-type-default.fb1515a9c0d2.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/search-type-default.fb1515a9c0d2.css" rel="stylesheet" type="text/css" media="all"></noscript>
+</div><script>window.__mtFillCounts&&window.__mtFillCounts(true)</script><link rel="stylesheet" href="/theme-previews/_base/a/search-type-default.7a56178b1228.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/search-type-default.7a56178b1228.css" rel="stylesheet" type="text/css" media="all"></noscript>
 <header-search class="header_search search_type_popup">
 <div class="block block-quick-search block-search predictive_search_suggest search_popup"><div
 id="search-form"
@@ -2066,11 +2096,11 @@ aria-modal="true"
 aria-label="Search"
 data-search-mode="popup"
 class="search-overlay search-overlay--popup search__type-popup search__popup-anim--fade color-default"
-style="--color-background: #ffffff;          --color-text: #4a4c50;          --color-heading: #17181a;          --color-primary: #17181a;          --color-border: #e4e3df;          --gradient-background: #ffffff;          background-color: #ffffff;          color: #4a4c50;"
+style="--color-background: #ffffff;          --color-text: #55565b;          --color-heading: #17171a;          --color-primary: #17171a;          --color-border: #e6e3dd;          --gradient-background: #ffffff;          background-color: #ffffff;          color: #55565b;"
 ><div
 class="search__type-popup search__popup-anim--fade color-default h-full overflow-auto px-15 custom-scrollbar"
 data-search-popup-anim="fade"
-style="--color-background: #ffffff;    --color-text: #4a4c50;    --color-heading: #17181a;    --color-primary: #17181a;    --color-border: #e4e3df;    --gradient-background: #ffffff;    background-color: #ffffff;    color: #4a4c50;"
+style="--color-background: #ffffff;    --color-text: #55565b;    --color-heading: #17171a;    --color-primary: #17171a;    --color-border: #e6e3dd;    --gradient-background: #ffffff;    background-color: #ffffff;    color: #55565b;"
 >
 <div class="fluid_container">
 <h3 class="search-title search-title--animated text-center h4 m-0 hidden block-sm" aria-label="Search"><span class="search-title__char" style="--char-i: 0;" aria-hidden="true">S</span><span class="search-title__char" style="--char-i: 1;" aria-hidden="true">e</span><span class="search-title__char" style="--char-i: 2;" aria-hidden="true">a</span><span class="search-title__char" style="--char-i: 3;" aria-hidden="true">r</span><span class="search-title__char" style="--char-i: 4;" aria-hidden="true">c</span><span class="search-title__char" style="--char-i: 5;" aria-hidden="true">h</span></h3>
@@ -2134,7 +2164,7 @@ aria-label="Close"
 <div class="predictive-search__results" data-predictive-search></div>
 <span class="predictive-search-status visually-hidden" role="status" aria-hidden="true"></span>
 </div>
-<div class="search__loading-state mt-15 "><link href="/theme-previews/_base/a/skeleton.19cc8fb18037.css" rel="stylesheet" type="text/css" media="all">
+<div class="search__loading-state mt-15 "><link href="/theme-previews/_base/a/skeleton.0c1ea714db3c.css" rel="stylesheet" type="text/css" media="all">
 <div slot="loading" class=" popup" style="opacity: 1; transform: translateY(0px);">
 <div class="v-stack  gap-custom">
 <span class="skeleton skeleton--tab heading"></span>
@@ -2194,20 +2224,20 @@ style=" ;--col-number: 1;--col-tablet: 1;--col-desktop-small:3;--col-desktop: 5;
 </div>
 </div>
 </header-search>
-<div class="overlay_search" popover="manual" aria-hidden="true"></div><script type="application/json" id="materia-country-options" data-current="US">[["US","United States","USD","$",""],["GB","United Kingdom","GBP","£",""],["CA","Canada","CAD","$",""],["AU","Australia","AUD","$",""],["DE","Germany","EUR","€",""],["FR","France","EUR","€",""]]</script><link rel="stylesheet" href="/theme-previews/_base/a/minicart.679b4fb18845.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/minicart.679b4fb18845.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="stylesheet" href="/theme-previews/_base/a/materia-experience.6a68b7e13653.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/materia-experience.6a68b7e13653.css" rel="stylesheet" type="text/css" media="all"></noscript><style data-cart-drawer-style="size">
+<div class="overlay_search" popover="manual" aria-hidden="true"></div><script type="application/json" id="materia-country-options" data-current="US">[["US","United States","USD","$","/flags/US.svg"],["GB","United Kingdom","GBP","£","/flags/GB.svg"],["CA","Canada","CAD","$","/flags/CA.svg"],["AU","Australia","AUD","$","/flags/AU.svg"],["DE","Germany","EUR","€","/flags/DE.svg"],["FR","France","EUR","€","/flags/FR.svg"]]</script><link rel="stylesheet" href="/theme-previews/_base/a/minicart.679b4fb18845.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/minicart.679b4fb18845.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="stylesheet" href="/theme-previews/_base/a/materia-experience.6a68b7e13653.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/materia-experience.6a68b7e13653.css" rel="stylesheet" type="text/css" media="all"></noscript><style data-cart-drawer-style="size">
   #minicart_wrapper.open_drawer .minicart__wrapper {
     --materia-cart-width: 500px;
     --materia-cart-gap: 12px;
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><link rel="stylesheet" href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"></noscript><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/digital-studio/a/i.280311b50c3f.css" data-cart-drawer-style="paint">
+</style><link rel="stylesheet" href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"></noscript><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/digital-studio/a/i.3921a8340214.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #ffffff;    --color-text: #4a4c50;    --color-heading: #17181a;    --color-primary: #17181a;    --color-border: #e4e3df;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #17181a;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #33353a;    --btn-secondary-color: #17181a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfcdc7;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #17181a;    --btn-outline-color: #17181a;    --btn-outline-border-color: #cfcdc7;    background-color: #ffffff !important;    color: #4a4c50 !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #ffffff;    --color-text: #4a4c50;    --color-heading: #17181a;    --color-primary: #17181a;    --color-border: #e4e3df;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #17181a;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #33353a;    --btn-secondary-color: #17181a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfcdc7;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #17181a;    --btn-outline-color: #17181a;    --btn-outline-border-color: #cfcdc7;    background-color: #ffffff !important;    color: #4a4c50 !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #ffffff;    --color-text: #55565b;    --color-heading: #17171a;    --color-primary: #17171a;    --color-border: #e6e3dd;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #17171a;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #34343a;    --btn-secondary-color: #17181a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d6d3cc;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #17181a;    --btn-outline-color: #17181a;    --btn-outline-border-color: #d6d3cc;    background-color: #ffffff !important;    color: #55565b !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #ffffff;    --color-text: #55565b;    --color-heading: #17171a;    --color-primary: #17171a;    --color-border: #e6e3dd;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #17171a;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #34343a;    --btn-secondary-color: #17181a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d6d3cc;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #17181a;    --btn-outline-color: #17181a;    --btn-outline-border-color: #d6d3cc;    background-color: #ffffff !important;    color: #55565b !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">
@@ -2243,7 +2273,7 @@ Continue Shopping
 </button>
 </div></div></form>
 </div>
-</div></div><link rel="stylesheet" href="/theme-previews/_base/a/cart-drawer.980eb92e88b7.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/cart-drawer.980eb92e88b7.css" rel="stylesheet" type="text/css" media="all"></noscript>
+</div></div><link rel="stylesheet" href="/theme-previews/_base/a/cart-drawer.f00274b6fc4e.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/cart-drawer.f00274b6fc4e.css" rel="stylesheet" type="text/css" media="all"></noscript>
 <script src="/theme-previews/_base/a/cart-drawer.579386a6ba85.js" defer="defer"></script></cart-notification>
 <div class="overlayminicart">
 </div>
@@ -2257,13 +2287,13 @@ Continue Shopping
   #shopify-section-custom-colors { isolation: isolate; position: relative; }
 </style>
 </div><script src="/theme-previews/digital-studio/a/i.7878e9c8a781.js"></script>
-<script src="/theme-previews/_base/a/tingle-min.9664ca3641cf.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/tingle-min.2433104e28fc.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-discount.31276c74b980.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/theme.bbc3b899a286.js"  defer="defer" type="module"></script>
+<script src="/theme-previews/_base/a/theme.b49152a98599.js"  defer="defer" type="module"></script>
 <script src="/theme-previews/_base/a/materia-experience.95a8a8fb6473.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/product-card-settings.6a080b7abf94.js" defer="defer"></script><script>(window.mtLazy||function(u){var s=document.createElement('script');s.src=u;document.head.appendChild(s)})("/theme-previews/_base/a/size-chart.cbff3f8443f7.js")</script>
 <script src="/theme-previews/_base/a/theme-navigation.56a40d956dde.js" defer="defer"></script>
-<script>(window.mtLazy||function(u){var s=document.createElement('script');s.src=u;document.head.appendChild(s)})("/theme-previews/_base/a/cart-variant-edit.8299a1d91738.js")</script><script src="/theme-previews/_base/a/collection.d9a19ef2b548.js" defer="defer"></script><svg aria-hidden="true" focusable="false" role="presentation" xmlns="http://www.w3.org/2000/svg" class="hidden" hidden>
+<script>(window.mtLazy||function(u){var s=document.createElement('script');s.src=u;document.head.appendChild(s)})("/theme-previews/_base/a/cart-variant-edit.8299a1d91738.js")</script><script src="/theme-previews/_base/a/collection.c4766ddc4843.js" defer="defer"></script><svg aria-hidden="true" focusable="false" role="presentation" xmlns="http://www.w3.org/2000/svg" class="hidden" hidden>
 <symbol id="icon-close" viewBox="0 0 13 14" fill="none">
 <path d="M0.282609 2.06784C0.0942029 1.89363 0 1.68314 0 1.43635C0 1.17504 0.0942029 0.950028 0.282609 0.761307C0.456522 0.587102 0.673913 0.5 0.934783 0.5C1.19565 0.5 1.41304 0.587102 1.58696 0.761307L6.5 5.68258L11.413 0.761307C11.587 0.587102 11.8043 0.5 12.0652 0.5C12.3261 0.5 12.5435 0.587102 12.7174 0.761307C12.9058 0.950028 13 1.17504 13 1.43635C13 1.68314 12.9058 1.89363 12.7174 2.06784L7.80435 6.98911L12.7174 11.9104C12.9058 12.0991 13 12.3241 13 12.5854C13 12.8322 12.9058 13.0427 12.7174 13.2169C12.5435 13.4056 12.3261 13.5 12.0652 13.5C11.8043 13.5 11.587 13.4056 11.413 13.2169L6.5 8.31742L1.58696 13.2169C1.41304 13.4056 1.19565 13.5 0.934783 13.5C0.673913 13.5 0.456522 13.4056 0.282609 13.2169C0.0942029 13.0427 0 12.8322 0 12.5854C0 12.3241 0.0942029 12.0991 0.282609 11.9104L5.19565 6.98911L0.282609 2.06784Z" fill="currentColor"/>
 </symbol>
@@ -2324,7 +2354,7 @@ window.__mtFormsUrl=u;if(/[?&](customer_posted|contact_posted|form_type)=/.test(
   }
   html.mt-img-reveal img.media-fade-hold { opacity: 0 !important; }
 </style>
-<script src="/theme-previews/digital-studio/a/i.01f9e21922b8.js"></script>
+<script src="/theme-previews/digital-studio/a/i.aa500cf99adf.js"></script>
 <link rel="stylesheet" href="/theme-previews/digital-studio/a/i.7c52d5318a5a.css">
 <script src="/theme-previews/digital-studio/a/i.c9b8b9c1028c.js"></script><script id="materia-shipping-data" type="application/json">
   {
@@ -2341,13 +2371,13 @@ window.__mtFormsUrl=u;if(/[?&](customer_posted|contact_posted|form_type)=/.test(
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/digital-studio/a/i.280311b50c3f.css" data-cart-drawer-style="paint">
+</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/digital-studio/a/i.3921a8340214.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #ffffff;    --color-text: #4a4c50;    --color-heading: #17181a;    --color-primary: #17181a;    --color-border: #e4e3df;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #17181a;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #33353a;    --btn-secondary-color: #17181a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfcdc7;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #17181a;    --btn-outline-color: #17181a;    --btn-outline-border-color: #cfcdc7;    background-color: #ffffff !important;    color: #4a4c50 !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #ffffff;    --color-text: #4a4c50;    --color-heading: #17181a;    --color-primary: #17181a;    --color-border: #e4e3df;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #17181a;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #33353a;    --btn-secondary-color: #17181a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfcdc7;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #17181a;    --btn-outline-color: #17181a;    --btn-outline-border-color: #cfcdc7;    background-color: #ffffff !important;    color: #4a4c50 !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #ffffff;    --color-text: #55565b;    --color-heading: #17171a;    --color-primary: #17171a;    --color-border: #e6e3dd;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #17171a;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #34343a;    --btn-secondary-color: #17181a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d6d3cc;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #17181a;    --btn-outline-color: #17181a;    --btn-outline-border-color: #d6d3cc;    background-color: #ffffff !important;    color: #55565b !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #ffffff;    --color-text: #55565b;    --color-heading: #17171a;    --color-primary: #17171a;    --color-border: #e6e3dd;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #17171a;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #34343a;    --btn-secondary-color: #17181a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d6d3cc;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #17181a;    --btn-outline-color: #17181a;    --btn-outline-border-color: #d6d3cc;    background-color: #ffffff !important;    color: #55565b !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">

@@ -39,6 +39,9 @@
     --line: color-mix(in srgb, var(--color-text) 12%, transparent);
     --tint: color-mix(in srgb, var(--color-text) 4%, var(--color-background));
     background: var(--color-background); color: var(--color-text); overflow: hidden;
+    /* Storelib (round 28): a custom element is inline by default, and an inline box's top and bottom padding do not push its
+       content down, so the Top and Bottom padding settings did nothing. As a block they apply. */
+    display: block;
     padding-block: {{ st.padding_top_mobile }}px {{ st.padding_bottom_mobile }}px;
   }
   @media (min-width: 990px) { #shopify-section-{{ sid }} .ttl { --stage-h: {{ st.stage_height }}px; padding-block: {{ st.padding_top }}px {{ st.padding_bottom }}px; } }
@@ -68,7 +71,7 @@
     display: flex; justify-content: center; align-items: center;
     translate: -50% 0; transform: translateX(calc(var(--d) * var(--stage-h) * var(--mw, .42) * .55)) scale(calc(1 - min(1, var(--a)) * .14 - min(2, var(--a)) * .04));
     transform-origin: 50% 100%; opacity: calc(1 - min(3, var(--a)) * .22); filter: blur(calc(min(2, var(--a)) * var(--blur)));
-    transition: transform .8s var(--ease), opacity .6s ease, filter .6s ease; z-index: calc(10 - var(--a)); will-change: transform;
+    transition: transform var(--settle, .62s) var(--settle-ease, var(--ease)), opacity .45s ease, filter .3s ease; z-index: calc(10 - var(--a)); will-change: transform;
     outline: none;
   }
   #shopify-section-{{ sid }} [data-align='bottom'] .ttl__model { align-items: flex-end; }
@@ -84,7 +87,11 @@
   #shopify-section-{{ sid }} .ttl__model .ttl__fit::after { content: ''; position: absolute; left: 12%; right: 12%; bottom: -8px; height: 20px; border-radius: 50%; background: radial-gradient(closest-side, rgb(0 0 0 / .2), transparent); z-index: -1; {% unless st.shadows %}display: none;{% endunless %} }
   /* While dragging, the lineup follows the pointer with no lag; blur steps aside so every frame stays light. */
   #shopify-section-{{ sid }} .ttl__stage.is-drag, #shopify-section-{{ sid }} .ttl__stage.is-drag .ttl__model { cursor: grabbing; }
-  #shopify-section-{{ sid }} .ttl__stage.is-drag .ttl__model { transition: opacity .3s ease, filter .25s ease; filter: none; }
+  /* Storelib (round 28): the blur is dropped at once while the lineup moves (a blur that changes every frame is what
+     costs frames on a phone) and fades back in once it has settled. The settle takes the speed of the release:
+     a flick glides on at the speed it was let go, a slow drag eases in (see initDrag). */
+  #shopify-section-{{ sid }} .ttl__stage.is-drag .ttl__model { transition: opacity .3s ease; filter: none; }
+  #shopify-section-{{ sid }} .ttl__stage.is-settling .ttl__model { filter: none; transition: transform var(--settle, .62s) var(--settle-ease, var(--ease)), opacity .45s ease; }
   #shopify-section-{{ sid }} .ttl__stage.is-drag .ttl__pin { opacity: 0; transition-delay: 0s; }
 
   /* Storelib: the glass circle sits exactly on the pointer (no trailing, no catching up) and stands in for it
@@ -210,7 +217,7 @@
   /* A plain dim, no blur: blurring the whole page behind costs frames while the card moves. */
   #shopify-section-{{ sid }} .ttl__lb-bg { position: fixed; inset: 0; background: rgb(0 0 0 / .46); }
   #shopify-section-{{ sid }} .ttl__lb.is-closing { pointer-events: none; }
-  html.ttl-lock { overflow: hidden; }
+  html.ttl-lock { overflow: hidden; scrollbar-gutter: stable; }
   #shopify-section-{{ sid }} .ttl__card {
     position: relative; width: min(1120px, 100%); height: min(760px, 100%); display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr);
     background: var(--color-background); border-radius: clamp(10px, var(--card-radius, 16px), 24px); overflow: hidden;
@@ -245,6 +252,7 @@
     #shopify-section-{{ sid }} .ttl__card { width: 100%; height: auto; max-height: 94dvh; grid-template-columns: minmax(0, 1fr); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; border-radius: 20px 20px 0 0; }
     #shopify-section-{{ sid }} .ttl__card::-webkit-scrollbar { display: none; }
     #shopify-section-{{ sid }} .ttl__sheet-grip { display: block; width: 40px; height: 4px; margin: 10px auto -8px; border-radius: 4px; background: color-mix(in srgb, var(--color-text) 20%, transparent); }
+    #shopify-section-{{ sid }} .ttl__card { touch-action: pan-y; }
     #shopify-section-{{ sid }} .ttl__card-m { padding: 20px 20px 12px; }
     #shopify-section-{{ sid }} .ttl__card-fig { flex: none; height: 54dvh; }
     #shopify-section-{{ sid }} .ttl__card .ttl__label { display: none; }
@@ -545,7 +553,7 @@
         });
         this.lb?.addEventListener('click', e => { if (e.target === this.lb || (e.target.matches && e.target.matches('[data-lb-bg]'))) this.closeView(); });
         this.lb?.addEventListener('cancel', e => { e.preventDefault(); this.closeView(); });
-        this.initCursor(); this.initDrag();
+        this.initCursor(); this.initDrag(); this.initSheetDrag();
         // Autoplay: only while on screen, never in the editor or with reduced motion
         this.sec = +this.dataset.autoplay || 0;
         this.playBtn = this.querySelector('[data-play]');
@@ -674,6 +682,13 @@
           if (e.type === 'pointercancel') n = 0;
           n = Math.max(-2, Math.min(2, n));
           this._swiped = true; setTimeout(() => { this._swiped = false; }, 80);
+          // Momentum: the lineup goes on at the speed it was let go and slows into place. The ease-out curve
+          // below starts at four times its average speed, so a settle of 4 x distance / speed keeps that speed.
+          const left = Math.abs(n * step + dx), v = Math.abs(vel), along = Math.sign(-(n * step + dx)) === Math.sign(vel);
+          const ms = v > 0.15 && along ? Math.max(240, Math.min(620, 4 * left / v)) : Math.max(320, Math.min(560, 260 + left * 0.9));
+          st.style.setProperty('--settle', Math.round(ms) + 'ms'); st.style.setProperty('--settle-ease', 'cubic-bezier(.2, .8, .2, 1)');
+          st.classList.add('is-settling'); clearTimeout(this._settle);
+          this._settle = setTimeout(() => { st.classList.remove('is-settling'); st.style.removeProperty('--settle'); st.style.removeProperty('--settle-ease'); }, ms + 40);
           this.go(this.i + n, true);
         };
         st.addEventListener('pointerup', end); st.addEventListener('pointercancel', end);
@@ -706,9 +721,10 @@
         if (look) { const c = look.cloneNode(true); c.hidden = false; c.querySelectorAll('.is-open, .is-hot, .is-pulse').forEach(x => x.classList.remove('is-open', 'is-hot', 'is-pulse')); c.querySelectorAll('[data-pick]').forEach(x => x.setAttribute('aria-expanded', 'false')); panel.append(c); }
         clearTimeout(this._t); this._modal = true;
         lb.classList.remove('is-closing');
-        lb.showModal(); document.documentElement.classList.add('ttl-lock');
+        lb.showModal();
         const card = lb.querySelector('.ttl__card'); if (card) card.scrollTop = 0;
-        this.lbMotion(true).then(() => { if (pinNo) { const pin = fig.querySelector('[data-pin="' + pinNo + '"]'); if (pin) this.pinGo(pin, true); } });
+        // The page's scroll is locked once the card is up: locking re-lays out the page, which would hold up the first frame.
+        this.lbMotion(true).then(() => { if (lb.open && !lb.classList.contains('is-closing')) document.documentElement.classList.add('ttl-lock'); if (pinNo) { const pin = fig.querySelector('[data-pin="' + pinNo + '"]'); if (pin) this.pinGo(pin, true); } });
       }
       closeView() {
         const lb = this.lb; if (!lb || !lb.open || lb.classList.contains('is-closing')) return;
@@ -716,22 +732,68 @@
         this.lbMotion(false).then(() => {
           lb.close(); lb.classList.remove('is-closing');
           (this._lbAnims || []).forEach(a => a.cancel()); this._lbAnims = [];
+          lb.querySelector('.ttl__card').style.transform = ''; lb.querySelector('[data-lb-bg]').style.opacity = '';
           document.documentElement.classList.remove('ttl-lock'); this._modal = false;
           if (this.hasAttribute('data-playing')) this.setPlaying(true);
         });
       }
-      // One set of animations: forwards to open, backwards to close. A card on a computer, a sheet that rises on a phone.
+      // Open: the dim fades in while the card rises (a sheet slides up on a phone), about a third of a second.
+      // Close: shorter (about a fifth) and from wherever the card is, also mid-open or mid-drag. Transform and opacity only.
       lbMotion(opening) {
-        (this._lbAnims || []).forEach(a => a.cancel()); this._lbAnims = [];
         const lb = this.lb, card = lb.querySelector('.ttl__card'), bg = lb.querySelector('[data-lb-bg]');
-        if (!lb.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return Promise.resolve();
+        if (!lb.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) { (this._lbAnims || []).forEach(a => a.cancel()); this._lbAnims = []; card.style.transform = bg.style.opacity = ''; return Promise.resolve(); }
         const sheet = matchMedia('(max-width: 749px)').matches;
-        const o = { fill: 'both', direction: opening ? 'normal' : 'reverse' };
-        this._lbAnims = [
-          bg.animate([{ opacity: 0 }, { opacity: 1 }], { ...o, duration: sheet ? 420 : 380, easing: 'cubic-bezier(.4, 0, .2, 1)' }),
-          card.animate(sheet ? [{ transform: 'translate3d(0, 100%, 0)' }, { transform: 'translate3d(0, 0, 0)' }] : [{ opacity: 0, transform: 'translateY(24px) scale(.97)' }, { opacity: 1, transform: 'none' }], { ...o, duration: sheet ? 460 : 520, easing: sheet ? 'cubic-bezier(.32, .72, 0, 1)' : 'cubic-bezier(.22, 1, .36, 1)' })
-        ];
-        return Promise.all(this._lbAnims.map(a => a.finished.catch(() => {}))).then(() => { if (opening) { this._lbAnims.forEach(a => a.cancel()); this._lbAnims = []; } });
+        let anims;
+        if (opening) {
+          (this._lbAnims || []).forEach(a => a.cancel()); card.style.transform = bg.style.opacity = '';
+          anims = [
+            bg.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'cubic-bezier(.2, 0, 0, 1)', fill: 'both' }),
+            card.animate(sheet ? [{ transform: 'translate3d(0, 100%, 0)' }, { transform: 'translate3d(0, 0, 0)' }] : [{ opacity: 0, transform: 'translateY(16px) scale(.98)' }, { opacity: 1, transform: 'none' }], { duration: sheet ? 340 : 300, easing: sheet ? 'cubic-bezier(.32, .72, 0, 1)' : 'cubic-bezier(.22, 1, .36, 1)', fill: 'both' })
+          ];
+        } else {
+          (this._lbAnims || []).forEach(a => { try { a.commitStyles(); } catch (_) {} a.cancel(); });
+          anims = [
+            bg.animate([{ opacity: 0 }], { duration: 200, easing: 'cubic-bezier(.4, 0, .2, 1)', fill: 'forwards' }),
+            card.animate(sheet ? [{ transform: 'translate3d(0, 100%, 0)' }] : [{ opacity: 0, transform: 'translateY(10px) scale(.985)' }], { duration: sheet ? 240 : 180, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' })
+          ];
+        }
+        this._lbAnims = anims;
+        return Promise.all(anims.map(a => a.finished.catch(() => {}))).then(() => { if (opening && this._lbAnims === anims) { anims.forEach(a => a.cancel()); this._lbAnims = []; } });
+      }
+      // Phone: the sheet follows the finger down from its top (or from anywhere once its list is scrolled to the top);
+      // let go past a quarter of its height, or with a flick, and it closes from there; otherwise it springs back.
+      initSheetDrag() {
+        const lb = this.lb; if (!lb) return;
+        const card = lb.querySelector('.ttl__card'), bg = lb.querySelector('[data-lb-bg]');
+        let y0 = null, x0 = 0, dy = 0, lastY = 0, lastT = 0, v = 0, on = false, raf = 0;
+        card.addEventListener('pointerdown', e => {
+          if (e.pointerType === 'mouse' || !matchMedia('(max-width: 749px)').matches || lb.classList.contains('is-closing') || e.target.closest('button, a, input, select')) return;
+          if (card.scrollTop > 0) return;
+          y0 = lastY = e.clientY; x0 = e.clientX; lastT = e.timeStamp; dy = 0; v = 0; on = false;
+        });
+        card.addEventListener('pointermove', e => {
+          if (y0 == null) return; const d = e.clientY - y0;
+          if (!on) {
+            if (Math.abs(d) < 6 && Math.abs(e.clientX - x0) < 6) return;
+            if (d <= 0 || Math.abs(e.clientX - x0) > Math.abs(d) || card.scrollTop > 0) { y0 = null; return; }
+            on = true; (this._lbAnims || []).forEach(a => { try { a.commitStyles(); } catch (_) {} a.cancel(); }); this._lbAnims = [];
+            try { card.setPointerCapture(e.pointerId); } catch (_) {}
+          }
+          const dt = e.timeStamp - lastT; if (dt > 0) v = 0.7 * ((e.clientY - lastY) / dt) + 0.3 * v;
+          lastY = e.clientY; lastT = e.timeStamp; dy = Math.max(0, d);
+          if (!raf) raf = requestAnimationFrame(() => { raf = 0; card.style.transform = 'translate3d(0,' + dy + 'px,0)'; bg.style.opacity = String(Math.max(0, 1 - dy / (card.offsetHeight || 1))); });
+        });
+        const end = e => {
+          if (y0 == null) return; y0 = null; if (!on) return; on = false; cancelAnimationFrame(raf); raf = 0;
+          if (e.timeStamp - lastT > 90) v = 0;
+          card.style.transform = 'translate3d(0,' + dy + 'px,0)';
+          if (dy > card.offsetHeight * 0.25 || v > 0.5) return this.closeView();
+          const a = card.animate([{ transform: 'translate3d(0, 0, 0)' }], { duration: 260, easing: 'cubic-bezier(.2, .8, .2, 1)', fill: 'forwards' });
+          const b = bg.animate([{ opacity: 1 }], { duration: 260, easing: 'ease-out', fill: 'forwards' });
+          this._lbAnims = [a, b];
+          Promise.all([a.finished, b.finished]).then(() => { card.style.transform = ''; bg.style.opacity = ''; a.cancel(); b.cancel(); if (this._lbAnims && this._lbAnims[0] === a) this._lbAnims = []; }, () => {});
+        };
+        card.addEventListener('pointerup', end); card.addEventListener('pointercancel', end);
       }
       setPlaying(on, byUser) {
         if (byUser) this._paused = !on;

@@ -1,0 +1,57 @@
+{
+  "main-menu": {
+    "title": "Main menu",
+    "links": [
+      {
+        "title": "Templates",
+        "url": "/collections/all"
+      },
+      {
+        "title": "About",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Newsletter",
+        "url": "/#newsletter"
+      }
+    ]
+  },
+  "footer": {
+    "title": "Footer",
+    "links": [
+      {
+        "title": "All templates",
+        "url": "/collections/all"
+      },
+      {
+        "title": "Questions",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
+      }
+    ]
+  },
+  "templates-filter": {
+    "title": "Browse",
+    "links": [
+      {
+        "title": "All templates",
+        "url": "/collections/all"
+      },
+      {
+        "title": "Study",
+        "url": "/collections/study"
+      },
+      {
+        "title": "Planning",
+        "url": "/collections/planning"
+      },
+      {
+        "title": "Home and life",
+        "url": "/collections/home-and-life"
+      }
+    ]
+  }
+}

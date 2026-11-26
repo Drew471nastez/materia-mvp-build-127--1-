@@ -13,7 +13,7 @@
         "header_gap": 40,
         "show_dividers": true,
         "enable_custom_style": true,
-        "label_color": "#c6f432",
+        "label_color": "#8e8e96",
         "item_heading_color": "#f3f3f4",
         "text_color": "#a3a3ab",
         "divider_color": "#26262a",
@@ -31,7 +31,7 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "The licence, in plain words.",
+            "text": "The licence, in plain words",
             "size_enable": true,
             "size_desktop": 56,
             "size_mobile": 36
@@ -47,7 +47,7 @@
           "type": "column",
           "settings": {
             "label": "You can",
-            "heading": "Make and release music.",
+            "heading": "Make and release music",
             "text": "<p>Use the sounds in your own songs, beats and productions: released, streamed, synced, played live and sold, with no royalties or credit owed.</p>"
           }
         },
@@ -55,7 +55,7 @@
           "type": "column",
           "settings": {
             "label": "You can",
-            "heading": "Work for clients.",
+            "heading": "Work for clients",
             "text": "<p>Use them inside finished music you make for someone else: a release, an advert, a game, a film or a podcast.</p>"
           }
         },
@@ -63,7 +63,7 @@
           "type": "column",
           "settings": {
             "label": "You cannot",
-            "heading": "Share or resell the files.",
+            "heading": "Share or resell the files",
             "text": "<p>No uploading the sounds, alone or in a pack of your own, to a sample site, a store, a drive link or an AI training set.</p>"
           }
         },
@@ -71,7 +71,7 @@
           "type": "column",
           "settings": {
             "label": "You cannot",
-            "heading": "Claim them in Content ID.",
+            "heading": "Claim them in Content ID",
             "text": "<p>Register a track built mostly from one of our loops and other producers who use the same loop get claims. Register only music that is yours.</p>"
           }
         }
@@ -120,7 +120,7 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "Licence questions.",
+            "text": "Licence questions",
             "tag": "h2",
             "size_enable": true,
             "size_desktop": 44,
@@ -192,7 +192,7 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "A free pack every month.",
+            "text": "A free pack every month",
             "tag": "h2",
             "size_enable": true,
             "size_desktop": 44,

@@ -1,0 +1,4628 @@
+[
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "home",
+  "path": "/",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 6241,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "chalkboard_popup",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "hero",
+    "h": 608,
+    "text": 293
+   },
+   {
+    "id": "stats",
+    "h": 116,
+    "text": 138
+   },
+   {
+    "id": "action",
+    "h": 856,
+    "text": 372
+   },
+   {
+    "id": "study",
+    "h": 484,
+    "text": 458
+   },
+   {
+    "id": "planning",
+    "h": 906,
+    "text": 606
+   },
+   {
+    "id": "home",
+    "h": 958,
+    "text": 689
+   },
+   {
+    "id": "how",
+    "h": 1087,
+    "text": 507
+   },
+   {
+    "id": "about",
+    "h": 449,
+    "text": 632
+   },
+   {
+    "id": "newsletter",
+    "h": 251,
+    "text": 302
+   },
+   {
+    "id": "wordmark",
+    "h": 269,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /contact#NewsletterSplitForm-newsletter",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Young Serif\"",
+   "\"Work Sans\""
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "home",
+  "path": "/",
+  "viewport": "phone",
+  "status": 200,
+  "height": 7060,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "chalkboard_popup",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "hero",
+    "h": 839,
+    "text": 293
+   },
+   {
+    "id": "stats",
+    "h": 170,
+    "text": 138
+   },
+   {
+    "id": "action",
+    "h": 684,
+    "text": 372
+   },
+   {
+    "id": "study",
+    "h": 692,
+    "text": 458
+   },
+   {
+    "id": "planning",
+    "h": 948,
+    "text": 606
+   },
+   {
+    "id": "home",
+    "h": 750,
+    "text": 689
+   },
+   {
+    "id": "how",
+    "h": 1463,
+    "text": 507
+   },
+   {
+    "id": "about",
+    "h": 661,
+    "text": 632
+   },
+   {
+    "id": "newsletter",
+    "h": 463,
+    "text": 302
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 230,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [
+   "li.nla__item",
+   "button.",
+   "span.",
+   "span.nla__name"
+  ],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /contact#NewsletterSplitForm-newsletter",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Young Serif\"",
+   "\"Work Sans\""
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "collection",
+  "path": "/collections/all",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 3693,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "main-collection-heading",
+    "h": 111,
+    "text": 8
+   },
+   {
+    "id": "main-collection-product",
+    "h": 2779,
+    "text": 1896
+   },
+   {
+    "id": "newsletter",
+    "h": 275,
+    "text": 302
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /collections/all",
+   "post /contact#NewsletterSplitForm-newsletter",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "collection",
+  "path": "/collections/all",
+  "viewport": "phone",
+  "status": 200,
+  "height": 7479,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "main-collection-heading",
+    "h": 92,
+    "text": 8
+   },
+   {
+    "id": "main-collection-product",
+    "h": 6534,
+    "text": 1856
+   },
+   {
+    "id": "newsletter",
+    "h": 463,
+    "text": 302
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 230,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /collections/all",
+   "post /contact#NewsletterSplitForm-newsletter",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "collections",
+  "path": "/collections",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 1388,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "heading",
+    "h": 158,
+    "text": 50
+   },
+   {
+    "id": "main",
+    "h": 701,
+    "text": 78
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "collections",
+  "path": "/collections",
+  "viewport": "phone",
+  "status": 200,
+  "height": 1168,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "heading",
+    "h": 138,
+    "text": 50
+   },
+   {
+    "id": "main",
+    "h": 641,
+    "text": 78
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 230,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "cart",
+  "path": "/cart",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 956,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "heading",
+    "h": 0,
+    "text": 5724
+   },
+   {
+    "id": "cart-items",
+    "h": 427,
+    "text": 82
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "cart",
+  "path": "/cart",
+  "viewport": "phone",
+  "status": 200,
+  "height": 844,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "heading",
+    "h": 0,
+    "text": 5724
+   },
+   {
+    "id": "cart-items",
+    "h": 367,
+    "text": 82
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 230,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "search",
+  "path": "/search",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 1650,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "main",
+    "h": 414,
+    "text": 13
+   },
+   {
+    "id": "popular",
+    "h": 707,
+    "text": 456
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "search",
+  "path": "/search",
+  "viewport": "phone",
+  "status": 200,
+  "height": 2283,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "main",
+    "h": 278,
+    "text": 13
+   },
+   {
+    "id": "popular",
+    "h": 1616,
+    "text": 456
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 230,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "404",
+  "path": "/no-such/address",
+  "viewport": "desktop",
+  "status": 404,
+  "height": 1704,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "main",
+    "h": 393,
+    "text": 96
+   },
+   {
+    "id": "popular",
+    "h": 782,
+    "text": 522
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "404",
+  "path": "/no-such/address",
+  "viewport": "phone",
+  "status": 404,
+  "height": 2482,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "main",
+    "h": 376,
+    "text": 96
+   },
+   {
+    "id": "popular",
+    "h": 1717,
+    "text": 522
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 230,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "page",
+  "path": "/pages/shipping",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 900,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "main",
+    "h": 239,
+    "text": 8
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "page",
+  "path": "/pages/shipping",
+  "viewport": "phone",
+  "status": 200,
+  "height": 844,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "main",
+    "h": 201,
+    "text": 8
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 230,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "about",
+  "path": "/pages/about",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 1750,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "heading",
+    "h": 158,
+    "text": 42
+   },
+   {
+    "id": "about",
+    "h": 503,
+    "text": 748
+   },
+   {
+    "id": "values",
+    "h": 284,
+    "text": 322
+   },
+   {
+    "id": "newsletter",
+    "h": 275,
+    "text": 302
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /contact#NewsletterSplitForm-newsletter",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "about",
+  "path": "/pages/about",
+  "viewport": "phone",
+  "status": 200,
+  "height": 2302,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "heading",
+    "h": 138,
+    "text": 42
+   },
+   {
+    "id": "about",
+    "h": 753,
+    "text": 748
+   },
+   {
+    "id": "values",
+    "h": 558,
+    "text": 322
+   },
+   {
+    "id": "newsletter",
+    "h": 463,
+    "text": 302
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 230,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /contact#NewsletterSplitForm-newsletter",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "contact",
+  "path": "/pages/contact",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 1695,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "heading",
+    "h": 158,
+    "text": 86
+   },
+   {
+    "id": "form",
+    "h": 390,
+    "text": 193
+   },
+   {
+    "id": "faq",
+    "h": 618,
+    "text": 732
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /contact#contact-form-form",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "contact",
+  "path": "/pages/contact",
+  "viewport": "phone",
+  "status": 200,
+  "height": 1841,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "heading",
+    "h": 161,
+    "text": 86
+   },
+   {
+    "id": "form",
+    "h": 671,
+    "text": 193
+   },
+   {
+    "id": "faq",
+    "h": 619,
+    "text": 732
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 230,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /contact#contact-form-form",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "faqs",
+  "path": "/pages/faqs",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 1623,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "faq",
+    "h": 819,
+    "text": 1114
+   },
+   {
+    "id": "newsletter",
+    "h": 275,
+    "text": 302
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /contact#NewsletterSplitForm-newsletter",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "faqs",
+  "path": "/pages/faqs",
+  "viewport": "phone",
+  "status": 200,
+  "height": 1672,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "faq",
+    "h": 819,
+    "text": 1114
+   },
+   {
+    "id": "newsletter",
+    "h": 463,
+    "text": 302
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 230,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /contact#NewsletterSplitForm-newsletter",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "password",
+  "path": "/password",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 943,
+  "sections": [
+   {
+    "id": "main",
+    "h": 900,
+    "text": 177
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /contact#LaunchSignup-main-email_ziiNk4",
+   "post /api/site-password"
+  ],
+  "fonts": [
+   "\"Young Serif\"",
+   "\"Work Sans\""
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "password",
+  "path": "/password",
+  "viewport": "phone",
+  "status": 200,
+  "height": 887,
+  "sections": [
+   {
+    "id": "main",
+    "h": 844,
+    "text": 177
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /contact#LaunchSignup-main-email_ziiNk4",
+   "post /api/site-password"
+  ],
+  "fonts": [
+   "\"Young Serif\"",
+   "\"Work Sans\""
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "product",
+  "path": "/products/lecture-notes",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 4166,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "band",
+    "h": 197,
+    "text": 15
+   },
+   {
+    "id": "main",
+    "h": 613,
+    "text": 411
+   },
+   {
+    "id": "inside",
+    "h": 1909,
+    "text": 668
+   },
+   {
+    "id": "checks",
+    "h": 185,
+    "text": 245
+   },
+   {
+    "id": "buy",
+    "h": 202,
+    "text": 117
+   },
+   {
+    "id": "more",
+    "h": 532,
+    "text": 386
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /cart/add",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "product",
+  "path": "/products/lecture-notes",
+  "viewport": "phone",
+  "status": 200,
+  "height": 4739,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "band",
+    "h": 164,
+    "text": 15
+   },
+   {
+    "id": "main",
+    "h": 915,
+    "text": 411
+   },
+   {
+    "id": "inside",
+    "h": 1876,
+    "text": 668
+   },
+   {
+    "id": "checks",
+    "h": 391,
+    "text": 245
+   },
+   {
+    "id": "buy",
+    "h": 286,
+    "text": 117
+   },
+   {
+    "id": "more",
+    "h": 719,
+    "text": 386
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 230,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [
+   "img.",
+   "img."
+  ],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /cart/add",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "search-results",
+  "path": "/search?q=Recall",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 2171,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "main",
+    "h": 934,
+    "text": 310
+   },
+   {
+    "id": "popular",
+    "h": 707,
+    "text": 456
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "get /search",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "search-results",
+  "path": "/search?q=Recall",
+  "viewport": "phone",
+  "status": 200,
+  "height": 2692,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "main",
+    "h": 686,
+    "text": 227
+   },
+   {
+    "id": "popular",
+    "h": 1616,
+    "text": 456
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 230,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "get /search",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "collection-one",
+  "path": "/collections/new-in",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 2677,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "main-collection-heading",
+    "h": 147,
+    "text": 32
+   },
+   {
+    "id": "main-collection-product",
+    "h": 1726,
+    "text": 1069
+   },
+   {
+    "id": "newsletter",
+    "h": 275,
+    "text": 302
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /collections/new-in",
+   "post /contact#NewsletterSplitForm-newsletter",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "collection-one",
+  "path": "/collections/new-in",
+  "viewport": "phone",
+  "status": 200,
+  "height": 4578,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "main-collection-heading",
+    "h": 128,
+    "text": 32
+   },
+   {
+    "id": "main-collection-product",
+    "h": 3597,
+    "text": 1029
+   },
+   {
+    "id": "newsletter",
+    "h": 463,
+    "text": 302
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 230,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /collections/new-in",
+   "post /contact#NewsletterSplitForm-newsletter",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "cart-full",
+  "path": "/cart?__cart=1",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 1508,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "heading",
+    "h": 152,
+    "text": 24
+   },
+   {
+    "id": "cart-items",
+    "h": 827,
+    "text": 780
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /cart",
+   "get ",
+   "get /search"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "cart-full",
+  "path": "/cart?__cart=1",
+  "viewport": "phone",
+  "status": 200,
+  "height": 1821,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "heading",
+    "h": 130,
+    "text": 24
+   },
+   {
+    "id": "cart-items",
+    "h": 1301,
+    "text": 736
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 230,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /cart",
+   "get ",
+   "get /search"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "blog",
+  "path": "/blogs/news",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 1756,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "heading",
+    "h": 177,
+    "text": 106
+   },
+   {
+    "id": "main",
+    "h": 776,
+    "text": 813
+   },
+   {
+    "id": "newsletter",
+    "h": 275,
+    "text": 302
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /contact#NewsletterSplitForm-newsletter",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "blog",
+  "path": "/blogs/news",
+  "viewport": "phone",
+  "status": 200,
+  "height": 3290,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "heading",
+    "h": 179,
+    "text": 106
+   },
+   {
+    "id": "main",
+    "h": 2257,
+    "text": 813
+   },
+   {
+    "id": "newsletter",
+    "h": 463,
+    "text": 302
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 230,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /contact#NewsletterSplitForm-newsletter",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "article",
+  "path": "/blogs/news/how-i-take-lecture-notes-that-test-me-later",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 3289,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "main",
+    "h": 1956,
+    "text": 988
+   },
+   {
+    "id": "popular",
+    "h": 804,
+    "text": 491
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "article",
+  "path": "/blogs/news/how-i-take-lecture-notes-that-test-me-later",
+  "viewport": "phone",
+  "status": 200,
+  "height": 4252,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "main",
+    "h": 2124,
+    "text": 988
+   },
+   {
+    "id": "popular",
+    "h": 1739,
+    "text": 491
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 230,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [
+   "article.ma-rel__card",
+   "a.ma-rel__media",
+   "img.",
+   "h3.ma-rel__title"
+  ],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "refund-policy",
+  "path": "/policies/refund-policy",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 995,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "main",
+    "h": 466,
+    "text": 271
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "refund-policy",
+  "path": "/policies/refund-policy",
+  "viewport": "phone",
+  "status": 200,
+  "height": 882,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "main",
+    "h": 492,
+    "text": 271
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 230,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "privacy-policy",
+  "path": "/policies/privacy-policy",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 927,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "main",
+    "h": 398,
+    "text": 211
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "privacy-policy",
+  "path": "/policies/privacy-policy",
+  "viewport": "phone",
+  "status": 200,
+  "height": 844,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "main",
+    "h": 424,
+    "text": 211
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 230,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "terms-of-service",
+  "path": "/policies/terms-of-service",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 927,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "main",
+    "h": 398,
+    "text": 158
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "page": "terms-of-service",
+  "path": "/policies/terms-of-service",
+  "viewport": "phone",
+  "status": 200,
+  "height": 844,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "main",
+    "h": 398,
+    "text": 158
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 230,
+    "text": 123
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "full",
+  "dead": [],
+  "missing": [
+   "404 /no-such/address",
+   "404 /favicon.ico"
+  ]
+ },
+ {
+  "template": "newleaf",
+  "state": "empty",
+  "page": "home",
+  "path": "/",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 4472,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "chalkboard_popup",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "hero",
+    "h": 608,
+    "text": 293
+   },
+   {
+    "id": "stats",
+    "h": 116,
+    "text": 138
+   },
+   {
+    "id": "action",
+    "h": 801,
+    "text": 353
+   },
+   {
+    "id": "study",
+    "h": 209,
+    "text": 78
+   },
+   {
+    "id": "planning",
+    "h": 185,
+    "text": 81
+   },
+   {
+    "id": "home",
+    "h": 238,
+    "text": 192
+   },
+   {
+    "id": "how",
+    "h": 1087,
+    "text": 507
+   },
+   {
+    "id": "about",
+    "h": 449,
+    "text": 632
+   },
+   {
+    "id": "newsletter",
+    "h": 251,
+    "text": 302
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 77
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /contact#NewsletterSplitForm-newsletter",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Young Serif\"",
+   "\"Work Sans\""
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "empty",
+  "page": "home",
+  "path": "/",
+  "viewport": "phone",
+  "status": 200,
+  "height": 5224,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "chalkboard_popup",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "hero",
+    "h": 839,
+    "text": 293
+   },
+   {
+    "id": "stats",
+    "h": 170,
+    "text": 138
+   },
+   {
+    "id": "action",
+    "h": 630,
+    "text": 353
+   },
+   {
+    "id": "study",
+    "h": 200,
+    "text": 78
+   },
+   {
+    "id": "planning",
+    "h": 184,
+    "text": 81
+   },
+   {
+    "id": "home",
+    "h": 258,
+    "text": 192
+   },
+   {
+    "id": "how",
+    "h": 1463,
+    "text": 507
+   },
+   {
+    "id": "about",
+    "h": 661,
+    "text": 632
+   },
+   {
+    "id": "newsletter",
+    "h": 463,
+    "text": 302
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 198,
+    "text": 77
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [
+   "li.nla__item",
+   "button.",
+   "span.",
+   "span.nla__name"
+  ],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /contact#NewsletterSplitForm-newsletter",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Young Serif\"",
+   "\"Work Sans\""
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "empty",
+  "page": "collection",
+  "path": "/collections/all",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 1259,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "main-collection-heading",
+    "h": 111,
+    "text": 8
+   },
+   {
+    "id": "main-collection-product",
+    "h": 345,
+    "text": 67
+   },
+   {
+    "id": "newsletter",
+    "h": 275,
+    "text": 302
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 77
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /collections/all",
+   "post /contact#NewsletterSplitForm-newsletter",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "empty",
+  "page": "collection",
+  "path": "/collections/all",
+  "viewport": "phone",
+  "status": 200,
+  "height": 1227,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "main-collection-heading",
+    "h": 92,
+    "text": 8
+   },
+   {
+    "id": "main-collection-product",
+    "h": 315,
+    "text": 45
+   },
+   {
+    "id": "newsletter",
+    "h": 463,
+    "text": 302
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 198,
+    "text": 77
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /collections/all",
+   "post /contact#NewsletterSplitForm-newsletter",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "empty",
+  "page": "collections",
+  "path": "/collections",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 997,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "heading",
+    "h": 158,
+    "text": 50
+   },
+   {
+    "id": "main",
+    "h": 310,
+    "text": 121
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 77
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "empty",
+  "page": "collections",
+  "path": "/collections",
+  "viewport": "phone",
+  "status": 200,
+  "height": 844,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "heading",
+    "h": 138,
+    "text": 50
+   },
+   {
+    "id": "main",
+    "h": 290,
+    "text": 121
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 198,
+    "text": 77
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "empty",
+  "page": "cart",
+  "path": "/cart",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 956,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "heading",
+    "h": 0,
+    "text": 5724
+   },
+   {
+    "id": "cart-items",
+    "h": 427,
+    "text": 82
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 77
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "empty",
+  "page": "cart",
+  "path": "/cart",
+  "viewport": "phone",
+  "status": 200,
+  "height": 844,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "heading",
+    "h": 0,
+    "text": 5724
+   },
+   {
+    "id": "cart-items",
+    "h": 367,
+    "text": 82
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 198,
+    "text": 77
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "empty",
+  "page": "search",
+  "path": "/search",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 1732,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "main",
+    "h": 414,
+    "text": 13
+   },
+   {
+    "id": "popular",
+    "h": 789,
+    "text": 171
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 77
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "empty",
+  "page": "search",
+  "path": "/search",
+  "viewport": "phone",
+  "status": 200,
+  "height": 2449,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "main",
+    "h": 278,
+    "text": 13
+   },
+   {
+    "id": "popular",
+    "h": 1814,
+    "text": 171
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 198,
+    "text": 77
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [
+   "rect.[object SVGAnimatedString]",
+   "rect.[object SVGAnimatedString]",
+   "rect.[object SVGAnimatedString]"
+  ],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "empty",
+  "page": "404",
+  "path": "/no-such/address",
+  "viewport": "desktop",
+  "status": 404,
+  "height": 1786,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "main",
+    "h": 393,
+    "text": 96
+   },
+   {
+    "id": "popular",
+    "h": 864,
+    "text": 236
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 77
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "empty",
+  "page": "404",
+  "path": "/no-such/address",
+  "viewport": "phone",
+  "status": 404,
+  "height": 2649,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "main",
+    "h": 376,
+    "text": 96
+   },
+   {
+    "id": "popular",
+    "h": 1915,
+    "text": 236
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 198,
+    "text": 77
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [
+   "rect.[object SVGAnimatedString]",
+   "rect.[object SVGAnimatedString]",
+   "rect.[object SVGAnimatedString]"
+  ],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "empty",
+  "page": "page",
+  "path": "/pages/shipping",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 900,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "main",
+    "h": 239,
+    "text": 8
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 77
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "empty",
+  "page": "page",
+  "path": "/pages/shipping",
+  "viewport": "phone",
+  "status": 200,
+  "height": 844,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "main",
+    "h": 201,
+    "text": 8
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 198,
+    "text": 77
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "empty",
+  "page": "about",
+  "path": "/pages/about",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 1750,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "heading",
+    "h": 158,
+    "text": 42
+   },
+   {
+    "id": "about",
+    "h": 503,
+    "text": 748
+   },
+   {
+    "id": "values",
+    "h": 284,
+    "text": 322
+   },
+   {
+    "id": "newsletter",
+    "h": 275,
+    "text": 302
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 77
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /contact#NewsletterSplitForm-newsletter",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "empty",
+  "page": "about",
+  "path": "/pages/about",
+  "viewport": "phone",
+  "status": 200,
+  "height": 2270,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "heading",
+    "h": 138,
+    "text": 42
+   },
+   {
+    "id": "about",
+    "h": 753,
+    "text": 748
+   },
+   {
+    "id": "values",
+    "h": 558,
+    "text": 322
+   },
+   {
+    "id": "newsletter",
+    "h": 463,
+    "text": 302
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 198,
+    "text": 77
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /contact#NewsletterSplitForm-newsletter",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "empty",
+  "page": "contact",
+  "path": "/pages/contact",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 1695,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "heading",
+    "h": 158,
+    "text": 86
+   },
+   {
+    "id": "form",
+    "h": 390,
+    "text": 193
+   },
+   {
+    "id": "faq",
+    "h": 618,
+    "text": 732
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 77
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /contact#contact-form-form",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "empty",
+  "page": "contact",
+  "path": "/pages/contact",
+  "viewport": "phone",
+  "status": 200,
+  "height": 1809,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "heading",
+    "h": 161,
+    "text": 86
+   },
+   {
+    "id": "form",
+    "h": 671,
+    "text": 193
+   },
+   {
+    "id": "faq",
+    "h": 619,
+    "text": 732
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 198,
+    "text": 77
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /contact#contact-form-form",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "empty",
+  "page": "faqs",
+  "path": "/pages/faqs",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 1623,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 72,
+    "text": 35
+   },
+   {
+    "id": "faq",
+    "h": 819,
+    "text": 1114
+   },
+   {
+    "id": "newsletter",
+    "h": 275,
+    "text": 302
+   },
+   {
+    "id": "wordmark",
+    "h": 270,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 187,
+    "text": 77
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /contact#NewsletterSplitForm-newsletter",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "empty",
+  "page": "faqs",
+  "path": "/pages/faqs",
+  "viewport": "phone",
+  "status": 200,
+  "height": 1640,
+  "sections": [
+   {
+    "id": "custom-colors-newleaf",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "header",
+    "h": 60,
+    "text": 40
+   },
+   {
+    "id": "faq",
+    "h": 819,
+    "text": 1114
+   },
+   {
+    "id": "newsletter",
+    "h": 463,
+    "text": 302
+   },
+   {
+    "id": "wordmark",
+    "h": 100,
+    "text": 8
+   },
+   {
+    "id": "footer",
+    "h": 198,
+    "text": 77
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /contact#NewsletterSplitForm-newsletter",
+   "get /search",
+   "post /cart"
+  ],
+  "fonts": [
+   "\"Work Sans\"",
+   "\"Young Serif\"",
+   "Arial"
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "empty",
+  "page": "password",
+  "path": "/password",
+  "viewport": "desktop",
+  "status": 200,
+  "height": 943,
+  "sections": [
+   {
+    "id": "main",
+    "h": 900,
+    "text": 177
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /contact#LaunchSignup-main-email_ziiNk4",
+   "post /api/site-password"
+  ],
+  "fonts": [
+   "\"Young Serif\"",
+   "\"Work Sans\""
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "empty",
+  "page": "password",
+  "path": "/password",
+  "viewport": "phone",
+  "status": 200,
+  "height": 887,
+  "sections": [
+   {
+    "id": "main",
+    "h": 844,
+    "text": 177
+   },
+   {
+    "id": "cart-drawer-live",
+    "h": 0,
+    "text": 63
+   },
+   {
+    "id": "custom-colors",
+    "h": 0,
+    "text": 0
+   }
+  ],
+  "broken": [],
+  "emptySrc": 0,
+  "overflow": 0,
+  "wide": [],
+  "vendor": null,
+  "raw": null,
+  "old": null,
+  "bareLinks": [],
+  "forms": [
+   "post /contact#LaunchSignup-main-email_ziiNk4",
+   "post /api/site-password"
+  ],
+  "fonts": [
+   "\"Young Serif\"",
+   "\"Work Sans\""
+  ],
+  "fontsFailed": [],
+  "errors": [],
+  "failedRequests": []
+ },
+ {
+  "template": "newleaf",
+  "state": "empty",
+  "dead": [],
+  "missing": [
+   "404 /no-such/address",
+   "404 /favicon.ico"
+  ]
+ }
+]

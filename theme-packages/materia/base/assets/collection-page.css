@@ -1516,8 +1516,8 @@ html.facets-vt::view-transition-new(root) { animation: none; }
   /* One duration and curve for the slide, its shadow and the shade. The
      shadow only exists while the drawer is open, so it can never show at
      the edge of the window once the drawer has slid away. */
-  --facets-drawer-ms: 300ms;
-  --facets-drawer-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --facets-drawer-ms: var(--mt-panel-in, 300ms);
+  --facets-drawer-ease: var(--mt-panel-ease-in, cubic-bezier(0.2, 0.8, 0.2, 1));
   box-shadow: 12px 0 40px rgba(0, 0, 0, 0);
   translate: -100% 0;
   backface-visibility: hidden;
@@ -1532,7 +1532,7 @@ html.facets-vt::view-transition-new(root) { animation: none; }
 [dir='rtl'] .facets-panel { inset: 0 0 0 auto; translate: 100% 0; padding-inline-start: env(safe-area-inset-right, 0px); }
 .facets-panel:popover-open { display: flex; translate: 0 0; box-shadow: 12px 0 40px rgba(0, 0, 0, 0.16); }
 [dir='rtl'] .facets-panel:popover-open { box-shadow: -12px 0 40px rgba(0, 0, 0, 0.16); }
-.facets-panel:popover-open.is-closing { translate:-100% 0; box-shadow: 12px 0 40px rgba(0, 0, 0, 0); }
+.facets-panel:popover-open.is-closing { translate:-100% 0; box-shadow: 12px 0 40px rgba(0, 0, 0, 0); --facets-drawer-ms: var(--mt-panel-out, 300ms); --facets-drawer-ease: var(--mt-panel-ease-out, cubic-bezier(0.2, 0.8, 0.2, 1)); }
 [dir='rtl'] .facets-panel:popover-open.is-closing { translate:100% 0; box-shadow: -12px 0 40px rgba(0, 0, 0, 0); }
 .facets-panel:popover-open.is-closing::backdrop { opacity:0; }
 /* Following a finger: no easing between the frames. */
@@ -1545,7 +1545,7 @@ html.facets-vt::view-transition-new(root) { animation: none; }
 .facets-panel::backdrop {
   background: rgba(0, 0, 0, 0.4);
   opacity: 0;
-  transition: opacity 300ms cubic-bezier(0.2, 0.8, 0.2, 1), overlay 300ms allow-discrete, display 300ms allow-discrete;
+  transition: opacity var(--facets-drawer-ms, 300ms) var(--facets-drawer-ease, cubic-bezier(0.2, 0.8, 0.2, 1)), overlay var(--facets-drawer-ms, 300ms) allow-discrete, display var(--facets-drawer-ms, 300ms) allow-discrete;
 }
 .facets-panel:popover-open::backdrop { opacity: var(--facets-shade, 1); }
 @starting-style {

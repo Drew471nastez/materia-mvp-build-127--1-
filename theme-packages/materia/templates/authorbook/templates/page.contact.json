@@ -32,21 +32,21 @@
       "settings": {
         "color_scheme": "default",
         "btn_text": "Send message",
-        "ph_website": "A training question, a class or a podcast",
+        "ph_website": "A question, a workshop or a podcast",
         "label_website": "Subject",
-        "success_text": "Thank you. Tess reads every message and replies within a week."
+        "success_text": "Thank you. Hanna reads every message and replies within a week."
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Write to Tess"
+            "text": "Write to Hanna"
           }
         },
         "description_2": {
           "type": "description",
           "settings": {
-            "text": "<p>Reader questions about your dog, classes, podcasts and interviews. Every message is read by a person.</p>"
+            "text": "<p>Reader questions, workshops for teams, podcasts and interviews. Every message is read by a person.</p>"
           }
         },
         "info_3": {
@@ -61,8 +61,8 @@
           "type": "info",
           "settings": {
             "icon": "map",
-            "line1": "Puppy classes in person and online",
-            "line2": "For rescues, breeders and groups"
+            "line1": "Workshops in person and online",
+            "line2": "For teams, groups and events"
           }
         }
       },
@@ -105,21 +105,21 @@
           "type": "faq_item",
           "settings": {
             "question": "What is the difference between the editions?",
-            "answer": "<p>The ebook is the book. Ebook and audiobook adds the full audio, read by Tess. The complete set adds thirty printable training cards as well.</p>"
+            "answer": "<p>The ebook is the book. Ebook and audiobook adds the full audio, read by Hanna. The complete set adds ninety printable post prompts as well.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "My puppy is driving me mad right now. Where do I start?",
-            "answer": "<p>Start with chapter twelve, biting, chewing and jumping up, then look up your problem in the index. Most fixes start with more sleep and shorter sessions.</p>"
+            "question": "I have not posted in a year. Where do I start?",
+            "answer": "<p>Start with chapter two and rewrite your headline, then use one prompt from the back of the book this week. Most people only need to post once to get going again.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
-            "question": "What age is it for?",
-            "answer": "<p>Puppies from eight weeks, and young or rescue dogs up to about two years. If your dog shows aggression or serious fear, see a qualified behaviourist in person.</p>"
+            "question": "Do I need a big network to start?",
+            "answer": "<p>No. Most of the book is written for people with a few hundred connections, and chapter six covers growing them with people you would like to work with.</p>"
           }
         }
       },

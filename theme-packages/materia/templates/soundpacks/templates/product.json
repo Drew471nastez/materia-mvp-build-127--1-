@@ -167,7 +167,7 @@
             "font_size": 12,
             "font_size_mobile": 12,
             "font_weight": "600",
-            "text_color": "#d6ff5c",
+            "text_color": "#ffffff",
             "bg_color": "rgba(198,244,50,0.08)",
             "border_color": "rgba(198,244,50,0.35)",
             "border_width": 1,
@@ -282,13 +282,13 @@
       "settings": {
         "layout": "feature",
         "eyebrow": "",
-        "heading": "Hear it in a track.",
+        "heading": "Hear it in a track",
         "text": "<p>The loop below is the pack as it comes, with nothing added.</p>",
         "anchor": "demo",
         "max_width": 1040,
         "heading_size": 40,
         "heading_size_mobile": 30,
-        "accent": "#c6f432",
+        "accent": "#f2f0eb",
         "color_scheme": "scheme-sp-deep",
         "section_width": "container",
         "padding_top": 72,
@@ -443,7 +443,7 @@
       "type": "soundpacks-track-table",
       "settings": {
         "eyebrow": "Sounds",
-        "heading": "Play the sounds.",
+        "heading": "Play the sounds",
         "text": "<p>A loop and a few one shots straight from the folders, named as they are in the download.</p>",
         "heading_align": "left",
         "note": "<p>Previews are compressed renders of the 24 bit WAV files, with nothing added.</p>",
@@ -454,7 +454,7 @@
         "col_bpm": "BPM",
         "col_key": "Key",
         "bpm_suffix": true,
-        "accent": "#c6f432",
+        "accent": "#f2f0eb",
         "panel_color": "#141416",
         "use_theme_radius": false,
         "panel_radius": 28,
@@ -909,11 +909,11 @@
     "contents": {
       "type": "soundpacks-contents",
       "settings": {
-        "heading": "What is inside.",
+        "heading": "What is inside",
         "text": "<p>Every folder in the ZIP, counted. WAV files at 24 bit, 44.1 kHz.</p>",
         "align": "left",
         "tabs_label": "Folders in the pack",
-        "accent": "#c6f432",
+        "accent": "#f2f0eb",
         "max_width": 1200,
         "heading_size": 44,
         "heading_size_mobile": 30,
@@ -1509,7 +1509,7 @@
         "header_gap": 40,
         "show_dividers": true,
         "enable_custom_style": true,
-        "label_color": "#c6f432",
+        "label_color": "#8e8e96",
         "item_heading_color": "#f3f3f4",
         "text_color": "#a3a3ab",
         "divider_color": "#26262a",
@@ -1526,7 +1526,7 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "Before you buy.",
+            "text": "Before you buy",
             "size_enable": true,
             "size_desktop": 44,
             "size_mobile": 30
@@ -1536,7 +1536,7 @@
           "type": "column",
           "settings": {
             "label": "Works in",
-            "heading": "Every DAW.",
+            "heading": "Every DAW",
             "text": "<p>Ableton Live, FL Studio, Logic Pro, Bitwig Studio, Cubase, Studio One, Reaper, Pro Tools and GarageBand. WAV and MIDI, no plugin needed.</p>"
           }
         },
@@ -1544,7 +1544,7 @@
           "type": "column",
           "settings": {
             "label": "Licence",
-            "heading": "Royalty free.",
+            "heading": "Royalty free",
             "text": "<p>Use the sounds in your own releases, streams, sync and client work. Do not share or resell them as samples.</p>",
             "link_label": "Read the licence",
             "link": "/pages/licence"
@@ -1554,7 +1554,7 @@
           "type": "column",
           "settings": {
             "label": "Format",
-            "heading": "24 bit WAV.",
+            "heading": "24 bit WAV",
             "text": "<p>Named by type, BPM and key, in folders you can drop straight into your browser. MIDI for every melodic loop.</p>"
           }
         }
@@ -1571,7 +1571,7 @@
       "settings": {
         "color_scheme": "scheme-sp-panel",
         "eyebrow": "Bundles",
-        "heading": "More sounds, less per pack.",
+        "heading": "More sounds, less per pack",
         "intro": "<p>Every bundle is the same files as the single packs, in one download.</p>",
         "heading_size": "h2",
         "heading_align": "left",
@@ -1691,7 +1691,7 @@
           "type": "heading",
           "settings": {
             "enabled": true,
-            "text": "What producers say."
+            "text": "What producers say"
           }
         },
         "subheading": {
@@ -1787,7 +1787,7 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "Questions? Answers.",
+            "text": "Questions and answers",
             "tag": "h2",
             "size_enable": true,
             "size_desktop": 44,
@@ -1853,7 +1853,7 @@
         "color_scheme": "default",
         "section_width": "container",
         "reset_spacing": true,
-        "heading": "More packs.",
+        "heading": "More packs",
         "description": "Picked to go with this one.",
         "header_size": "large",
         "header_alignment": "left",

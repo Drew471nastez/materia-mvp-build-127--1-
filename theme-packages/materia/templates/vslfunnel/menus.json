@@ -3,11 +3,11 @@
     "title": "Main menu",
     "links": [
       {
-        "title": "The course",
+        "title": "The program",
         "url": "/#curriculum"
       },
       {
-        "title": "Teacher",
+        "title": "Your coach",
         "url": "/pages/about"
       },
       {
@@ -25,10 +25,10 @@
     ]
   },
   "footer-course": {
-    "title": "The course",
+    "title": "The program",
     "links": [
       {
-        "title": "Join the January class",
+        "title": "Join the January group",
         "url": "/collections/all"
       },
       {
@@ -42,10 +42,10 @@
     ]
   },
   "footer": {
-    "title": "Tempo",
+    "title": "Fullbook",
     "links": [
       {
-        "title": "About Lena",
+        "title": "About Daniel",
         "url": "/pages/about"
       },
       {

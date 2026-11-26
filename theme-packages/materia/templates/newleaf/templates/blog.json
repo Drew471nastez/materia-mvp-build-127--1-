@@ -1,0 +1,161 @@
+/* Templates round 29: New Leaf. The blog: how Maya uses the templates, then the newsletter. */
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "alignment": "center",
+        "height": "based_on_content",
+        "padding_top": 64,
+        "padding_bottom": 8
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "",
+            "header_size": "large",
+            "vertical_gap": 10
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "description": "<p>How I study, plan the week and keep a home running, and the templates that came out of it.</p>"
+          }
+        },
+        "breadcrumb_r61": {
+          "type": "breadcrumb",
+          "settings": {
+            "separator": "dot",
+            "font_size": 13,
+            "uppercase": false
+          }
+        }
+      },
+      "block_order": [
+        "breadcrumb_r61",
+        "heading_1",
+        "description_2"
+      ]
+    },
+    "main": {
+      "type": "main-blog",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 56,
+        "padding_bottom": 72,
+        "card_style": "editorial",
+        "sidebar_position": "left",
+        "layout": "grid",
+        "show_author": true,
+        "show_date": true,
+        "show_category": true,
+        "show_excerpt": true,
+        "excerpt_lines": 3,
+        "show_readmore": false,
+        "items_per_row": 3,
+        "items_to_show": 9,
+        "items_per_row_mobile": 1,
+        "image_ratio": "custom",
+        "custom_ratio": "16:10",
+        "content_alignment": "left",
+        "title_size": 19,
+        "column_gap": 24,
+        "row_gap": 56,
+        "hover_effect": "zoom",
+        "pagination": "default",
+        "padding_top_mobile": 36,
+        "padding_bottom_mobile": 48,
+        "margin_top": 0,
+        "image_radius": 10
+      },
+      "blocks": {
+        "categories_r61": {
+          "type": "categories",
+          "settings": {
+            "heading": "Blog categories",
+            "show_count": false
+          }
+        },
+        "recent_r61": {
+          "type": "recent",
+          "settings": {
+            "heading": "Popular posts",
+            "count": 3,
+            "show_image": true,
+            "show_date": true
+          }
+        },
+        "topics_r61": {
+          "type": "topics",
+          "settings": {
+            "heading": "Tags",
+            "all_label": ""
+          }
+        }
+      },
+      "block_order": [
+        "categories_r61",
+        "recent_r61",
+        "topics_r61"
+      ]
+    },
+    "newsletter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "show_section_on": "all",
+        "email_label": "Email address",
+        "email_placeholder": "you@example.com",
+        "btn_text": "Sign up",
+        "note": "By signing up you agree to get these emails. The privacy notice, linked at the foot of every page, explains how your address is used.",
+        "subscribed_button_text": "Signed up",
+        "success_text": "Thanks. The next email comes when a new template is out.",
+        "already_text": "You are already on the list.",
+        "invalid_text": "Enter a valid email address.",
+        "error_text": "That did not go through. Try again in a moment.",
+        "image_position": "left",
+        "content_alignment": "left",
+        "form_layout": "horizontal",
+        "image_width": 50,
+        "column_gap": 48,
+        "use_theme_button": true,
+        "reveal": true,
+        "padding_top": 24,
+        "padding_bottom": 80,
+        "padding_top_mobile": 8,
+        "padding_bottom_mobile": 48,
+        "show_image_mobile": false
+      },
+      "blocks": {
+        "h": {
+          "type": "heading",
+          "settings": {
+            "text": "Hear about new templates"
+          }
+        },
+        "s": {
+          "type": "subheading",
+          "settings": {
+            "text": "One short email when a new template comes out. Nothing else, and you can unsubscribe at any time."
+          }
+        }
+      },
+      "block_order": [
+        "h",
+        "s"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "main",
+    "newsletter"
+  ]
+}

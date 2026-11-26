@@ -41,6 +41,7 @@
  */
 import * as React from "react"
 
+import { templatePreviewFrame } from "@/lib/themes/marketplace-shared"
 import { cn } from "@/lib/utils"
 
 type Device = "desktop" | "phone"
@@ -207,9 +208,10 @@ export function ThemeLivePreview({
               ref={(el) => {
                 frames.current[d] = el
               }}
-              src={src!}
+              /* From www.storelib.com on storelib.com: an origin of its own, so its files are kept (templatePreviewFrame). */
+              src={templatePreviewFrame(src!).src}
               title={d === "desktop" ? `${name}, live website on a computer` : `${name}, live website on a phone`}
-              sandbox="allow-scripts"
+              sandbox={templatePreviewFrame(src!).sandbox}
               referrerPolicy="no-referrer"
               loading="lazy"
               tabIndex={-1}

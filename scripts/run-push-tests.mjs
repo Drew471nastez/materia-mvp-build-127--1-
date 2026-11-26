@@ -488,6 +488,11 @@ const SUITES = [
   "tests/site-checkout-physical.test.ts",
   /* Round cart-1023: an imported theme's discount box, Estimate shipping and order note, priced by the website checkout; scripts/check-compat-cart-drawer.ts presses them in a browser. */
   "tests/compat-cart-discount.test.ts",
+  /* Round 28: the cart drawer inside the builder canvas, motion tokens, quick view and wishlist, and previews framed from the site's own origin. */
+  "tests/compat-cart-canvas.test.ts",
+  "tests/theme-motion-r27.test.ts",
+  "tests/theme-quickview-wishlist-r28.test.ts",
+  "tests/theme-preview-framing-r28.test.ts",
   "tests/owned-checkout.test.ts",
   "tests/membership-duplicates.test.ts",
   "tests/checkout-safety.test.ts",
@@ -1724,6 +1729,8 @@ const SUITES = [
   "tests/explore-resilience-au.test.ts",
   /* Buyer journey audit: a membership or a community's tier on an imported theme's product form goes to joining it (a plain post and Buy it now by redirect, a theme's fetch by X-Storelib-Go, followed only to a path of the site and never in the builder), never into a cart the website's checkout then refused; a course still goes in the cart, and a course already bought says so on its page with Open course to its player on Storelib. */
   "tests/journey-theme-plans.test.ts",
+  /* Round 28, layout on every template: one picture fills a two column gallery and a sticky column starts level with the details; the price at least half the title and the rating 14px; product rows keep the page padding and the theme's card gap; the sticky add to cart bar keeps its side padding; bordered FAQ items have room inside; a picture fills its ratio frame (blog cards); emoji flags fill their circle; dropdowns and the phone menu close as one piece in 220 and 300ms. Measured by scripts/check-theme-layout-r28.mjs. */
+  "tests/theme-layout-r28.test.ts",
 ]
 
 /**
@@ -1996,6 +2003,8 @@ const STRICT_SUITES = [
   "tests/flags-r64.test.ts",
   /* Round 65 (m3): a live website's pages without the downloads they did not need: Storelib's own uploads a theme prints as they are (a 1.9MB hero PNG) sent through /_next/image at the sizes they are drawn, before the first picture is preloaded; Materia's hero no longer gives its hidden video the original photo as a poster, and a product page no longer fetches itself for its sold count, fixed in theme-packages and where an older install's script is served (lib/storelib-theme/compat/js-fixes.ts). */
   "tests/live-speed-r65.test.ts",
+  /* Round 29: a published website is the one visitors get while the database is slow: a server's last good copy from before a Publish is never served as the site or held for strangers, the site is read again with time to answer, and the Publish keeps a new template's files for every server (the Notion sales page on andrewrullz.storelib.com, 2026-11-26). */
+  "tests/publish-live-r29.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

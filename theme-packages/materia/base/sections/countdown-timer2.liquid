@@ -90,9 +90,14 @@
   #shopify-section-{{ sid }} .ti-cd { padding-top: var(--cd2-pt-m); padding-bottom: var(--cd2-pb-m); font-family: var(--cd2-bf, var(--body-font, inherit)); }
   #shopify-section-{{ sid }} .ti-cd[data-cd-state='unset']:not([data-cd-editor]) { display: none !important; }
   #shopify-section-{{ sid }} .ti-cd__inner { box-sizing: border-box; }
-  #shopify-section-{{ sid }} .ti-cd[data-cd2-width='container'] .ti-cd__inner { max-width: calc(var(--page-width, 1300px) + 3rem); margin-inline: auto; padding-inline: 1.5rem; }
-  #shopify-section-{{ sid }} .ti-cd[data-cd2-width='fluid_container'] .ti-cd__inner { max-width: calc(var(--fluid-container-width, 1500px) + 3rem); margin-inline: auto; padding-inline: 1.5rem; }
-  #shopify-section-{{ sid }} .ti-cd[data-cd2-width='stretch_width'] .ti-cd__inner { padding-inline: 1.5rem; }
+  {%- comment -%} Round 28: the page container's own sides (critical.css .container / .fluid_container): 90% and 95% wide from 1025px, the theme's gutter inside. With only a max width, at 1440 the text sat 15px from the screen's edge. {%- endcomment -%}
+  #shopify-section-{{ sid }} .ti-cd[data-cd2-width='container'] .ti-cd__inner { width: 100%; max-width: calc(var(--page-width, 1300px) + var(--bs-gutter-x, 1.5rem) * 2); margin-inline: auto; padding-inline: var(--bs-gutter-x, 1.5rem); }
+  #shopify-section-{{ sid }} .ti-cd[data-cd2-width='fluid_container'] .ti-cd__inner { width: 100%; max-width: calc(var(--fluid-container-width, 1500px) + var(--bs-gutter-x, 1.5rem) * 2); margin-inline: auto; padding-inline: var(--bs-gutter-x, 1.5rem); }
+  #shopify-section-{{ sid }} .ti-cd[data-cd2-width='stretch_width'] .ti-cd__inner { padding-inline: var(--bs-gutter-x, 1.5rem); }
+  @media (min-width: 1025px) {
+    #shopify-section-{{ sid }} .ti-cd[data-cd2-width='container'] .ti-cd__inner { width: 90%; }
+    #shopify-section-{{ sid }} .ti-cd[data-cd2-width='fluid_container'] .ti-cd__inner { width: 95%; }
+  }
   #shopify-section-{{ sid }} .ti-cd__grid { display: flex; flex-direction: column; gap: 32px; align-items: stretch; }
   #shopify-section-{{ sid }} .ti-cd__content-col { display: flex; flex-direction: column; gap: 18px; text-align: var(--cd2-m-align); align-items: var(--cd2-m-flex); }
   #shopify-section-{{ sid }} .ti-cd__timer { display: flex; flex-wrap: nowrap; justify-content: center; gap: var(--cd2-cgap-m); max-width: 100%; }

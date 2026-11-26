@@ -32,9 +32,9 @@
       "settings": {
         "color_scheme": "default",
         "btn_text": "Send message",
-        "ph_website": "A question about the course, your level or a club class",
+        "ph_website": "A question about the program, your business or a team place",
         "label_website": "Subject",
-        "success_text": "Thank you. Lena or Sam reads every message and replies within two working days."
+        "success_text": "Thank you. Daniel or Sam reads every message and replies within two working days."
       },
       "blocks": {
         "heading_1": {
@@ -46,7 +46,7 @@
         "description_2": {
           "type": "description",
           "settings": {
-            "text": "<p>Questions about the course, your level, a refund or a class for your chess club. Every message is read by a person.</p>"
+            "text": "<p>Questions about the program, whether it fits, a refund or places for your studio. Every message is read by a person.</p>"
           }
         },
         "info_3": {
@@ -97,22 +97,22 @@
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "What level is it for?",
-            "answer": "<p>Adults who know the rules, from first rated games up to about 1500 online.</p>"
+            "question": "Who is it for?",
+            "answer": "<p>Freelancers and studios of up to about five people who already have paying clients.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "When does the next class start?",
-            "answer": "<p>The January class starts 12 January. You can join before then and start with module one straight away.</p>"
+            "question": "When does the next group start?",
+            "answer": "<p>The January group starts 12 January. You can join before then and start with module one straight away.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "What if I miss a live review?",
-            "answer": "<p>Every call is recorded and added to the course the same day.</p>"
+            "question": "What if I miss a live call?",
+            "answer": "<p>Every call is recorded and added to the program the same day.</p>"
           }
         },
         "faq_item_6": {

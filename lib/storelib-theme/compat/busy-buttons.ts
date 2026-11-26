@@ -54,18 +54,30 @@ const SPINNER = '[class*="spin" i],[class*="loader" i],[class*="loading" i],[cla
 /** An icon: a drawing, a picture or an icon font's glyph. */
 const ICON = "svg,img,i,.icon"
 
-const busyButton = `:is(${ADD_TO_CART_BUTTONS.join(",")}):is(${BUSY_MARKS.join(",")})`
-const busyForm = `form[action*="/cart/add"]:is(${BUSY_MARKS.join(",")}) :is(button,[type="submit"])`
-
 /*
+  Round 28: each busy button is written out as its own selector, button by
+  mark (`[class*="add-to-cart" i].loading`, …), never as
+  `:is(buttons):is(marks)`. Both match exactly the same buttons. But Chrome
+  keys a change it must look into on one name per selector: with the
+  pairs written out that is the mark (.loading, aria-busy), so only a
+  button turning busy restyles its icons. Under :is() it was every class
+  test in the lists, [class*=…] among them, so ANY class change anywhere
+  (a drawer's class on <html>, a menu opening) restyled every icon and
+  picture on the page in the frame the panel was to start moving: about
+  half of that frame's work, on every template. "Inside a spinner" names
+  the icons, never `*`, for the same reason. About 30 KB written, 0.9 KB
+  over the wire, on a page that already carried 1.7 KB.
+
   Two rules, so a browser that cannot read one still keeps the other. In
   each, an icon inside the busy button is hidden unless it is the spinner
   or part of one (looked for inside that same button only, so a section
   whose wrapper happens to say "loader" changes nothing).
 */
-const rule = (button: string) => `${button} :is(${ICON}):not(:is(${SPINNER}),${button} :is(${SPINNER}) *){visibility:hidden!important}`
+const busyButtons = ADD_TO_CART_BUTTONS.flatMap((button) => BUSY_MARKS.map((mark) => `${button}${mark}`))
+const busyForms = BUSY_MARKS.map((mark) => `form[action*="/cart/add"]${mark} :is(button,[type="submit"])`)
+const rule = (buttons: string[]) => `${buttons.map((b) => `${b} :is(${ICON}):not(:is(${SPINNER}),${b} :is(${SPINNER}) :is(${ICON}))`).join(",")}{visibility:hidden!important}`
 
-export const BUSY_BUTTON_CSS = `${rule(busyButton)}${rule(busyForm)}`
+export const BUSY_BUTTON_CSS = `${rule(busyButtons)}${rule(busyForms)}`
 
 /** In the <head> of every page of an imported theme, after the theme's own stylesheets. */
 export const BUSY_BUTTON_FIX = `<style data-sl-busy-buttons>${BUSY_BUTTON_CSS}</style>`

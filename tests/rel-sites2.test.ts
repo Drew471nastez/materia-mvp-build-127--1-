@@ -495,7 +495,7 @@ function codeChecks() {
   check("the release pointer, manifests and blobs are named to outlive a deploy", /keyedAs\("site-live-release:v1"/.test(releases) && /* Changed on purpose (round AP): v2, kept gzipped. */ /keyedAs\("site-release:v2"/.test(releases) && /keyedAs\("theme-blobs:v2"/.test(releases))
   check("an imported theme's pages entry too", /\(v\) => v === null, "compat-pages:v1"\)/.test(compat))
   /* Changed on purpose (round AP): the live files are read with a bound (LIVE_FILES_BOUND, tests/live-nav-ap.test.ts). */
-  check("the files copy is only kept from the live files (a preview reads its drafts through installFiles(…, true), never here)", /const files = await installFiles\(admin, installId, false, LIVE_FILES_BOUND\)\n\s+await keepSharedFiles/.test(compat) && /rows \? Promise\.resolve\(\) : \(draft \? installFiles\(admin, row\.id, true\) : readFiles\(\)\)/.test(compat))
+  check("the files copy is only kept from the live files (a preview reads its drafts through installFiles(…, true), never here)", /* Changed on purpose (round 29): no bound on the read again after a Publish. */ /const files = await installFiles\(admin, installId, false, patient \? undefined : LIVE_FILES_BOUND\)\n\s+await keepSharedFiles/.test(compat) && /rows \? Promise\.resolve\(\) : \(draft \? installFiles\(admin, row\.id, true\) : readFiles\(\)\)/.test(compat))
   check("a Storelib theme site's copy carries the site's and the shop's tags, and is served only for an error", /const sharedTags = \(creatorId: string\) => \[creatorSiteTag\(creatorId\), creatorShopTag\(creatorId\)\]/.test(published) && /\} catch \(e\) \{[\s\S]*?sharedCopy<ShopLookup>/.test(published))
 }
 

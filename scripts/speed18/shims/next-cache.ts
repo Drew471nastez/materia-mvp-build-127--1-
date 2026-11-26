@@ -51,6 +51,18 @@ export function resetCache() {
   cacheStats.misses = 0
 }
 
+/** Drops the entries whose key matches, as the real cache drops what it evicts: for a test of what a server does without them. */
+export function forgetCacheWhere(match: (key: string) => boolean): number {
+  let n = 0
+  for (const key of [...entries.keys()]) {
+    if (match(key)) {
+      entries.delete(key)
+      n++
+    }
+  }
+  return n
+}
+
 /** Every key held right now with its tags, for a test that asks what a cache holds. */
 export function cacheEntries(): { key: string; tags: string[]; value: unknown }[] {
   return [...entries.entries()].map(([key, e]) => ({ key, tags: e.tags, value: JSON.parse(e.value) }))

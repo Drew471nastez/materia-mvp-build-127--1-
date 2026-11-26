@@ -1,0 +1,163 @@
+/* Templates round 29: New Leaf. Questions about buying and using the templates, then the newsletter. */
+{
+  "sections": {
+    "faq": {
+      "type": "faq",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "structured_data": true,
+        "heading": "Questions",
+        "subheading": "<p>What people ask before they duplicate a template.</p>",
+        "first_item_open": false,
+        "allow_multiple_open": false,
+        "open_icon": "plus",
+        "content_alignment": "center",
+        "max_content_width": 760,
+        "gap_header_to_items": 36,
+        "gap_heading_to_subheading": 10,
+        "gap_between_items": 12,
+        "item_padding_y": 18,
+        "item_padding_x": 22,
+        "item_radius": 14,
+        "show_dividers": false,
+        "enable_custom_style": true,
+        "card_bg": "#f5f5f4",
+        "card_border_color": "#ececea",
+        "question_color": "#111111",
+        "icon_color": "#111111",
+        "answer_color": "#55555a",
+        "heading_size_desktop": 40,
+        "heading_size_mobile": 30,
+        "question_size_desktop": 16,
+        "question_size_mobile": 15,
+        "enable_custom_question_weight": true,
+        "question_weight": "500",
+        "answer_size_desktop": 15,
+        "answer_size_mobile": 14,
+        "reveal": false,
+        "padding_top": 72,
+        "padding_bottom": 56
+      },
+      "blocks": {
+        "faq_item_1": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I need a paid Notion plan?",
+            "answer": "<p>No. Every template works on Notion's free plan, on the web, the desktop app and the phone app.</p>"
+          }
+        },
+        "faq_item_2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I get a template after I pay?",
+            "answer": "<p>The receipt page and the email both have a link. Open it while you are signed in to Notion, press Duplicate and the template is copied into your workspace.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Is the free template really free?",
+            "answer": "<p>Yes. Home Admin checks out at $0, arrives by email the same way and is yours to keep.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "I have never used Notion. Will I manage?",
+            "answer": "<p>Each template opens on a Start here page with example entries. If you can type in a table, you can use it.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I change a template?",
+            "answer": "<p>Every page, property and view is yours to edit. Rename things, add columns, delete pages you do not need.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Will I get updates?",
+            "answer": "<p>Yes. When a template changes, everyone who bought it gets an email with the new link, at no cost.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Email within 14 days of buying and you get your money back.</p>"
+          }
+        },
+        "faq_item_8": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How can I ask a question?",
+            "answer": "<p>Write from the contact page. Maya reads every message and replies within two working days.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7",
+        "faq_item_8"
+      ]
+    },
+    "newsletter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "show_section_on": "all",
+        "email_label": "Email address",
+        "email_placeholder": "you@example.com",
+        "btn_text": "Sign up",
+        "note": "By signing up you agree to get these emails. The privacy notice, linked at the foot of every page, explains how your address is used.",
+        "subscribed_button_text": "Signed up",
+        "success_text": "Thanks. The next email comes when a new template is out.",
+        "already_text": "You are already on the list.",
+        "invalid_text": "Enter a valid email address.",
+        "error_text": "That did not go through. Try again in a moment.",
+        "image_position": "left",
+        "content_alignment": "left",
+        "form_layout": "horizontal",
+        "image_width": 50,
+        "column_gap": 48,
+        "use_theme_button": true,
+        "reveal": true,
+        "padding_top": 24,
+        "padding_bottom": 80,
+        "padding_top_mobile": 8,
+        "padding_bottom_mobile": 48,
+        "show_image_mobile": false
+      },
+      "blocks": {
+        "h": {
+          "type": "heading",
+          "settings": {
+            "text": "Hear about new templates"
+          }
+        },
+        "s": {
+          "type": "subheading",
+          "settings": {
+            "text": "One short email when a new template comes out. Nothing else, and you can unsubscribe at any time."
+          }
+        }
+      },
+      "block_order": [
+        "h",
+        "s"
+      ]
+    }
+  },
+  "order": [
+    "faq",
+    "newsletter"
+  ]
+}

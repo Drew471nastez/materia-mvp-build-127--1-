@@ -1071,18 +1071,49 @@ class PopupBase extends HTMLElement {
 
   initPopup(content, text, customClass) {
     const _this = this;
+    /* A light popup (this.lightOpen, the quick view) writes nothing on
+       <html> or <body>: a class or a style there restyles the whole page,
+       which on a store page is a long frame (25 to 100ms measured), so the
+       dialog stalled as it opened and closed. Its scroll lock is its own:
+       the wheel and touch scroll on the backdrop, and past the ends of the
+       dialog's own scrolling, are held (overscroll-behavior does the rest). */
+    const light = !!this.lightOpen;
+    const lock = () => {
+      document.documentElement.classList.add("open-popup");
+      root.style.setProperty("padding-right", getScrollBarWidth.init() + "px");
+    };
+    const unlock = () => {
+      document.documentElement.classList.remove("open-popup");
+      root.style.removeProperty("padding-right");
+    };
     this.modal = new tingle.modal({
       footer: false,
       stickyFooter: false,
+      lightOpen: light,
       closeMethods: ["overlay", "button", "escape"],
       cssClass: [this.customClass || customClass],
       onOpen: function () {
         document.dispatchEvent(new CustomEvent("modal:opened"));
-        document.documentElement.classList.add("open-popup");
-        root.style.setProperty(
-          "padding-right",
-          getScrollBarWidth.init() + "px"
-        );
+        if (light) {
+          const wrap = this.modal;
+          const hold = (e) => {
+            if (e.target && e.target.closest && e.target.closest(".qv__track")) return;
+            const scroller = e.target && e.target.closest && e.target.closest(".qv__info, .qv, .tingle-modal-box__content");
+            if (scroller && scroller.scrollHeight > scroller.clientHeight + 1) {
+              // Past either end the scroll would go on to the page behind.
+              const dy = e.type === "wheel" ? e.deltaY : e.touches && e.touches[0] ? startY - e.touches[0].clientY : 0;
+              const top = scroller.scrollTop <= 0, end = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1;
+              if (!((dy < 0 && top && e.type === "wheel") || (dy > 0 && end))) return;
+            }
+            if (e.cancelable) e.preventDefault();
+          };
+          let startY = 0;
+          wrap.addEventListener("touchstart", (e) => { if (e.touches[0]) startY = e.touches[0].clientY; }, { passive: true });
+          wrap.addEventListener("wheel", hold, { passive: false });
+          wrap.addEventListener("touchmove", hold, { passive: false });
+        } else {
+          lock();
+        }
         const video = this.modalBox.querySelector("video");
         if (!video) return;
         video.play();
@@ -1097,8 +1128,7 @@ class PopupBase extends HTMLElement {
       },
       beforeClose: function () {
         _this.onCloseEvent();
-        document.documentElement.classList.remove("open-popup");
-        root.style.removeProperty("padding-right");
+        if (!light) unlock();
         return true;
       },
     });

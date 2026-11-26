@@ -182,7 +182,8 @@
 {%- endcapture -%}
 {%- capture col_style -%}
   --col-desktop: {{ items_per_row }};--col-number: {{ items_per_row_mobile }};{% if items_per_row > 3 %}--col-tablet: 3;{% else %}--col-tablet: {{ items_per_row }};{% endif %}
-  {% if column_gap < 15 %}--col-gap: {{ column_gap }}px;{% else %}--col-gap: 15px;--col-gap-desktop: {{ column_gap }}px;{% endif %}--repeat: {{ items_to_show }}; --col-mobile: {{ items_per_row_mobile }}
+  {%- comment -%} Round 28: no gap at all glued the cards and their Add to cart buttons edge to edge; under 4px the row takes the theme's own card gap (Theme settings > Layout > Grids). {%- endcomment -%}
+  {% if column_gap < 4 %}--col-gap: var(--grid-gap, 12px);--col-gap-desktop: var(--grid-gap, 20px);{% elsif column_gap < 15 %}--col-gap: {{ column_gap }}px;{% else %}--col-gap: 15px;--col-gap-desktop: {{ column_gap }}px;{% endif %}--repeat: {{ items_to_show }}; --col-mobile: {{ items_per_row_mobile }}
 {%- endcapture -%}
 {%- capture rp_live -%}
 {"color_scheme":{{ color_scheme | json }},"section_width":{{ section_width | json }},"reset_spacing":{% if s.reset_spacing %}true{% else %}false{% endif %},"heading":{{ heading | default: '' | json }},"description":{{ description | default: '' | json }},"header_size":{{ s.header_size | default: 'medium' | json }},"header_alignment":{{ s.header_alignment | default: 'left' | json }},"items_per_row":{{ items_per_row }},"items_per_row_mobile":{{ items_per_row_mobile }},"column_gap":{{ column_gap }},"padding_top":{{ s.padding_top | default: 0 }},"padding_bottom":{{ s.padding_bottom | default: 0 }},"enable_custom_style":{% if rp_custom %}true{% else %}false{% endif %},"heading_color":{{ s.heading_color | append: '' | json }},"text_color":{{ s.text_color | append: '' | json }},"background_color":{{ s.background_color | append: '' | json }},"enable_custom_fonts":{% if s.enable_custom_fonts %}true{% else %}false{% endif %},"heading_font":{{ rp_heading_font_any | json }},"body_font":{{ rp_body_font_any | json }}}
@@ -198,7 +199,7 @@
 >
   <div class="{{ section_width }}" data-rp-width>
     {%- comment -%} Header parts are always drawn (hidden when empty) so a live edit can show them without a redraw. {%- endcomment -%}
-    <div class="section__header mb-33 mb-sm-20 text-{{ s.header_alignment }}{% if s.section_width == 'full_width' %} px-20{% endif %}"{% if heading == blank and description == blank %} data-rp-hidden{% endif %}>
+    <div class="section__header mb-33 mb-sm-20 text-{{ s.header_alignment }}"{% if heading == blank and description == blank %} data-rp-hidden{% endif %}>
       <div class="secion__header-inner">
         <motion-element
           data-motion="fade-up-lg"
@@ -239,6 +240,10 @@
           {% render 'product-item',
             card_product: recommendation,
             section_id: section.id,
+            container: section_width,
+            colunm: items_per_row,
+            colunm_mobile: items_per_row_mobile,
+            padding: column_gap,
             is_compare: false,
             template_enable_action: s.show_action,
             template_enable_product_vendor: s.show_vendor,
@@ -276,6 +281,10 @@
           {% render 'product-item',
             card_product: cp,
             section_id: section.id,
+            container: section_width,
+            colunm: items_per_row,
+            colunm_mobile: items_per_row_mobile,
+            padding: column_gap,
             template_enable_action: s.show_action,
             template_enable_product_vendor: s.show_vendor,
             template_enable_rate: s.show_rating,
@@ -331,6 +340,10 @@
             {% render 'product-item',
               card_product: recommendation,
               section_id: section.id,
+            container: section_width,
+            colunm: items_per_row,
+            colunm_mobile: items_per_row_mobile,
+            padding: column_gap,
               template_enable_action: s.show_action,
               template_enable_product_vendor: s.show_vendor,
               template_enable_rate: s.show_rating,

@@ -66,6 +66,7 @@ import { draftAssetPass } from "./draft-asset-pass"
 import { LastGood, keyedAs } from "./last-good"
 import { StampedMemo } from "./stamped-memo"
 import { nameAndStamp, siteStamp } from "./site-stamp"
+import { sameEpoch, siteEpoch } from "./site-epoch"
 import { splitAssetVersion, withDraftPass } from "@/lib/storelib-theme/compat/draft-version"
 import { ownIconPath } from "./site-favicon"
 import { faviconOf } from "./favicon-sync"
@@ -101,6 +102,17 @@ export const SITE_SHOP_MS = 5000
 export const LIVE_FILES_BOUND = { attemptMs: 4000, budgetMs: 6500 } as const
 /** A release's files, read from the cache that keeps them for good: past this, the rows are read instead. */
 export const RELEASE_FILES_MS = 5000
+/**
+ * THE READ AGAIN AFTER A PUBLISH (round 29, compatSiteByName). When the
+ * bounded read of a site misses and the only copy this server has is from
+ * before the latest Publish, the site is read once more with the database's
+ * own deadline rather than a page's: a new template's theme is a thousand
+ * rows, the first read after its Publish is a cold one, and the copy from
+ * before is not the website any more. One such read per site per server at
+ * a time; everybody arriving meanwhile waits for it.
+ */
+export const PATIENT_READ = { attemptMs: 15_000, budgetMs: 20_000 } as const
+export const PATIENT_MS = 20_000
 
 /** Parts a page's layout is made of: without one, the last good whole site is the better page. */
 const STRUCTURAL_PARTS: ReadonlySet<string> = new Set(["products", "catalog", "collections", "menus"])
@@ -259,11 +271,13 @@ const rowsHeld = new Map<string, Record<string, string>>()
   next page tries again.
 */
 const rowsReading = new Map<string, Promise<Record<string, string>>>()
-function liveFiles(admin: Admin, installId: string, key: string, tags: string[]): Promise<Record<string, string>> {
-  const going = rowsReading.get(key)
+function liveFiles(admin: Admin, installId: string, key: string, tags: string[], patient = false): Promise<Record<string, string>> {
+  /* A patient read never waits on a bounded one already under way (it is what missed). */
+  const id = patient ? `${key}|patient` : key
+  const going = rowsReading.get(id)
   if (going) return going
-  const p = liveFilesKept(admin, installId, key, tags).finally(() => rowsReading.delete(key))
-  rowsReading.set(key, p)
+  const p = liveFilesKept(admin, installId, key, tags, patient).finally(() => rowsReading.delete(id))
+  rowsReading.set(id, p)
   return p
 }
 
@@ -277,17 +291,63 @@ function liveFiles(admin: Admin, installId: string, key: string, tags: string[])
   them. Published files only: a preview reads the drafts and never comes here.
 */
 const SHARED_FILES = "compat-files:v1"
-async function liveFilesKept(admin: Admin, installId: string, key: string, tags: string[]): Promise<Record<string, string>> {
+async function liveFilesKept(admin: Admin, installId: string, key: string, tags: string[], patient = false): Promise<Record<string, string>> {
   try {
-    const files = await installFiles(admin, installId, false, LIVE_FILES_BOUND)
+    /* Patient: the database's own deadline per page of rows, not a page's bound (PATIENT_READ). */
+    const files = await installFiles(admin, installId, false, patient ? undefined : LIVE_FILES_BOUND)
     await keepSharedFiles(SHARED_FILES, [key], tags, files)
     return files
   } catch (e) {
     if (!isSiteReadError(e)) throw e
-    const kept = await sharedFiles(SHARED_FILES, [key], tags)
+    /* The copy every server kept, else the one Publish read for this very publish (primeLiveFiles): never a copy of another publish, the key names it. */
+    const kept = (await sharedFiles(SHARED_FILES, [key], tags)) ?? (await sharedFiles(PRIMED_FILES, [key], []))
     if (!kept) throw e
     console.error(`[compat-site] drew the files every server kept for ${installId}:`, e.message)
     return kept
+  }
+}
+
+/*
+  ═══════════════════════════════════════════════════════════════════════
+   THE NEW WEBSITE'S FILES, READ BY THE PUBLISH ITSELF (round 29)
+  ═══════════════════════════════════════════════════════════════════════
+  A website added from a template is a thousand rows of theme files that no
+  visitor's read has ever fetched, so the first page after its Publish reads
+  them cold, within a page's bound (LIVE_FILES_BOUND), on whichever server
+  the visitor reaches. On a slow database that read missed on every server
+  that had not drawn the site yet (production, andrewrullz.storelib.com,
+  2026-11-26 07:18: "theme files: no answer in 2499ms"). The publish route
+  reads them once after its answer, with the database's own deadline, and
+  keeps them where a page's missed read looks next (liveFilesKept).
+
+  Keyed by the install and its publish (published_at, which every Publish
+  moves), and by nothing else: no tag, so the site's purge by this same
+  Publish, which may land after this write, cannot take it down. Another
+  Publish is another key. Only ever served instead of an error.
+*/
+const PRIMED_FILES = "compat-files-primed:v1"
+
+/** After a Publish of an imported theme: its live files kept for every server. False when it is not one, or nothing was kept. Never throws. */
+export async function primeLiveFiles(installId: string, creatorId: string, admin: Admin = createAdminClient()): Promise<boolean> {
+  try {
+    const { data, error } = await admin
+      .from("store_theme_installs")
+      .select("id, status, published_at, store_theme_settings ( kind:settings->compat->>kind )")
+      .eq("id", installId)
+      .eq("creator_id", creatorId)
+      .maybeSingle()
+    const row = data as { status?: string; published_at?: string | null; store_theme_settings?: { kind?: string | null } | { kind?: string | null }[] | null } | null
+    if (error || !row || row.status !== "published") return false
+    const settings = Array.isArray(row.store_theme_settings) ? row.store_theme_settings[0] : row.store_theme_settings
+    if (settings?.kind !== "shopify") return false
+    /* The same version a page reads the install under (compatSiteFresh). */
+    const version = String(row.published_at ?? "1").replace(/[^0-9A-Za-z]/g, "")
+    const files = await installFiles(admin, installId, false)
+    if (Object.keys(files).length === 0) return false
+    return await keepSharedFiles(PRIMED_FILES, [`${installId}:${version}`], [], files)
+  } catch (e) {
+    logEvent("warn", "site_files_not_primed", { msg: "[compat-site] the published theme's files were not kept ahead", reason: e instanceof Error ? e.message : String(e) })
+    return false
   }
 }
 
@@ -384,7 +444,7 @@ function quiet<T>(p: Promise<T>): Promise<T> {
 
 type InstallRow = { id: string; published_at?: string | null; preview_token?: string | null; store_theme_settings?: unknown }
 
-function readInstall(admin: Admin, creatorId: string): Promise<InstallRow | null> {
+function readInstall(admin: Admin, creatorId: string, patient = false): Promise<InstallRow | null> {
   return siteRead("published install", (signal) => admin
     .from("store_theme_installs")
     .select("id, published_at, preview_token, store_theme_settings ( settings, draft_settings )")
@@ -393,7 +453,7 @@ function readInstall(admin: Admin, creatorId: string): Promise<InstallRow | null
     .order("sort_order", { ascending: true })
     .limit(1)
     .abortSignal(signal)
-    .maybeSingle()) as Promise<InstallRow | null>
+    .maybeSingle(), patient ? PATIENT_READ : undefined) as Promise<InstallRow | null>
 }
 
 export type CompatLookup = { kind: "site"; site: SiteData } | { kind: "missing" }
@@ -407,7 +467,8 @@ export type CompatLookup = { kind: "site"; site: SiteData } | { kind: "missing" 
  * (the database did not answer) serves the site as it last was. A preview
  * is never kept or served from here.
  */
-const lastGoodSite = new LastGood<SiteData>(200)
+/* With the publish it was read under (./site-epoch.ts): served as the site only until the next Publish. */
+const lastGoodSite = new LastGood<{ site: SiteData; epoch: string | null }>(200)
 
 /*
   THE LIVE SITE AS THIS SERVER LAST ASSEMBLED IT (round AM, ./site-stamp.ts).
@@ -438,6 +499,12 @@ export async function compatSiteByName(name: string, host: string, previewToken:
     matches; the shared cache's own entries have the same window.
   */
   const stampBeside = known && known.stamp === null ? siteStamp(known.creatorId) : null
+  /*
+    THE PUBLISH THIS READ IS UNDER (round 29, ./site-epoch.ts), asked beside
+    it and before it ends, so the copy kept from it is never newer than what
+    was live when it began. One answer of the data cache, not the database.
+  */
+  const epochAsked = previewToken === null && known ? quiet(siteEpoch(known.creatorId, creatorSiteTag(known.creatorId))) : null
   try {
     const found = await compatSiteFresh(name, host, previewToken, known?.creator)
     /*
@@ -448,30 +515,80 @@ export async function compatSiteByName(name: string, host: string, previewToken:
     */
     if (found.kind === "site" && found.site.partial?.length) {
       const whole = previewToken === null && found.site.partial.some((p) => STRUCTURAL_PARTS.has(p)) ? lastGoodSite.get(key) : undefined
-      if (whole && whole.creatorId === found.site.creatorId) {
+      /* Only a copy from this same publish: one from before is another website (round 29), and this partial page is the live one. */
+      if (whole && whole.site.creatorId === found.site.creatorId && sameEpoch(whole.epoch, epochAsked ? await epochAsked : null)) {
         logEvent("warn", "site_last_good_served", { msg: "[compat-site] served the last good copy", site: key, reason: `late: ${found.site.partial.join(",")}` })
-        return { kind: "site", site: { ...whole, host } }
+        return { kind: "site", site: { ...whole.site, host } }
       }
       logEvent("warn", "site_partial", { msg: "[compat-site] drawn without what did not answer in time", site: key, parts: found.site.partial.join(",") })
       return found
     }
     if (found.kind === "site" && previewToken === null) {
-      lastGoodSite.remember(key, found.site)
+      lastGoodSite.remember(key, { site: found.site, epoch: epochAsked ? await epochAsked : null })
       if (known && found.site.creatorId === known.creatorId) siteMemo.set(memoKey, known.stamp ?? (await stampBeside), found.site)
     }
     return found
   } catch (e) {
     const held = previewToken === null ? lastGoodSite.get(key) : undefined
     if (held) {
-      /* The visitor got a page: a warning, not an error (the failures that left a visitor with no page stay errors). */
-      logEvent("warn", "site_last_good_served", { msg: "[compat-site] served the last good copy", site: key, reason: e instanceof Error ? e.message : String(e) })
-      return { kind: "site", site: { ...held, host } }
+      const now = await siteEpoch(held.site.creatorId, creatorSiteTag(held.site.creatorId))
+      if (sameEpoch(held.epoch, now)) {
+        /* The visitor got a page: a warning, not an error (the failures that left a visitor with no page stay errors). */
+        logEvent("warn", "site_last_good_served", { msg: "[compat-site] served the last good copy", site: key, reason: e instanceof Error ? e.message : String(e) })
+        return { kind: "site", site: { ...held.site, host } }
+      }
+      /*
+        ═══════════════════════════════════════════════════════════════════
+         THE COPY IS FROM BEFORE A PUBLISH (round 29)
+        ═══════════════════════════════════════════════════════════════════
+        Served as it was, it was the old website under the new one's name,
+        and held for every stranger after (the owner's "it still shows the
+        old website"). The site is read again with time to answer instead
+        (PATIENT_READ), once per site per server.
+      */
+      const again = isSiteReadError(e) ? await readAgainPatiently(key, name, host, known?.creator, now) : null
+      if (again) return again
+      /*
+        STILL NO ANSWER: the copy is this visitor's page and nobody else's,
+        said by `partial` (never held, shared, kept at the CDN, in memory or
+        as the stored copy: app/api/site-theme/site), so the next visitor
+        asks again and gets the new website as soon as the database answers.
+      */
+      logEvent("warn", "site_superseded_copy_served", { msg: "[compat-site] served the copy from before the last Publish, for this visitor only", site: key, reason: e instanceof Error ? e.message : String(e) })
+      return { kind: "site", site: { ...held.site, host, partial: [...new Set([...(held.site.partial ?? []), SUPERSEDED_PART])] } }
     }
     throw e
   }
 }
 
-async function compatSiteFresh(name: string, host: string, previewToken: string | null, known?: Awaited<ReturnType<typeof creatorByName>>): Promise<CompatLookup> {
+/** What a page served from a copy older than the latest Publish says it was drawn without (X-Storelib-Partial). */
+export const SUPERSEDED_PART = "superseded"
+
+/* One read again per site per server at a time (compatSiteByName). */
+const patientReads = new Map<string, Promise<CompatLookup | null>>()
+function readAgainPatiently(key: string, name: string, host: string, creator: Awaited<ReturnType<typeof creatorByName>> | undefined, epoch: string | null): Promise<CompatLookup | null> {
+  let going = patientReads.get(key)
+  if (!going) {
+    going = compatSiteFresh(name, host, null, creator ?? undefined, { patient: true })
+      .then((found) => {
+        /* Kept under the publish it was read after: the epoch was read before this read began. */
+        if (found.kind === "site" && !found.site.partial?.length) lastGoodSite.remember(key, { site: found.site, epoch })
+        return found
+      })
+      .catch((e: unknown) => {
+        logEvent("warn", "site_patient_read_failed", { msg: "[compat-site] the site read again after a Publish did not answer either", site: key, reason: e instanceof Error ? e.message : String(e) })
+        return null
+      })
+      .finally(() => patientReads.delete(key))
+    patientReads.set(key, going)
+  }
+  /* Each caller's own host on the shared answer. */
+  return going.then((found) => (found && found.kind === "site" ? { kind: "site", site: { ...found.site, host } } : found))
+}
+
+async function compatSiteFresh(name: string, host: string, previewToken: string | null, known?: Awaited<ReturnType<typeof creatorByName>>, opts: { patient?: boolean } = {}): Promise<CompatLookup> {
+  /* Read again after a Publish (compatSiteByName): the database's own deadline for what the site cannot be drawn without. */
+  const patient = opts.patient === true
   /* The name's creator, when the caller has just looked it up (nameAndStamp): not asked of the cache a second time. */
   const creator = known ?? (await creatorByName(name))
   if (!creator) return { kind: "missing" }
@@ -501,12 +618,13 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
           return r.value
         })
   /* A release that does not come in time is drawn from the rows, as a website without one is: not a part left out. */
-  const releaseAsked = live ? quiet(inTime(liveRelease(creator.creatorId, null, siteTags), SITE_SHOP_MS, null).then((r) => r.value)) : null
+  const releaseAsked = live ? quiet(inTime(liveRelease(creator.creatorId, null, siteTags), patient ? PATIENT_MS : SITE_SHOP_MS, null).then((r) => r.value)) : null
   const physicalAsked = quiet(part("physical", isPhysicalCommerceEnabled().catch(() => false), false))
   /* The store's return settings, for the refund policy's closing line, as soon as physical goods are known to be on. */
   const returnFactsAsked = quiet(physicalAsked.then((on) => (on ? storeReturnFacts(admin, creator.creatorId) : "")))
   /* What every price is written in: never guessed. Past SITE_SHOP_MS the page is drawn from what was kept instead (compatSiteByName). */
-  const currencyAsked = quiet(live ? inTimeOrThrow(cachedStoreCurrency(creator.creatorId), SITE_SHOP_MS, () => new SiteReadError("currency", `no answer in ${SITE_SHOP_MS}ms`)) : cachedStoreCurrency(creator.creatorId))
+  const currencyMs = patient ? PATIENT_MS : SITE_SHOP_MS
+  const currencyAsked = quiet(live ? inTimeOrThrow(cachedStoreCurrency(creator.creatorId), currencyMs, () => new SiteReadError("currency", `no answer in ${currencyMs}ms`)) : cachedStoreCurrency(creator.creatorId))
   /* Its own address (its primary domain), for the canonical and the languages: a page reached at its storelib.com name still names the domain. */
   const originAsked = live ? quiet(part("origin", siteOrigin(creator.creatorId, name).catch(() => null), null)) : Promise.resolve(null)
   /* The creator's photo, the share card's last resort (compatShareImage): held five minutes, asked beside the rest so it is never a round trip in a row. */
@@ -521,7 +639,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   /* A preview link holds nothing: it is the person checking their unpublished work. */
   const install = previewToken !== null
     ? await readInstall(admin, creator.creatorId)
-    : await heldUnless(["compat-install", creator.creatorId], siteTags, SITE_HOLD_S, () => readInstall(admin, creator.creatorId), (v) => v === null, "compat-install:v1")
+    : await heldUnless(["compat-install", creator.creatorId], siteTags, SITE_HOLD_S, () => readInstall(admin, creator.creatorId, patient), (v) => v === null, "compat-install:v1")
   if (!install) return { kind: "missing" }
   const row = install
   const draft = previewToken !== null && mayPreview(row.preview_token, previewToken)
@@ -558,10 +676,10 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   const heldKey = release ? `${row.id}:release:${release.id}` : rowsKey
   let rows = draft ? null : rowsHeld.get(heldKey) ?? null
   /* A release's files that do not come within RELEASE_FILES_MS are read from the rows (bounded too, LIVE_FILES_BOUND); the blobs' read goes on behind and fills the cache for the next page. */
-  const readFiles = async (): Promise<Record<string, string>> => (release ? (await inTime(releaseFiles(release.manifest), RELEASE_FILES_MS, null)).value : null) ?? liveFiles(admin, row.id, rowsKey, siteTags)
+  const readFiles = async (): Promise<Record<string, string>> => (release ? (await inTime(releaseFiles(release.manifest), patient ? PATIENT_MS : RELEASE_FILES_MS, null)).value : null) ?? liveFiles(admin, row.id, rowsKey, siteTags, patient)
   const readPages = release
     ? async () => pageRowsOf(release.manifest)
-    : () => siteRead("pages", (signal) => admin.from("store_theme_pages").select((draft ? "page_key, sections, draft_sections" : "page_key, sections") as "page_key, sections, draft_sections").eq("install_id", row.id).abortSignal(signal))
+    : () => siteRead("pages", (signal) => admin.from("store_theme_pages").select((draft ? "page_key, sections, draft_sections" : "page_key, sections") as "page_key, sections, draft_sections").eq("install_id", row.id).abortSignal(signal), patient ? PATIENT_READ : undefined)
   /* With each product's own description (round 12): a theme's Featured product prints `product.description`, which a card did not carry. */
   /* And its own questions (round 13, ./product-extras.ts): a Featured product's `product.metafields.storelib.faqs`, as on its page. */
   /* Whether this page's catalogue came whole: one read without its offers (late) or that failed is passed on for this page and not held (heldUnless's skip). */

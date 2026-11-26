@@ -1,0 +1,266 @@
+/* Templates round 29: New Leaf's product page, after the owner's reference, drawn from the product itself: a dark band with a strip of the product's cover art, the way back to its category and its icon; the theme's own product information (title, the description's first paragraphs, price, a Get it button that goes to checkout and three ticks) beside the product's second picture; What's inside, one row per Heading 3 in the description with the product's next pictures; three columns of what every template has; a band to buy it; and more templates from the same category. */
+{
+  "sections": {
+    "band": {
+      "type": "newleaf-product-band",
+      "settings": {
+        "show_strip": true,
+        "strip_height": 150,
+        "strip_height_mobile": 96,
+        "strip_dim": 0,
+        "show_crumbs": true,
+        "root_label": "Templates",
+        "root_link": "/collections/all",
+        "crumbs_label": "Breadcrumb",
+        "icon": "crop",
+        "icon_tile": 64,
+        "icon_x": 7.35,
+        "icon_y": 19.9,
+        "icon_size": 7.5,
+        "color_scheme": "scheme-nl-ink",
+        "section_width": "container"
+      }
+    },
+    "main": {
+      "type": "main-product",
+      "settings": {
+        "color_scheme": "scheme-nl-ink",
+        "section_width": "container",
+        "section_width_mobile": "container",
+        "reset_spacing": true,
+        "desktop_layout": "grid_1_column",
+        "desktop_media_width": 52,
+        "enable_sticky_content_on_desktop": false,
+        "media_square": false,
+        "image_zoom": "no_zoom",
+        "enable_on_desktop": false,
+        "enable_on_mobile": false,
+        "padding_top": 0,
+        "padding_bottom": 72,
+        "mobile_options": "hidden_thumbnail",
+        "mobile_slides_per_view": "1"
+      },
+      "blocks": {
+        "title": {
+          "type": "title",
+          "settings": {
+            "show_vendor": false,
+            "title_font_size_desktop": 60,
+            "title_font_size_mobile": 40
+          }
+        },
+        "desc": {
+          "type": "product_description",
+          "settings": {
+            "enable_custom_description": false,
+            "use_theme_text": true,
+            "pb_d": 18,
+            "pb_m": 14
+          }
+        },
+        "price": {
+          "type": "price",
+          "settings": {
+            "price_font_size_desktop": 36,
+            "price_font_size_mobile": 30,
+            "price_font_weight": "400"
+          }
+        },
+        "once": {
+          "type": "text",
+          "settings": {
+            "heading": "",
+            "content": "<p>One-off payment, yours to keep</p>"
+          }
+        },
+        "options": {
+          "type": "variant_picker",
+          "settings": {}
+        },
+        "buy": {
+          "type": "buy_buttons",
+          "settings": {
+            "show_add_to_cart": true,
+            "show_dynamic_checkout": false,
+            "show_quantity": false,
+            "show_wishlist_button": false,
+            "show_variant_picker": true,
+            "buttons_full_width": false,
+            "enable_custom_button_text": true,
+            "atc_button_text": "Get it →",
+            "atc_redirect_checkout": true,
+            "show_price_in_atc": false
+          }
+        },
+        "checks": {
+          "type": "vertical_benefits",
+          "settings": {
+            "item1_title": "Example pages included",
+            "item1_icon_library": "check",
+            "item2_title": "Works on Notion's free plan",
+            "item2_icon_library": "check",
+            "item3_title": "Desktop, tablet and phone",
+            "item3_icon_library": "check",
+            "vb_pt": 6,
+            "vb_pb": 0,
+            "vb_text_size_d": 14,
+            "vb_text_size_m": 14,
+            "vb_icon_size": 18,
+            "vb_icon_size_m": 18,
+            "vb_icon_gap": 8,
+            "vb_item_space": 4
+          }
+        }
+      },
+      "block_order": [
+        "title",
+        "desc",
+        "options",
+        "price",
+        "once",
+        "buy",
+        "checks"
+      ]
+    },
+    "inside": {
+      "type": "newleaf-inside",
+      "settings": {
+        "heading": "What's inside",
+        "text": "Every template comes with example pages, so you can see how it works before you clear them and start your own.",
+        "first_picture": 3,
+        "reveal": true,
+        "accent": "",
+        "panel_color": "#eceee9",
+        "radius": 18,
+        "heading_size": 46,
+        "heading_size_mobile": 32,
+        "row_heading_size": 36,
+        "row_heading_size_mobile": 28,
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 96,
+        "padding_bottom": 104,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 72
+      }
+    },
+    "checks": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "content_alignment": "left",
+        "columns_desktop": 3,
+        "columns_tablet": 3,
+        "column_gap": 40,
+        "header_gap": 0,
+        "show_dividers": false,
+        "item_heading_size": 16,
+        "item_heading_size_mobile": 16,
+        "reveal": true,
+        "padding_top": 48,
+        "padding_bottom": 56,
+        "padding_top_mobile": 36,
+        "padding_bottom_mobile": 40,
+        "mobile_layout": "stack",
+        "show_arrows": false
+      },
+      "blocks": {
+        "c1": {
+          "type": "column",
+          "settings": {
+            "label": "",
+            "heading": "Example pages to learn from",
+            "text": "<p>See how it works before you clear them and add your own.</p>",
+            "link_label": "",
+            "link": ""
+          }
+        },
+        "c2": {
+          "type": "column",
+          "settings": {
+            "label": "",
+            "heading": "Works on the free plan",
+            "text": "<p>No paid Notion account or add-ons needed.</p>",
+            "link_label": "",
+            "link": ""
+          }
+        },
+        "c3": {
+          "type": "column",
+          "settings": {
+            "label": "",
+            "heading": "Help by email",
+            "text": "<p>If something does not work as you expected, write and Maya will sort it out.</p>",
+            "link_label": "",
+            "link": ""
+          }
+        }
+      },
+      "block_order": [
+        "c1",
+        "c2",
+        "c3"
+      ]
+    },
+    "buy": {
+      "type": "newleaf-buy-band",
+      "settings": {
+        "heading": "Get [title] for [price]",
+        "soon_heading": "[title] is coming soon",
+        "free_word": "free",
+        "text": "Pay once here, then duplicate it into your Notion from the link in your email.",
+        "button_label": "Get it",
+        "accent": "#f0b54a",
+        "accent_text": "#1b1a16",
+        "heading_size": 40,
+        "heading_size_mobile": 30,
+        "color_scheme": "scheme-nl-ink",
+        "section_width": "container",
+        "padding_top": 60,
+        "padding_bottom": 60,
+        "padding_top_mobile": 44,
+        "padding_bottom_mobile": 44
+      }
+    },
+    "more": {
+      "type": "newleaf-shelf",
+      "settings": {
+        "heading": "More [category] templates",
+        "heading_fallback": "More templates",
+        "text": "Each with example pages to start from.",
+        "source": "category",
+        "limit": 4,
+        "note": "",
+        "anchor": "",
+        "empty_text": "More templates are on the way.",
+        "columns": "4",
+        "one_column_mobile": false,
+        "ratio": "3 / 2",
+        "show_description": true,
+        "words": 16,
+        "free_label": "Free",
+        "soon_label": "Coming soon",
+        "radius": 8,
+        "reveal": true,
+        "accent": "",
+        "heading_size": 36,
+        "heading_size_mobile": 28,
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 72,
+        "padding_bottom": 80,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 56
+      }
+    }
+  },
+  "order": [
+    "band",
+    "main",
+    "inside",
+    "checks",
+    "buy",
+    "more"
+  ]
+}

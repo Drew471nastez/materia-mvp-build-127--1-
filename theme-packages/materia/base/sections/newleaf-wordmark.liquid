@@ -1,0 +1,81 @@
+{%- comment -%}
+  New Leaf (templates round 29): the shop's name as one very large word
+  across the full width of the page, in the heading font, above the
+  footer. It is sized to the width it has, so it fills the line exactly at
+  any screen size; before the script sizes it, a width based guess keeps
+  it close. The words are the shop's name unless you type your own.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
+  assign word = s.word | default: shop.name
+-%}
+<style>
+  #shopify-section-{{ sid }} .nlm { padding-block: {{ s.padding_top_mobile }}px {{ s.padding_bottom_mobile }}px; overflow: hidden; }
+  #shopify-section-{{ sid }} .nlm__word { display: block; margin: 0; font-family: var(--heading-font, var(--font-heading-family)) !important; font-weight: var(--heading-weight, 400); font-size: {{ s.guess }}vw; line-height: .86; letter-spacing: 0; white-space: nowrap; color: {% if s.word_color != blank %}{{ s.word_color }}{% else %}var(--color-heading){% endif %}; text-align: center; }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .nlm { padding-block: {{ s.padding_top }}px {{ s.padding_bottom }}px; }
+  }
+</style>
+<div class="nlm color-{{ color_scheme }} gradient" data-nlm>
+  <div class="{{ s.section_width | default: 'container' }}">
+    <div class="nlm__word" aria-hidden="true"><span>{{ word | escape }}</span></div>
+  </div>
+</div>
+<script>
+  (function () {
+    var root = document.querySelector('#shopify-section-{{ sid }} [data-nlm]');
+    if (!root) return;
+    var w = root.querySelector('.nlm__word'), t = w.querySelector('span'), cv = document.createElement('canvas').getContext('2d');
+    {%- comment -%} Sized by the letters' ink, not their boxes, so the first and last letters sit exactly on the edges. {%- endcomment -%}
+    function fit() {
+      var box = w.clientWidth;
+      if (!box) return;
+      var cs = getComputedStyle(w);
+      cv.font = cs.fontStyle + ' ' + cs.fontWeight + ' 100px ' + cs.fontFamily;
+      var m = cv.measureText(t.textContent), ink = (m.actualBoundingBoxLeft || 0) + (m.actualBoundingBoxRight || 0);
+      if (!ink) return;
+      var size = Math.floor(100 * box / ink * 100) / 100;
+      w.style.fontSize = size + 'px';
+      w.style.textAlign = 'left';
+      w.style.letterSpacing = '0';
+      t.style.marginLeft = (m.actualBoundingBoxLeft * size / 100) + 'px';
+    }
+    fit();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+    if ('ResizeObserver' in window) new ResizeObserver(fit).observe(w.parentNode);
+  })();
+  {%- comment -%} A link to # and a section's name (/#newsletter) finds that section when nothing on the page has that id. {%- endcomment -%}
+  (function () {
+    if (window.__nlHash) return;
+    window.__nlHash = true;
+    function go(smooth) {
+      var id = decodeURIComponent(location.hash.slice(1));
+      if (!id || !/^[\w-]+$/.test(id) || document.getElementById(id)) return;
+      var el = document.getElementById('shopify-section-' + id) || document.querySelector('[id$="__' + id + '"]');
+      if (el) el.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
+    }
+    window.addEventListener('hashchange', function () { go(true); });
+    if (location.hash) window.addEventListener('load', function () { go(false); });
+  })();
+</script>
+{% schema %}
+{
+  "name": "Large wordmark",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    { "type": "text", "id": "word", "label": "Words", "info": "Left empty, your shop's name." },
+    { "type": "color", "id": "word_color", "label": "Colour", "info": "Left empty, the scheme's heading colour." },
+    { "type": "range", "id": "guess", "label": "Size before it is fitted", "min": 6, "max": 30, "step": 1, "unit": "vw", "default": 17, "info": "Only for the moment before the page fits it to the width." },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default" },
+    { "type": "select", "id": "section_width", "label": "Section width", "default": "container", "options": [{ "value": "container", "label": "Default" }, { "value": "fluid_container", "label": "Fluid container" }, { "value": "stretch_width", "label": "Stretched" }] },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 40 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 8 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Top padding on phones", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 28 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Bottom padding on phones", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 4 }
+  ],
+  "presets": [{ "name": "Large wordmark" }]
+}
+{% endschema %}

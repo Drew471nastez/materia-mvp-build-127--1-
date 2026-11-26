@@ -864,7 +864,7 @@
       assign menu_hover_color = 'var(--color-link-hover, currentColor)'
     endif
   endif
-  assign dd_speed = section_st.dropdowns_speed | default: 400
+  assign dd_speed = section_st.dropdowns_speed | default: 220
   assign dd_smooth = section_st.dropdowns_smoothness | default: 70
   if section_st.dropdowns_smoothness == 0
     assign dd_smooth = 0
@@ -1930,7 +1930,7 @@
       "step": 25,
       "unit": "ms",
       "label": "Animation speed",
-      "default": 400,
+      "default": 220,
       "info": "How long a dropdown or mega menu takes to open and close."
     },
     {

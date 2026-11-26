@@ -80,8 +80,8 @@
     "cta": {
       "type": "course2-cta",
       "settings": {
-        "heading": "Make your first cut tonight",
-        "text": "<p>The first lesson takes eight minutes. Fifty six lessons, five projects and a 30 day refund, for one payment.</p>",
+        "heading": "Design your first post tonight",
+        "text": "<p>The first lesson takes nine minutes. Fifty six lessons, five projects and a 30 day refund, for one payment.</p>",
         "button_label": "Start learning",
         "to_checkout": true,
         "button_link": "/collections/all",

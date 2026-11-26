@@ -682,7 +682,7 @@ function HoverIntent(exitTime, elements, userConfig) {
     // The drawer slides shut first, then the page unlocks and the levels go
     // back to the top, so nothing jumps while it is still on screen.
     if (immediate || reduced.matches || !wasOpen) settle();
-    else settleTimer = setTimeout(settle, 580);
+    else settleTimer = setTimeout(settle, 340);
     if (focusInside) {
       try { visibleToggle()?.focus({ preventScroll: true }); } catch (e) {}
     }
@@ -1271,7 +1271,7 @@ let BlsMainMenuShopify = (function () {
         },
         {
           ease: [0.7, 0, 0.2, 1],
-          duration: 0.35,
+          duration: 0.24,
         }
       );
 
@@ -1340,7 +1340,7 @@ let BlsMainMenuShopify = (function () {
             },
             {
               ease: [0.7, 0, 0.2, 1],
-              duration: 0.35,
+              duration: 0.24,
             }
           );
           targetItem.classList.add("visible");
@@ -1372,7 +1372,7 @@ let BlsMainMenuShopify = (function () {
         },
         {
           ease: [0.7, 0, 0.2, 1],
-          duration: 0.4,
+          duration: 0.24,
         }
       );
 
@@ -1854,15 +1854,21 @@ var BlsSearchShopify = (function () {
       clearTimeout(this._hideTimer);
       this.panelOpen = true;
       this._trigger = trigger || document.activeElement;
-      if (!isDrawer(f)) this.placePopup(f);
+      // Measured as the pointer came near (warmPlace), so the click itself
+      // reads no layout before the panel starts to move.
+      if (!isDrawer(f) && !(this._placed && this._placed.y === window.scrollY && this._placed.w === window.innerWidth && performance.now() - this._placed.at < 4000)) this.placePopup(f);
+      this._placed = null;
       const s = scrim();
-      // Scrim first, so the panel is above it in the top layer.
-      showLayer(s);
-      showLayer(f);
+      // Every class first, then the top layer (whose show restyles the page
+      // once for all of them), then focus: one style pass in the click, not
+      // three. The panel's closed style was already computed, so its slide
+      // starts from it. Scrim first, so the panel is above it in the top layer.
       html.classList.add("open-drawer", "open-search");
       if (s) s.classList.add("open");
       f.classList.add("open");
       this.setToggles(true);
+      showLayer(s);
+      showLayer(f);
       document.addEventListener("keydown", this._onKeydown, true);
       // Synchronously, inside the click, so phones raise the keyboard.
       const input = f.querySelector('input[type="search"]');
@@ -1937,7 +1943,24 @@ var BlsSearchShopify = (function () {
       return f ? f.querySelector('input[type="search"]') : null;
     },
 
+    // The popup's place, read while the pointer is on the search button (or
+    // it has focus), between the frames of nothing happening.
+    warmPlace: function (e) {
+      const t = e.target && e.target.closest && e.target.closest(".top-search-toggle");
+      if (!t || t.tagName === "A" || this.panelOpen) return;
+      const f = panel();
+      if (!f || isDrawer(f)) return;
+      this.placePopup(f);
+      this._placed = { y: window.scrollY, w: window.innerWidth, at: performance.now() };
+    },
+
     setupEventListeners: function () {
+      if (!this._warmWired) {
+        this._warmWired = true;
+        const warm = (e) => this.warmPlace(e);
+        document.addEventListener("pointerover", warm, { passive: true });
+        document.addEventListener("focusin", warm);
+      }
       const f = panel();
       const input = this.input();
       const form = input && input.form;
@@ -5859,9 +5882,15 @@ class QuickView extends PopupBase {
   constructor() {
     super();
     this.html = null;
+    // Opens without touching <html>/<body> until it has opened (PopupBase).
+    this.lightOpen = true;
     // Card quick view: the section is asked for as the pointer comes near
-    // (Section Rendering API), so the click opens without a wait.
-    const warm = () => QuickView.fetchSection(this.url || this.dataset.url).then(QuickView.preloadImage).catch(() => {});
+    // (Section Rendering API), and read into a node then too, so the click
+    // only copies it into the dialog: no wait, no parsing in the open frame.
+    const warm = () => {
+      const url = this.url || this.dataset.url;
+      QuickView.fetchSection(url).then((text) => { QuickView.preloadImage(text); QuickView.parsed(url, text); }).catch(() => {});
+    };
     this.addEventListener("pointerenter", warm, { passive: true });
     this.addEventListener("focusin", warm);
   }
@@ -5877,6 +5906,19 @@ class QuickView extends PopupBase {
     if (attr("sizes")) img.sizes = attr("sizes");
     if (attr("srcset")) img.srcset = attr("srcset");
     img.src = attr("src");
+  }
+
+  // The quick view's content, read from the section's HTML once per answer;
+  // each open takes a copy.
+  static parsed(url, text) {
+    QuickView.nodes = QuickView.nodes || new Map();
+    const hit = QuickView.nodes.get(url);
+    if (hit && hit.text === text) return hit.node;
+    const node = parser
+      .parseFromString(text, "text/html")
+      .querySelector("#shopify-section-product-quickview .product-quickview__content");
+    QuickView.nodes.set(url, { text, node });
+    return node;
   }
 
   static fetchSection(url) {
@@ -5917,20 +5959,18 @@ class QuickView extends PopupBase {
       .then((text) => {
         clearTimeout(skeletonTimer);
         if (this.openToken !== token) return;
-        this.html = parser
-          .parseFromString(text, "text/html")
-          .querySelector(
-            "#shopify-section-product-quickview .product-quickview__content"
-          );
+        const node = QuickView.parsed(url, text);
+        this.html = node ? node.cloneNode(true) : null;
         if (!this.html) { if (shown && this.modal) this.modal.close(); return; }
         if (shown) {
           // Closed while loading: leave it closed.
           const wrap = this.modal && this.modal.modal;
           if (!wrap || !wrap.isConnected || wrap.classList.contains("remove-loading")) return;
         }
-        // Load scripts in the HTML content
-        this.loadScripts(this.html);
         this.html.classList.remove("hidden");
+        // Every write first (the dialog, its content, its script's first
+        // pass), then one read (focus): the page is restyled once, in the
+        // frame the dialog appears, and not again while it moves.
         if (shown) {
           this.modal.setContent(this.html);
           this.applyScheme();
@@ -5938,12 +5978,15 @@ class QuickView extends PopupBase {
           shown = true;
           this.openDialog(this.html);
         }
+        // The content's script runs once the content is in the dialog.
+        this.loadScripts(this.html);
         this.trapFocus();
       })
       .finally(() => {
         try { Shopify.PaymentButton.init(); } catch (e) {}
-        if (!document.querySelector('div[data-animation="slide_in"') && typeof BlsLazyloadImg !== "undefined") {
-          BlsLazyloadImg.init();
+        const scope = this.modal && this.modal.modalBox;
+        if (scope && !document.querySelector('div[data-animation="slide_in"') && typeof BlsLazyloadImg !== "undefined") {
+          BlsLazyloadImg.init(scope);
         }
         this.classList.remove("loading");
       })
@@ -6066,7 +6109,7 @@ class QuickView extends PopupBase {
     // Open: off-screen first (no paint in between), then rise.
     set(height(), 0);
     box.getBoundingClientRect();
-    requestAnimationFrame(() => set(0, 320, OPEN_EASE));
+    requestAnimationFrame(() => set(0, 280, OPEN_EASE));
 
     const origClose = m.close.bind(m);
     const slideOut = (v) => {
@@ -6248,10 +6291,12 @@ class QuickView extends PopupBase {
       else if (!e.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
     };
     document.addEventListener("keydown", this.onTrapKey, true);
-    requestAnimationFrame(() => {
-      const start = dialog.querySelector('.qv__value[aria-pressed="true"]') || dialog.querySelector(".qv__atc:not([disabled])") || dialog.querySelector(".tingle-modal__close") || focusables()[0];
-      if (start) start.focus({ preventScroll: true });
-    });
+    // Focus goes to the dialog itself (no ring on a pill the visitor did not
+    // choose); Tab then starts at its first control. Done now, after every
+    // write of the open, so it costs no extra style pass.
+    const box = this.modal.modalBox || dialog;
+    if (!box.hasAttribute("tabindex")) box.setAttribute("tabindex", "-1");
+    try { box.focus({ preventScroll: true }); } catch (e) {}
   }
 
   onCloseEvent() {
@@ -6375,7 +6420,32 @@ class ButtonWishlist extends HTMLElement {
       this.classList.remove("is-toggled");
       void this.offsetWidth;
       this.classList.add("is-toggled");
+      if (!onPage) ButtonWishlist.confirm(this.redirectTooltip, this.wishlistUrl());
     }
+  }
+
+  // Round 28: a store whose header has no wishlist icon (and no tab bar) gave
+  // no sign a heart had done anything beyond the heart itself, and no way to
+  // the list. Then a short note at the foot of the screen links to it. In the
+  // theme's colours, font and button corners; transform and opacity only.
+  static confirm(label, url) {
+    const visible = (el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden";
+    const shown = [...document.querySelectorAll(".wishlist-count, :is(header, .section-header, .shopify-section-group-header-group, .mobile-navigation-bar, mobile-navigation-bar) a[href*='wishlist']")].some((el) => !el.closest(".wl-note") && visible(el));
+    if (shown || !label || !url) return;
+    let note = document.querySelector(".wl-note");
+    if (!note) {
+      note = document.createElement("div");
+      note.className = "wl-note";
+      note.setAttribute("role", "status");
+      note.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 20.3s-7.6-4.6-9.2-9.3C1.7 7.6 3.9 4.2 7.4 4.2c2 0 3.4 1.1 4.6 2.7 1.2-1.6 2.6-2.7 4.6-2.7 3.5 0 5.7 3.4 4.6 6.8-1.6 4.7-9.2 9.3-9.2 9.3z"/></svg><a class="wl-note__link"></a>';
+      document.body.appendChild(note);
+    }
+    const link = note.querySelector("a");
+    link.textContent = label;
+    link.href = url;
+    clearTimeout(ButtonWishlist.noteTimer);
+    requestAnimationFrame(() => note.classList.add("is-shown"));
+    ButtonWishlist.noteTimer = setTimeout(() => note.classList.remove("is-shown"), 3200);
   }
 }
 customElements.define("button-wishlist", ButtonWishlist);

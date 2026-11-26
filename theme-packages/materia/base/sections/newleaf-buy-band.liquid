@@ -1,0 +1,85 @@
+{%- comment -%}
+  New Leaf (templates round 29): a closing band on a product's page:
+  "Get [title] for [price]", a line under it and a button that buys it
+  (the product's cart link, straight to checkout). Free products say Free;
+  a product that cannot be bought yet shows its Coming soon words and no
+  button. Fonts, colours and the button follow the colour scheme and
+  Theme settings.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
+  assign p = product
+  if p == blank
+    comment
+      Added to a page that is not a product's (or before the store has one open): the first product stands in, so the band shows what it will look like.
+    endcomment
+    assign p = collections.all.products.first
+  endif
+  assign v = p.selected_or_first_available_variant
+  if p.price == 0
+    assign price = s.free_word
+  else
+    assign price = p.price | money
+  endif
+  assign heading = s.heading | replace: '[title]', p.title | replace: '[price]', price
+  if p.available == false
+    assign heading = s.soon_heading | replace: '[title]', p.title
+  endif
+-%}
+{%- if p != blank -%}
+<style>
+  #shopify-section-{{ sid }} .nlc { padding-block: {{ s.padding_top_mobile }}px {{ s.padding_bottom_mobile }}px; }
+  #shopify-section-{{ sid }} .nlc__inner { display: flex; flex-direction: column; align-items: flex-start; gap: 22px; }
+  #shopify-section-{{ sid }} .nlc h2 { margin: 0; font-size: {{ s.heading_size_mobile }}px; line-height: 1.1; }
+  #shopify-section-{{ sid }} .nlc p { margin: 8px 0 0; font-size: 15.5px; color: var(--color-text); }
+  #shopify-section-{{ sid }} .nlc .button { gap: 8px; white-space: nowrap; {% if s.accent != blank %}--btn-primary-bg-color: {{ s.accent }}; --btn-primary-border-color: {{ s.accent }}; --btn-primary-color: {{ s.accent_text }}; --btn-primary-hover-bg-color: {{ s.accent }}; --btn-primary-hover-color: {{ s.accent_text }}; background: {{ s.accent }}; color: {{ s.accent_text }}; border-color: {{ s.accent }};{% endif %} }
+  {%- if s.accent != blank -%}#shopify-section-{{ sid }} .nlc .button:hover { filter: brightness(1.06); }{%- endif -%}
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .nlc { padding-block: {{ s.padding_top }}px {{ s.padding_bottom }}px; }
+    #shopify-section-{{ sid }} .nlc__inner { flex-direction: row; align-items: center; justify-content: space-between; gap: 40px; }
+    #shopify-section-{{ sid }} .nlc h2 { font-size: {{ s.heading_size }}px; }
+  }
+</style>
+<div class="nlc color-{{ color_scheme }} gradient">
+  <div class="{{ s.section_width | default: 'container' }}">
+    <div class="nlc__inner">
+      <div>
+        <h2 class="h2">{{ heading | escape }}</h2>
+        {%- if s.text != blank -%}<p>{{ s.text | escape }}</p>{%- endif -%}
+      </div>
+      {%- if p.available and s.button_label != blank -%}
+        <a class="button inline-block btn-primary" data-theme-button="primary" href="/cart/{{ v.id | default: p.id }}:1">{{ s.button_label | escape }} <span aria-hidden="true">→</span></a>
+      {%- endif -%}
+    </div>
+  </div>
+</div>
+{%- elsif request.design_mode -%}
+  <div style="padding: 24px 16px; font: 14px/1.5 sans-serif; color: #666; text-align: center;">Buy band: add a product to your store and it shows here.</div>
+{%- endif -%}
+{% schema %}
+{
+  "name": "Buy band",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Get [title] for [price]", "info": "[title] and [price] become the product's." },
+    { "type": "text", "id": "soon_heading", "label": "Heading when it cannot be bought yet", "default": "[title] is coming soon" },
+    { "type": "text", "id": "free_word", "label": "Price of a free product", "default": "free" },
+    { "type": "text", "id": "text", "label": "Line under it", "default": "Pay once, then duplicate it into your Notion from the link in your email." },
+    { "type": "text", "id": "button_label", "label": "Button", "default": "Get it", "info": "Adds the product and goes straight to checkout." },
+    { "type": "color", "id": "accent", "label": "Button colour", "info": "Left empty, the scheme's button colours." },
+    { "type": "color", "id": "accent_text", "label": "Button text colour", "default": "#1a1a1a" },
+    { "type": "range", "id": "heading_size", "label": "Heading size", "min": 24, "max": 64, "step": 2, "unit": "px", "default": 40 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on phones", "min": 22, "max": 44, "step": 2, "unit": "px", "default": 30 },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default" },
+    { "type": "select", "id": "section_width", "label": "Section width", "default": "container", "options": [{ "value": "container", "label": "Default" }, { "value": "fluid_container", "label": "Fluid container" }, { "value": "stretch_width", "label": "Stretched" }] },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Top padding on phones", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 44 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Bottom padding on phones", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 44 }
+  ],
+  "presets": [{ "name": "Buy band" }]
+}
+{% endschema %}

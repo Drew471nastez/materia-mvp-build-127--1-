@@ -11,7 +11,7 @@
         "reset_spacing": true,
         "message": "",
         "message_mobile": "",
-        "link": "/pages/licence",
+        "link": "/pages/faqs",
         "open_in_new_tab": false,
         "content_alignment": "center",
         "content_gap": 12,
@@ -36,9 +36,9 @@
         "message_1": {
           "type": "message",
           "settings": {
-            "text": "Every file downloads the moment you pay, and updates are free",
+            "text": "Instant download after checkout, and every update is free",
             "text_mobile": "Instant download, free updates",
-            "link": "/pages/licence",
+            "link": "/pages/faqs",
             "open_in_new_tab": false,
             "visibility": "all",
             "enable_custom_style": false

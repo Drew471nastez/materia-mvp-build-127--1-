@@ -88,13 +88,13 @@ body.tingle-enabled {
 }
 
 body .tingle-modal--visible {
-  animation: fadeIn var(--duration-long, 0.5s) forwards;
+  animation: fadeIn var(--mt-panel-in, var(--duration-long, 0.5s)) forwards;
   display: flex;
 }
 
 @keyframes zoomIn {
   0% {
-    transform: scale(0.8);
+    transform: scale(0.96);
     opacity: 0;
   }
 
@@ -111,24 +111,24 @@ body .tingle-modal--visible {
   }
 
   100% {
-    transform: scale(0.8);
+    transform: scale(0.96);
     opacity: 0;
   }
 }
 
 body .tingle-modal--visible .tingle-modal-box {
-  animation: zoomIn 0.35s ease forwards;
+  animation: zoomIn var(--mt-panel-in, 0.35s) var(--mt-panel-ease-in, ease) forwards;
   display: block;
   transition-property: transform, opacity;
   transition: transform .6s cubic-bezier(.7, 0, .2, 1);
 }
 
 body .remove-loading {
-  animation: fadeOut var(--duration-long, 0.5s) forwards;
+  animation: fadeOut var(--mt-panel-out, var(--duration-long, 0.5s)) forwards;
 }
 
 body .remove-loading .tingle-modal-box {
-  animation: zoomOut var(--duration-long, 0.5s) forwards;
+  animation: zoomOut var(--mt-panel-out, var(--duration-long, 0.5s)) var(--mt-panel-ease-out, ease) forwards;
   transition-property: transform, opacity;
   transition: transform .6s cubic-bezier(.7, 0, .2, 1);
 }
@@ -293,13 +293,13 @@ body .tingle-modal-box__content {
 
   body .tingle-modal--visible .tingle-modal-box {
     animation: none;
-    animation: fadeInUp .6s cubic-bezier(.7, 0, .2, 1) both;
+    animation: fadeInUp var(--mt-panel-in, .6s) var(--mt-panel-ease-in, cubic-bezier(.7, 0, .2, 1)) both;
     transition: transform .6s cubic-bezier(.7, 0, .2, 1);
   }
 
   body .remove-loading .tingle-modal-box {
     animation: none;
-    animation: fadeOutDown .5s cubic-bezier(.7, 0, .2, 1) both;
+    animation: fadeOutDown var(--mt-panel-out, .5s) var(--mt-panel-ease-out, cubic-bezier(.7, 0, .2, 1)) both;
     transition: transform .5s cubic-bezier(.7, 0, .2, 1);
   }
 
@@ -426,4 +426,11 @@ body .tingle-modal-box__content {
   .shopable-video.tingle-modal .video-item__popup-media--ratio  {
     max-height: 80vh;
   }
+}
+/* Round 28: with reduced motion a popup appears and goes without moving. */
+@media (prefers-reduced-motion: reduce) {
+  body .tingle-modal--visible,
+  body .tingle-modal--visible .tingle-modal-box,
+  body .remove-loading,
+  body .remove-loading .tingle-modal-box { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }

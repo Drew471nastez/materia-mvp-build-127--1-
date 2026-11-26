@@ -169,6 +169,9 @@
   .hr-focus[class] { background: none; }
   .hr-focus[hidden] { display: none; }
   .hr-focus.is-closing { pointer-events: none; }
+  /* Storelib (round 28): closing is quicker than opening and starts at once: the backdrop fades in a fifth of a second, the words in a tenth. */
+  .hr-focus.is-closing .hr-focus__backdrop { transition-duration: .2s; transition-timing-function: cubic-bezier(.4,0,.2,1); }
+  .hr-focus.is-closing .hr-focus__info, .hr-focus.is-closing .hr-focus__chrome { transition-duration: .12s; transition-delay: 0s; }
   .hr-focus__backdrop { position: absolute; inset: 0; background: var(--hrf-bg); opacity: 0; transition: opacity .34s cubic-bezier(.4,0,.2,1); }
   .hr-focus--glass .hr-focus__backdrop { background: color-mix(in srgb, var(--hrf-bg) 80%, transparent); -webkit-backdrop-filter: blur(26px) saturate(1.15); backdrop-filter: blur(26px) saturate(1.15); }
   .hr-focus.is-open .hr-focus__backdrop { opacity: 1; }
@@ -242,7 +245,8 @@
     .hr-focus--solid .hr-focus__backdrop { background: color-mix(in srgb, var(--hrf-bg) 70%, transparent); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
     .hr-focus__panel { inset: auto 0 0 0; max-height: 92dvh; display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0 0 calc(16px + env(safe-area-inset-bottom)); background: var(--hrf-bg); border-radius: var(--hr-sheet-r, 16px) var(--hr-sheet-r, 16px) 0 0; box-shadow: 0 -10px 40px -16px rgba(0,0,0,.35); transform: translateY(100%); transition: transform .4s cubic-bezier(.2,.8,.2,1); overflow: auto; overscroll-behavior: contain; scrollbar-width: none; }
     .hr-focus.is-open .hr-focus__panel { transform: none; }
-    .hr-focus.is-closing .hr-focus__panel { transition-timing-function: cubic-bezier(.4,0,.6,1); transition-duration: .34s; }
+    .hr-focus.is-closing .hr-focus__panel { transition-timing-function: cubic-bezier(.4,0,1,1); transition-duration: .24s; }
+    .hr-focus__panel.is-dragging { transition: none !important; }
     .hr-focus__media { height: 44dvh; min-height: 260px; padding: 28px 52px 8px; flex: none; }
     .hr-focus__info { padding: 8px 20px 0; max-height: none; overflow: visible; }
     .hr-focus__close { top: 6px; right: 6px; }
@@ -408,6 +412,8 @@
   var smooth = function (a, b, x) { var t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
   var outCubic = function (t) { return 1 - Math.pow(1 - t, 3); };
   var inOutCubic = function (t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
+  /* Closing: moves from the first frame (no slow start) and lands softly. */
+  var fastOut = function (t) { return 1 - Math.pow(1 - t, 2.4); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var idle = function (fn) { if (window.requestIdleCallback) requestIdleCallback(fn, { timeout: 1500 }); else setTimeout(fn, 200); };
   var ARROW_L = '<svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M27 16H6m7-8l-8 8 8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -487,6 +493,29 @@
       if (e.shiftKey && (document.activeElement === first || document.activeElement === r.querySelector('.hr-focus__panel'))) { e.preventDefault(); last.focus(); }
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     });
+    /* A phone (round 28): the sheet follows the finger down from its top (or from anywhere while it is scrolled to the top);
+       let go past a quarter of its height, or with a flick, and it closes from there, otherwise it springs back. */
+    var panel = r.querySelector('.hr-focus__panel'), back = r.querySelector('.hr-focus__backdrop');
+    var py = null, px0 = 0, pdy = 0, plast = 0, pt = 0, pv = 0, pon = false, praf = 0;
+    var sheetOk = function () { return window.matchMedia('(max-width: 749px)').matches && F.mode === 'open'; };
+    panel.addEventListener('touchstart', function (e) { if (!sheetOk() || panel.scrollTop > 0 || e.target.closest('button, a, input, select')) { py = null; return; } var t = e.touches[0]; py = plast = t.clientY; px0 = t.clientX; pt = now(); pv = 0; pdy = 0; pon = false; }, { passive: true });
+    panel.addEventListener('touchmove', function (e) {
+      if (py == null) return; var t = e.touches[0], d = t.clientY - py;
+      if (!pon) { if (Math.abs(d) < 6 && Math.abs(t.clientX - px0) < 6) return; if (d <= 0 || Math.abs(t.clientX - px0) > Math.abs(d) || panel.scrollTop > 0) { py = null; return; } pon = true; panel.classList.add('is-dragging'); }
+      if (e.cancelable) e.preventDefault();
+      var tn = now(); if (tn > pt) pv = 0.7 * ((t.clientY - plast) / (tn - pt)) + 0.3 * pv; plast = t.clientY; pt = tn; pdy = Math.max(0, d);
+      if (!praf) praf = requestAnimationFrame(function () { praf = 0; panel.style.transform = 'translate3d(0,' + pdy + 'px,0)'; back.style.opacity = String(Math.max(0, 1 - pdy / (panel.offsetHeight || 1))); });
+    }, { passive: false });
+    var pend = function () {
+      if (py == null) return; py = null; if (!pon) return; pon = false; cancelAnimationFrame(praf); praf = 0;
+      if (now() - pt > 90) pv = 0;
+      var far = pdy > panel.offsetHeight * 0.25 || pv > 0.5;
+      /* The transition picks up from where the finger left it. */
+      panel.style.transform = 'translate3d(0,' + pdy + 'px,0)'; void panel.offsetWidth;
+      panel.classList.remove('is-dragging'); panel.style.transform = ''; back.style.opacity = '';
+      if (far) focusClose();
+    };
+    panel.addEventListener('touchend', pend); panel.addEventListener('touchcancel', pend);
     /* A phone: a swipe across the picture steps along the rail. */
     var sx = 0, sy = 0, s0 = 0;
     var media = r.querySelector('.hr-focus__media');
@@ -686,14 +715,14 @@
     if (from && src && it && onScreen(target) && !RM.matches) {
       img.classList.add('is-flying');
       /* The garment goes back to its own hanger, which stays empty until it lands. */
-      F.flight = new Flight(src, from, function () { return slotBox(it); }, 440, inOutCubic, function (fl) {
+      F.flight = new Flight(src, from, function () { return slotBox(it); }, 240, fastOut, function (fl) {
         if (rail) { rail.items.forEach(function (x) { x.li.classList.remove('is-lifted'); }); }
         requestAnimationFrame(function () { fl.remove(); if (F.flight === fl) F.flight = null; });
         finish();
       });
-      setTimeout(function () { if (F.mode === 'closing' && !F.flight) finish(); }, 900);
+      setTimeout(function () { if (F.mode === 'closing' && !F.flight) finish(); }, 600);
     } else {
-      setTimeout(finish, RM.matches ? 0 : 340);
+      setTimeout(finish, RM.matches ? 0 : 240);
     }
   }
 

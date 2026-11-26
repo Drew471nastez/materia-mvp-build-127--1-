@@ -278,6 +278,16 @@ const TERMS = `document.addEventListener("change",function(e){var box=e.target;i
   its hearts and its count agree. A theme that keeps handles has them read
   as ids from /products/<handle>.js.
 
+  A SIGNED IN VISITOR'S HEARTS ARE THEIR ACCOUNT'S (round 28). Before, the
+  account's list reached this browser only when the visitor opened the
+  Wishlist page, and the first page after signing in copied that missing
+  list (empty) over the theme's, so the hearts and the count went to 0. Now
+  a signed in page whose theme keeps a wishlist asks
+  /api/site-account/wishlist once (then at most every five minutes): the guest list this browser kept is merged into the
+  account, as the Wishlist page does, and the account's list is written into
+  the theme's key, with a storage event so the theme's hearts and count
+  follow. Until it answers the theme's list is left as it is.
+
   A THEME'S OWN WISHLIST PAGE that draws every product hidden and shows the
   saved ones ([data-wishlist-local], each card with data-wishlist-id and
   data-product-handle) is shown from both lists, by id or by handle: the
@@ -306,7 +316,13 @@ var changed=function(k,raw){var list=raw==null?[]:entries(raw);if(!list)return;r
 P.setItem=function(k,v){var r=rs.apply(this,arguments);if(this===ls&&themeKey(k))changed(k,String(v));return r};
 P.removeItem=function(k){var r=rr.apply(this,arguments);if(this===ls&&themeKey(k))changed(k,null);return r};
 try{for(var i=0;i<ls.length;i++){var k=ls.key(i);if(!themeKey(k))continue;var raw=get(k),snap=json(get(SN)),w=mine(),t=ids((entries(raw)||[]).map(function(x){return x.id}));
-if(Array.isArray(snap)&&same(t,ids(snap))&&!same(w,ids(snap))){if(plain(raw)){put(k,JSON.stringify(w));put(SN,JSON.stringify(w));if(!signed())cookie(w)}}else if(!Array.isArray(snap)||!same(t,ids(snap)))changed(k,raw)}}catch(e){}
+if(Array.isArray(snap)&&same(t,ids(snap))&&!same(w,ids(snap))&&!(signed()&&get(A)===null)){if(plain(raw)){put(k,JSON.stringify(w));put(SN,JSON.stringify(w));if(!signed())cookie(w)}}else if(!Array.isArray(snap)||!same(t,ids(snap)))changed(k,raw)}}catch(e){}
+var SY="storelib:wishlist-synced:"+SID;
+var targets=function(){var o=[];try{for(var i=0;i<ls.length;i++){var k=ls.key(i);if(themeKey(k)&&plain(get(k)||"[]"))o.push(k)}}catch(e){}var M=window.MateriaWishlist,mk=(M&&M.key)||(document.querySelector("button-wishlist,.wishlist-count")?"materia__wishlist-items":"");if(mk&&o.indexOf(mk)<0&&get(mk)===null)o.push(mk);return o};
+var push=function(list){var s=JSON.stringify(list);put(SN,s);targets().forEach(function(k){if(get(k)!==null&&same(ids(json(get(k))),list))return;put(k,s);try{window.dispatchEvent(new StorageEvent("storage",{key:k,newValue:s}))}catch(e){}})};
+var pull=function(){if(!signed())return;if(get(A)!==null&&Date.now()-(+get(SY)||0)<300000)return;put(SY,String(Date.now()));var g=ids(json(get(G)));
+var end=function(){put(SY,null)};try{fetch("/api/site-account/wishlist",g.length?{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify({action:"merge",ids:g})}:{credentials:"same-origin",headers:{Accept:"application/json"}}).then(function(r){return r.status===401?{signedIn:false}:r.ok?r.json():null}).then(function(d){if(!d)return end();if(d.signedIn!==true){end();try{document.cookie="sl_signed_in=; Path=/; Max-Age=0; SameSite=Lax"+(location.protocol==="https:"?"; Secure":"")}catch(e){}return}if(d.available===false)return end();var list=ids(d.ids).slice(0,60);if(g.length){put(G,null);cookie([])}put(A,JSON.stringify(list));push(list)}).catch(end)}catch(e){end()}};
+var go=function(){if(targets().length)pull()};if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",go);else go();
 var reveal=function(){var lists=document.querySelectorAll("[data-wishlist-local]");if(!lists.length)return;var saved=mine().slice();try{for(var i=0;i<ls.length;i++){var k=ls.key(i);if(themeKey(k))(entries(get(k))||[]).forEach(function(x){var v=x.id||x.handle;if(v&&saved.indexOf(v)<0)saved.push(v)})}}catch(e){}Object.keys(handles).forEach(function(h){if(saved.indexOf(handles[h])>=0&&saved.indexOf(h)<0)saved.push(h)});lists.forEach(function(list){var shown=0;Array.prototype.forEach.call(list.children,function(c){var id=String(c.getAttribute("data-wishlist-id")||"").toLowerCase(),h=String(c.getAttribute("data-product-handle")||"").toLowerCase();if(!id&&!h)return;var on=(!!id&&saved.indexOf(id)>=0)||(!!h&&saved.indexOf(h)>=0);if(c.hidden===on)c.hidden=!on;if(on)shown++});var box=list.closest("section,.shopify-section,[class*=wishlist-page]")||list.parentElement;if(box)box.querySelectorAll("[class*=no-product],[data-wishlist-empty]").forEach(function(e){if(shown){e.classList.add("hidden");e.hidden=true}else{e.classList.remove("hidden");e.hidden=false}})})};
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",reveal);else reveal();window.addEventListener("pageshow",reveal);document.addEventListener("materia:wishlist-change",function(){setTimeout(reveal,0)})})();`
 

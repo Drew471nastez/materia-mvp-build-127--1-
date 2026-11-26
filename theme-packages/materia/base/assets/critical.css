@@ -948,6 +948,17 @@ picture {
    larger; below --product-row-space it is raised to it. Collection tabs and
    the products grid draw their padding themselves and do the same there. */
 :root { --product-row-space: 40px; }
+/* Round 28: one timing for every panel that opens over the page (cart,
+   search, menu and filter drawers, the quick view, popups): it comes in
+   over 280ms easing out and goes in 220ms speeding up, panel, content and
+   backdrop together. Each file reads these with its own old value as the
+   fallback. */
+:root {
+  --mt-panel-in: 280ms;
+  --mt-panel-out: 220ms;
+  --mt-panel-ease-in: cubic-bezier(.22, 1, .36, 1);
+  --mt-panel-ease-out: cubic-bezier(.4, 0, .7, .2);
+}
 @media (max-width: 767px) { :root { --product-row-space: 28px; } }
 #MainContent .section:not(.ti-tabs, .pg, .pstl):has(.product-item__wrapper.product-grid) {
   padding-bottom: max(

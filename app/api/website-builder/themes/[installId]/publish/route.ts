@@ -394,6 +394,13 @@ async function handlePost(req: Request, { params }: Params, holder: JobHolder): 
       The pages are the same either way (lib/website-builder/live-release.ts).
     */
     const publisherCountry = seenCountry(req.headers)
+    /*
+      AND AN IMPORTED THEME'S FILES READ ONCE WITH TIME TO ANSWER (round 29,
+      lib/website-builder/compat-site.ts primeLiveFiles), beside the warm: a
+      server whose own read of a new template's thousand files misses its
+      bound draws from them instead of from what it had before the Publish.
+    */
+    after(async () => void (await (await import("@/lib/website-builder/compat-site")).primeLiveFiles(installId, creatorId)))
     after(async () => {
       await follow.waitForRelease(WARM_WAITS_FOR_RELEASE_MS)
       await warmAfterPublish(creatorId, { countries: [publisherCountry] })

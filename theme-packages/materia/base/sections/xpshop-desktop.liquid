@@ -265,21 +265,24 @@ XP shop: the desktop the whole website sits on. Placed in the header group,
 
   {%- if st.skin %}
   /* The theme's own sections, each in a window with the page's name on its title bar. */
-  main#MainContent > .shopify-section:not([class*="xpshop-"]):not(.form-modal-section) {
+  /* Round 28: the theme's own XP sections are named, not matched with [class*="xpshop-"]: a class
+     test of that kind above a `> *` made every class change on the page (a drawer's or the quick
+     view's) restyle the whole page, 15ms more per change measured here. Same sections matched. */
+  main#MainContent > .shopify-section:not(.xpshop-desktop-section, .xpshop-footer-section, .xpshop-help-section, .xpshop-reviews-section, .xpshop-shop-section, .xpshop-tiles-section, .xpshop-window-section):not(.form-modal-section) {
     width: auto; max-width: var(--xp-col); margin: 0 auto var(--xp-gap); padding: 34px 3px 3px; border-radius: 10px 10px 6px 6px; background: #1f5fd8;
     box-shadow: 0 22px 48px -12px rgba(8, 28, 80, .45), 0 3px 10px rgba(8, 28, 80, .18); --xp-t: "{{ xp_title }}";
   }
-  main#MainContent > .shopify-section:not([class*="xpshop-"]):not(.form-modal-section)::before {
+  main#MainContent > .shopify-section:not(.xpshop-desktop-section, .xpshop-footer-section, .xpshop-help-section, .xpshop-reviews-section, .xpshop-shop-section, .xpshop-tiles-section, .xpshop-window-section):not(.form-modal-section)::before {
     content: var(--xp-t); position: absolute; z-index: 2; left: 0; right: 0; top: 0; height: 34px; padding: 0 100px 0 40px; border-radius: 9px 9px 0 0;
     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'%3E%3Cpath d='M2 5.5A1.5 1.5 0 0 1 3.5 4h5l2 2h9A1.5 1.5 0 0 1 21 7.5V18a1.5 1.5 0 0 1-1.5 1.5h-16A1.5 1.5 0 0 1 2 18z' fill='%23f7c64a' stroke='%23c08a14' stroke-width='.8'/%3E%3Cpath d='M2.6 9.2A1.2 1.2 0 0 1 3.8 8h16.8a1.1 1.1 0 0 1 1.1 1.3l-1.6 9.1a1.3 1.3 0 0 1-1.3 1.1H3.5A1.2 1.2 0 0 1 2.3 18.3z' fill='%23ffe08a' stroke='%23c08a14' stroke-width='.8'/%3E%3C/svg%3E") 12px 50% / 20px 20px no-repeat,
       linear-gradient(180deg, #5da0fa 0%, #2f74ea 10%, #2263df 30%, #1d5ad6 60%, #1c57d0 86%, #1748b4 100%);
     box-shadow: inset 0 1px 0 rgba(255,255,255,.5); color: #fff; font: 700 15px/34px var(--xp-font); text-shadow: 1px 1px 0 rgba(0,18,80,.45); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  main#MainContent > .shopify-section:not([class*="xpshop-"]):not(.form-modal-section)::after {
+  main#MainContent > .shopify-section:not(.xpshop-desktop-section, .xpshop-footer-section, .xpshop-help-section, .xpshop-reviews-section, .xpshop-shop-section, .xpshop-tiles-section, .xpshop-window-section):not(.form-modal-section)::after {
     content: ""; position: absolute; z-index: 3; top: 5px; right: 7px; width: 81px; height: 24px; pointer-events: none;
     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='81' height='24'%3E%3Crect x='.5' y='.5' width='23' height='23' rx='4' fill='%233576e8' stroke='%23fff'/%3E%3Crect x='6' y='15' width='8' height='3' fill='%23fff'/%3E%3Crect x='28.5' y='.5' width='23' height='23' rx='4' fill='%233576e8' stroke='%23fff'/%3E%3Crect x='34' y='6' width='12' height='11' fill='none' stroke='%23fff' stroke-width='2'/%3E%3Crect x='34' y='6' width='12' height='3' fill='%23fff'/%3E%3Crect x='56.5' y='.5' width='23' height='23' rx='4' fill='%23de5a2f' stroke='%23fff'/%3E%3Cpath d='m63 7 10 10M73 7 63 17' stroke='%23fff' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat;
   }
-  main#MainContent > .shopify-section:not([class*="xpshop-"]):not(.form-modal-section) > * { background-color: #fff; border-radius: 0 0 4px 4px; }
+  main#MainContent > .shopify-section:not(.xpshop-desktop-section, .xpshop-footer-section, .xpshop-help-section, .xpshop-reviews-section, .xpshop-shop-section, .xpshop-tiles-section, .xpshop-window-section):not(.form-modal-section) > * { background-color: #fff; border-radius: 0 0 4px 4px; }
   main#MainContent > [data-section-type="related-products"], main#MainContent > [data-section-type="products-carousel"], main#MainContent > [data-section-type="recently-viewed"] { --xp-t: "{{ st.related_title | default: 'You may also like' | replace: '"', "'" }}"; }
   main#MainContent > [data-section-type="main-cart-items"] { --xp-t: "{{ st.cart_label | default: 'Cart' | replace: '"', "'" }}"; }
   main#MainContent > [data-section-type="main-search"] { --xp-t: "{{ st.search_label | default: 'Search' | replace: '"', "'" }}"; }
@@ -289,15 +292,15 @@ XP shop: the desktop the whole website sits on. Placed in the header group,
   main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]) > :not(style):not(script) { padding-top: 24px !important; }
   @media (max-width: 749px) { main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]) { padding-top: 32px !important; } }
   /* A heading section and the section under it are one window. */
-  main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]):has(+ .shopify-section:not([class*="xpshop-"])) { margin-bottom: 0; padding-bottom: 0; border-radius: 10px 10px 0 0; box-shadow: none; }
-  main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]):has(+ .shopify-section:not([class*="xpshop-"])) > * { border-radius: 0; }
-  main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]) + .shopify-section:not([class*="xpshop-"]) { margin-top: 0; padding-top: 0; border-radius: 0 0 6px 6px; }
-  main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]) + .shopify-section:not([class*="xpshop-"])::before,
-  main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]) + .shopify-section:not([class*="xpshop-"])::after { display: none; }
+  main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]):has(+ .shopify-section:not(.xpshop-desktop-section, .xpshop-footer-section, .xpshop-help-section, .xpshop-reviews-section, .xpshop-shop-section, .xpshop-tiles-section, .xpshop-window-section)) { margin-bottom: 0; padding-bottom: 0; border-radius: 10px 10px 0 0; box-shadow: none; }
+  main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]):has(+ .shopify-section:not(.xpshop-desktop-section, .xpshop-footer-section, .xpshop-help-section, .xpshop-reviews-section, .xpshop-shop-section, .xpshop-tiles-section, .xpshop-window-section)) > * { border-radius: 0; }
+  main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]) + .shopify-section:not(.xpshop-desktop-section, .xpshop-footer-section, .xpshop-help-section, .xpshop-reviews-section, .xpshop-shop-section, .xpshop-tiles-section, .xpshop-window-section) { margin-top: 0; padding-top: 0; border-radius: 0 0 6px 6px; }
+  main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]) + .shopify-section:not(.xpshop-desktop-section, .xpshop-footer-section, .xpshop-help-section, .xpshop-reviews-section, .xpshop-shop-section, .xpshop-tiles-section, .xpshop-window-section)::before,
+  main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]) + .shopify-section:not(.xpshop-desktop-section, .xpshop-footer-section, .xpshop-help-section, .xpshop-reviews-section, .xpshop-shop-section, .xpshop-tiles-section, .xpshop-window-section)::after { display: none; }
   @media (max-width: 749px) {
-    main#MainContent > .shopify-section:not([class*="xpshop-"]):not(.form-modal-section) { padding: 32px 2px 2px; border-radius: 9px 9px 5px 5px; }
-    main#MainContent > .shopify-section:not([class*="xpshop-"]):not(.form-modal-section)::before { height: 32px; line-height: 32px; font-size: 14px; padding-right: 40px; }
-    main#MainContent > .shopify-section:not([class*="xpshop-"]):not(.form-modal-section)::after { width: 24px; height: 24px; top: 4px; right: 5px; background-position: -56px 0; }
+    main#MainContent > .shopify-section:not(.xpshop-desktop-section, .xpshop-footer-section, .xpshop-help-section, .xpshop-reviews-section, .xpshop-shop-section, .xpshop-tiles-section, .xpshop-window-section):not(.form-modal-section) { padding: 32px 2px 2px; border-radius: 9px 9px 5px 5px; }
+    main#MainContent > .shopify-section:not(.xpshop-desktop-section, .xpshop-footer-section, .xpshop-help-section, .xpshop-reviews-section, .xpshop-shop-section, .xpshop-tiles-section, .xpshop-window-section):not(.form-modal-section)::before { height: 32px; line-height: 32px; font-size: 14px; padding-right: 40px; }
+    main#MainContent > .shopify-section:not(.xpshop-desktop-section, .xpshop-footer-section, .xpshop-help-section, .xpshop-reviews-section, .xpshop-shop-section, .xpshop-tiles-section, .xpshop-window-section):not(.form-modal-section)::after { width: 24px; height: 24px; top: 4px; right: 5px; background-position: -56px 0; }
   }
   /* Buttons, fields and choices across the theme, in the same XP look. */
   main#MainContent :is(h1, h2, h3, .h1, .h2, .h3, .product__title, .heading-style) { font-family: var(--xp-font) !important; color: #0f2f75; letter-spacing: -.01em !important; }

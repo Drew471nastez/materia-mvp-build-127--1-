@@ -17,7 +17,7 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "heading": "This page resigned",
+            "heading": "This page went quiet",
             "font_size": 36,
             "uppercase": false,
             "font_weight": "heading_weight",
@@ -66,14 +66,14 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Tempo",
+            "text": "Fullbook",
             "transform": "uppercase"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Stop giving games away by March",
+            "text": "Have a client plan by March",
             "transform": "none",
             "lineheight": "1.25"
           }
@@ -81,13 +81,13 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "Eight modules, six live game reviews and a 30 day refund."
+            "text": "Eight modules, six live group calls and a 30 day refund."
           }
         },
         "button_4": {
           "type": "button",
           "settings": {
-            "label": "Join the January class",
+            "label": "Join the January group",
             "link": "/collections/all"
           }
         }

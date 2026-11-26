@@ -6,14 +6,14 @@
       "settings": {
         "color_scheme": "default",
         "image": "shopify://shop_images/authorbook-spread-week.webp",
-        "image_alt": "Two open pages from chapter two of Sit, Stay, Settle",
+        "image_alt": "Two open pages from chapter two of Known For It",
         "image_position": "left",
         "image_ratio": "landscape",
         "image_width": 50,
         "form_layout": "horizontal",
         "btn_text": "Send it to me",
         "email_placeholder": "Your email",
-        "note": "You also get the puppy letter every other week. Leave whenever you like.",
+        "note": "You also get the Friday note every other week. Leave whenever you like.",
         "success_text": "Done. Chapter two is in your inbox."
       },
       "blocks": {
@@ -26,7 +26,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Your first week at home, as a PDF: the daily routine, where your puppy sleeps and the five minute rule for house training. Fifteen minutes to read.</p>"
+            "text": "<p>Pick what you want to be known for, as a PDF: the one line headline, a week of posts and the fifteen word test. Fifteen minutes to read.</p>"
           }
         }
       },
@@ -53,55 +53,55 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Fourteen short chapters, then forty common problems with a fix for each.</p>"
+            "text": "<p>Fourteen short chapters, then ninety post prompts to start from.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
             "label": "Chapter 2",
-            "heading": "Your first week at home",
-            "text": "<p>The routine, the bed and the first night.</p>"
+            "heading": "Pick what you want to be known for",
+            "text": "<p>The fifteen word test and a week of posts.</p>"
           }
         },
         "column_4": {
           "type": "column",
           "settings": {
             "label": "Chapter 3",
-            "heading": "House training",
-            "text": "<p>The five minute rule, and a plan for flats with no garden.</p>"
+            "heading": "Profile",
+            "text": "<p>A headline, an about section and a photo, line by line.</p>"
           }
         },
         "column_5": {
           "type": "column",
           "settings": {
             "label": "Chapter 5",
-            "heading": "Teach sit in five minutes",
-            "text": "<p>Let the treat do the work, then add the word.</p>"
+            "heading": "Write a post in twenty minutes",
+            "text": "<p>One idea, first line last, then cut it in half.</p>"
           }
         },
         "column_6": {
           "type": "column",
           "settings": {
             "label": "Chapter 7",
-            "heading": "Coming back when called",
-            "text": "<p>Practised in the hallway, then the garden, then the park.</p>"
+            "heading": "Comments that start conversations",
+            "text": "<p>Twenty minutes a day in other people's posts.</p>"
           }
         },
         "column_7": {
           "type": "column",
           "settings": {
             "label": "Chapter 9",
-            "heading": "Walking on a loose lead",
-            "text": "<p>Biting, chewing and jumping up, and what each one means.</p>"
+            "heading": "Three posts a week without burning out",
+            "text": "<p>Three posts a week you can keep up for a year.</p>"
           }
         },
         "column_8": {
           "type": "column",
           "settings": {
             "label": "Chapter 12",
-            "heading": "Biting, chewing and jumping up",
-            "text": "<p>What each one means, and the fix for each.</p>"
+            "heading": "When nobody reacts",
+            "text": "<p>What a quiet post tells you, and what to change.</p>"
           }
         }
       },
@@ -121,7 +121,7 @@
       "settings": {
         "color_scheme": "default",
         "image": "shopify://shop_images/authorbook-spread-lead.webp",
-        "image_alt": "Two open pages from chapter nine, Walking on a loose lead",
+        "image_alt": "Two open pages from chapter nine, Three posts a week without burning out",
         "image_position": "right",
         "aspect_w": 16,
         "aspect_h": 11,
@@ -132,7 +132,7 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "The puppy letter"
+            "text": "The Friday note"
           }
         },
         "heading_2": {
@@ -144,7 +144,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>One thing to practise with your dog this fortnight, and an honest answer to a question a reader sent in. Free, and you can leave whenever you like.</p>"
+            "text": "<p>One post idea to try this fortnight, and an honest answer to a question a reader sent in. Free, and you can leave whenever you like.</p>"
           }
         }
       },
@@ -185,27 +185,27 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "body": "We followed the week one routine to the letter. By day ten there were no more accidents.",
-            "name": "Maya A.",
-            "role": "First puppy, a Labrador",
+            "body": "I rewrote my headline with the fifteen word test. The next client quoted it back to me.",
+            "name": "Priya N.",
+            "role": "Freelance designer",
             "rating": 5
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "body": "The loose lead chapter alone was worth it. Walks are a pleasure again.",
+            "body": "The twenty minute post chapter alone was worth it. I stopped rewriting drafts for days.",
             "name": "Daniel A.",
-            "role": "Rescue dog, two years old",
+            "role": "Accountant, small practice",
             "rating": 5
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "body": "I live in a flat with no garden. Chapter three had a plan for that.",
+            "body": "I hated selling myself. Chapter three showed me how to write about the work instead.",
             "name": "Lena M.",
-            "role": "Flat, no garden",
+            "role": "Looking for a new role",
             "rating": 5
           }
         }

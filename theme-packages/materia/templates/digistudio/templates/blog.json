@@ -28,7 +28,7 @@
         "description_2": {
           "type": "description",
           "settings": {
-            "description": "<p>How we use the files, and how we price and plan the work.</p>",
+            "description": "<p>How to plan posts, set up Notion and edit photos, with the files in this shop.</p>",
             "enable_custom_style": false
           }
         },
@@ -130,7 +130,7 @@
         "color_scheme": "scheme-9d3e6b10-2a7c-4f55-8e19-6c0b1d4e3f02",
         "section_width": "full_width",
         "reset_spacing": true,
-        "heading": "New files, once a month",
+        "heading": "A free template every month",
         "email_label": "Email address",
         "email_placeholder": "name@email.com",
         "btn_text": "Subscribe",
@@ -153,7 +153,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "New files, once a month",
+            "text": "A free template every month",
             "tag": "h2",
             "size_enable": true,
             "size_desktop": 40,
@@ -163,7 +163,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>What we made, what we updated and a free file for subscribers. Nothing else.</p>"
+            "text": "<p>Subscribers get one free file on the first of the month and hear about new products first.</p>"
           }
         }
       },

@@ -51,43 +51,43 @@
         "faq_item_1": {
           "type": "faq_item",
           "settings": {
-            "question": "Do I need a workshop?",
-            "answer": "<p>No. A sturdy table in a spare room or a shed is enough for every project. Hand tools are quiet, so flats work too.</p>"
+            "question": "Do I need Canva Pro?",
+            "answer": "<p>No. Every project works on the free plan. Where a Pro feature saves time, the lesson shows it and a free way to do the same thing.</p>"
           }
         },
         "faq_item_2": {
           "type": "faq_item",
           "settings": {
-            "question": "Which tools do I need?",
-            "answer": "<p>Eleven hand tools, listed with prices in the first lesson. Second hand is fine for most of them, and we show you what to look for.</p>"
+            "question": "I have never designed anything. Is that a problem?",
+            "answer": "<p>No. The course starts with the brand kit and the basics of layout, and most students have never opened a design app before.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "How long until I build something?",
-            "answer": "<p>The cutting board is the end of module two. With one evening a week, most people get there in the second or third week.</p>"
+            "question": "How long until I make something?",
+            "answer": "<p>The brand kit is the end of module one. With two hours a week, most people have it in the first week and a poster in the second.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "I am left handed. Will it work?",
-            "answer": "<p>Yes. The lessons show which hand does what, and the drawings note where a left hander works from the other side.</p>"
+            "question": "Can I follow along on a tablet?",
+            "answer": "<p>Yes. The lessons are recorded on a laptop, and a short lesson shows where things are in the tablet and phone apps.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "What wood should I buy?",
-            "answer": "<p>Planed pine or poplar from any timber yard for the first projects, and oak or ash for the table. Every project has a cut list.</p>"
+            "question": "Can I use the templates for clients?",
+            "answer": "<p>Yes, for your own business and for client work. You cannot resell the templates themselves as templates.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
             "question": "How long do I have access?",
-            "answer": "<p>For good. You also get the new workshop notes added each month.</p>"
+            "answer": "<p>For good. You also get the new templates and notes added each month.</p>"
           }
         },
         "faq_item_7": {
@@ -146,7 +146,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Work through the first two modules. If woodwork is not for you, write one line and get every cent back.</p>"
+            "text": "<p>Work through the first two modules. If the course is not for you, write one line and get every cent back.</p>"
           }
         },
         "point_1": {
@@ -164,7 +164,7 @@
         "point_3": {
           "type": "point",
           "settings": {
-            "text": "Keep the drawings"
+            "text": "Keep the templates"
           }
         }
       },
@@ -179,8 +179,8 @@
     "cta": {
       "type": "course2-cta",
       "settings": {
-        "heading": "Make your first cut tonight",
-        "text": "<p>The first lesson takes eight minutes. Fifty six lessons, five projects and a 30 day refund, for one payment.</p>",
+        "heading": "Design your first post tonight",
+        "text": "<p>The first lesson takes nine minutes. Fifty six lessons, five projects and a 30 day refund, for one payment.</p>",
         "button_label": "Start learning",
         "to_checkout": true,
         "button_link": "/collections/all",
