@@ -15,7 +15,7 @@ import { pruneReleases, recordRelease, releasePointed } from "@/lib/website-buil
 import { mirrorWholeTheme } from "@/lib/github-sync/mirror"
 import { warmAfterPublish } from "@/lib/website-builder/warm-sites"
 import { refreshAfter } from "@/lib/edge/snapshot-capture"
-import { BACKUP_WAITS_FOR_RELEASE_MS, publishFollowUp, WARM_WAITS_FOR_RELEASE_MS } from "@/lib/website-builder/after-publish"
+import { BACKUP_WAITS_FOR_RELEASE_MS, publishFollowUp, WARM_WAITS_FOR_RELEASE_MS, quietAfterPublish } from "@/lib/website-builder/after-publish"
 import { seenCountry } from "@/lib/markets/visitor-country"
 import { readOwnSectionFields, sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
 import { ensureStoreMenus } from "@/lib/website-builder/store-menus-server"
@@ -350,7 +350,7 @@ async function handlePost(req: Request, { params }: Params, holder: JobHolder): 
      * written. The site's stored copies it asks for again wait for the
      * release below (round 66, lib/edge/snapshot-capture.ts refreshAfter).
      */
-    refreshAfter(creatorId, follow.waitForRelease(WARM_WAITS_FOR_RELEASE_MS))
+    refreshAfter(creatorId, quietAfterPublish().then(() => follow.waitForRelease(WARM_WAITS_FOR_RELEASE_MS)))
     await revalidatePublishedSite(creator.id)
 
     /*
@@ -367,6 +367,8 @@ async function handlePost(req: Request, { params }: Params, holder: JobHolder): 
     after(async () => {
       let seen: { pointed: boolean; blobs: string[] } | null = null
       try {
+        /* After the editor's first read (round 67, after-publish.ts quietAfterPublish); still first of the heavy work. */
+        await quietAfterPublish()
         const kept = await recordRelease(admin, { installId, creatorId }, follow.liveRows)
         if (kept.ok === false) {
           if (kept.reason === "failed") console.error("[publish] the release was not written:", kept.detail)
@@ -400,8 +402,13 @@ async function handlePost(req: Request, { params }: Params, holder: JobHolder): 
       server whose own read of a new template's thousand files misses its
       bound draws from them instead of from what it had before the Publish.
     */
-    after(async () => void (await (await import("@/lib/website-builder/compat-site")).primeLiveFiles(installId, creatorId)))
     after(async () => {
+      await quietAfterPublish()
+      await (await import("@/lib/website-builder/compat-site")).primeLiveFiles(installId, creatorId)
+    })
+    after(async () => {
+      /* Its wait for the release counts from the same moment the release starts (round 67). */
+      await quietAfterPublish()
       await follow.waitForRelease(WARM_WAITS_FOR_RELEASE_MS)
       await warmAfterPublish(creatorId, { countries: [publisherCountry] })
     })

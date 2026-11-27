@@ -234,6 +234,8 @@ async function main() {
     report(`open after publish at ${mbps} MB/s, the server's own time`, `the work after the answer held this server's one thread ${held.total} ms in all, ${held.over50} stretches over 50 ms, the longest ${held.longest} ms`)
     report(`open after publish at ${mbps} MB/s`, `first read ${busy.ms} ms | the work after the answer: database ${MB(world.bytes)} in ${Math.round(performance.now() - tAfter)} ms (${[...byTable].filter(([, v]) => v > 100_000).map(([k, v]) => `${k} ${MB(v)}`).join(", ")})`)
     check(`at ${mbps} MB/s the first read answers`, busy.ok)
+    /* Before round 67's quiet window: 807 ms at 10 MB/s and 2399 ms at 3 MB/s, against 607 and 1417 ms with nothing else running. */
+    check(`at ${mbps} MB/s it is as quick as on a quiet database (the heavy work starts after QUIET_AFTER_PUBLISH_MS)`, busy.ms < (mbps === 10 ? 700 : 1700), busy.ms)
   }
   net.mbps = 25
 
