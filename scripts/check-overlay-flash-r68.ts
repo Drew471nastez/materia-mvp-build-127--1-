@@ -199,12 +199,17 @@ async function newPage(browser: Browser) {
   })
   page.on("pageerror", (e) => console.log("    page error:", String(e).slice(0, 160)))
   /* OLD_FILES=dir: the theme files a store installed earlier answer in place of today's (by name, e.g. materia-popups.js), as on a website that has not reinstalled. */
-  if (process.env.OLD_FILES) {
-    const dir = process.env.OLD_FILES
+  /* NO_HEAD_FIX=1: the page without round 68's head fix (theme-motion-fix.ts), as before this round. */
+  if (process.env.OLD_FILES || process.env.NO_HEAD_FIX) {
+    const dir = process.env.OLD_FILES ?? ""
     await page.setRequestInterception(true)
     page.on("request", (req) => {
+      if (process.env.NO_HEAD_FIX && req.resourceType() === "document") {
+        void fetch(req.url()).then(async (r) => req.respond({ status: r.status, contentType: "text/html", body: (await r.text()).replace(/<style data-sl-motion-fix>[\s\S]*?<\/style>/, "").replace(/<script data-sl-popup-handoff>[\s\S]*?<\/script>/, "") })).catch(() => req.continue())
+        return
+      }
       const name = decodeURIComponent(new URL(req.url()).pathname.split("/").pop() ?? "").replace(/\.[0-9a-f]{12}(\.\w+)$/, "$1")
-      if (name && existsSync(join(dir, name)) && (process.env.DEBUG ? console.log("    old file:", name) : true)) void req.respond({ status: 200, contentType: name.endsWith(".css") ? "text/css" : "text/javascript", body: readFileSync(join(dir, name)) })
+      if (dir && name && existsSync(join(dir, name)) && (process.env.DEBUG ? console.log("    old file:", name) : true)) void req.respond({ status: 200, contentType: name.endsWith(".css") ? "text/css" : "text/javascript", body: readFileSync(join(dir, name)) })
       else void req.continue()
     })
   }
@@ -279,6 +284,10 @@ void (async () => {
       for (const pg of imported.theme.pages) for (const sec of pg.sections as unknown as { type: string; group?: string; hidden?: boolean }[]) {
         if (sec.group === "overlay" && /popup|promobanner/i.test(sec.type) && !/size-chart|login|quickview/i.test(sec.type)) sec.hidden = false
       }
+      /* Promotion popup (Code), a native modal <dialog>: from the section library, in no template; added here so it is read too. */
+      const home = imported.theme.pages.find((p) => (p as { page_key?: string }).page_key === "home") ?? imported.theme.pages[0]
+      const like = (home.sections as unknown as Record<string, unknown>[]).find((x) => x.group === "overlay")
+      if (like && MODE !== "preview") (home.sections as unknown as Record<string, unknown>[]).push({ ...like, id: "promotion_popup_code", type: "promotion-popup", name: "Promotion popup", hidden: false, settings: { show_promotion_select: "show_promotion_homepage", promotion_code: "SAVE10", editor_preview: false }, blocks: [] })
       const built = auditSite(imported, template, false, { own: true })
       if (MODE === "canvas") (built.site as { designMode?: boolean }).designMode = true
       const s = await serve(built, join("scripts", "theme-templates", "products", template))
@@ -289,7 +298,7 @@ void (async () => {
     await sleep(1500)
     if (CPU > 1) await cdp.send("Emulation.setCPUThrottlingRate", { rate: CPU })
     const ids = (await popupIds(page)).filter((_, i) => !process.env.ONLY || process.env.ONLY.split(",").includes(String(i)))
-    console.log(`  popups: ${ids.length}`)
+    console.log(`  popups: ${ids.length}${process.env.DEBUG ? ` head fix ${await page.evaluate(() => document.querySelectorAll("style[data-sl-motion-fix]").length)}` : ""}`)
     if (MODE === "canvas") {
       /* As canvas-bridge mark() does: the last section's deselect and the next one's select in one task. */
       const fireAll = (list: [string, string][]) => page.evaluate((l) => { for (const [n, x] of l) { const s = document.getElementById("shopify-section-" + x) ?? document; s.dispatchEvent(new CustomEvent(n, { bubbles: true, detail: { sectionId: x, load: false } })) } }, list)
@@ -323,6 +332,14 @@ void (async () => {
           ["closes", () => page.evaluate(`${P}.close()`)],
         ])
         await sleep(400)
+      }
+      /* The Code popup opens as its runtime opens it (showModal, the page locked) and closes from its own button. */
+      if (await page.evaluate(() => !!document.querySelector("[data-pp-dialog]"))) {
+        await page.evaluate(() => scrollTo(0, 0))
+        await measure(template, page, cdp, "promotion popup (code)", [
+          ["opens", () => page.evaluate(() => { const d = document.querySelector<HTMLDialogElement>("[data-pp-dialog]")!; d.showModal(); document.documentElement.classList.add("pc-lock") })],
+          ["closes", () => page.evaluate(() => { const d = document.querySelector<HTMLDialogElement>("[data-pp-dialog]")!; d.close(); document.documentElement.classList.remove("pc-lock") })],
+        ])
       }
       if (process.env.DRAWERS !== "0") await drawers(template, page, cdp)
     }

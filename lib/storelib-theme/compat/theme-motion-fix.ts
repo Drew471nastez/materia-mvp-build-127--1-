@@ -188,6 +188,13 @@ const REVEAL_FIX_CSS = [
     `${OLD} .scroll-trigger--armed.reveal-parts.split_text .mt-word{animation-name:revealWordR68!important}` +
     `${OLD} .scroll-trigger--armed:not(.scroll-trigger--offscreen).reveal-parts.split_text .mt-word{animation-duration:clamp(350ms,calc(var(--animation-duration,700ms)*.7),550ms)!important;animation-delay:calc(var(--animation-delay-base,0ms) + min(var(--part,0),6)*min(var(--reveal-stagger,75ms),60ms) + var(--word,0)*25ms)!important}` +
     "}",
+  /* Promotion popup (Code): its ::backdrop fades in and out with the card (section-promotion-popup.css, round 68). */
+  ":is(.s-promotion-popup,#_) .pp__dialog{transition:opacity .22s ease,transform .22s ease,overlay .22s allow-discrete,display .22s allow-discrete}",
+  ":is(.s-promotion-popup,#_) .pp__dialog::backdrop{transition:opacity .25s ease,overlay .25s allow-discrete,display .25s allow-discrete}",
+  "@starting-style{:is(.s-promotion-popup,#_) .pp__dialog[open]::backdrop{opacity:0}:is(.s-promotion-popup,#_) .pp__dialog[open][open]{opacity:0;transform:translateY(12px)}}",
+  ":is(.s-promotion-popup,#_) .pp__dialog[open][open]{animation:none}",
+  ":is(.s-promotion-popup,#_) .pp__dialog:not([open]){opacity:0;transform:translateY(12px)}:is(.s-promotion-popup,#_) .pp__dialog:not([open])::backdrop{opacity:0}",
+  "@media (prefers-reduced-motion:reduce){:is(.s-promotion-popup,#_) .pp__dialog,:is(.s-promotion-popup,#_) .pp__dialog::backdrop{transition:none!important}}",
   "[data-sl-noshade]{background-color:transparent!important}[data-sl-noshade]::before,[data-sl-noshade]::after{visibility:hidden!important}",
 ].join("")
 

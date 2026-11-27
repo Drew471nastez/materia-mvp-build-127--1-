@@ -77,7 +77,7 @@ const LEFT = () => {
   const out: string[] = []
   for (const el of document.querySelectorAll<HTMLElement>(".scroll-trigger, [data-reveal-part], .mt-word, .scroll-trigger--armed")) {
     const r = el.getBoundingClientRect()
-    if (r.width < 2 || r.height < 2 || r.bottom <= 0 || r.top >= innerHeight) continue
+    if (r.width < 2 || r.height < 2 || r.bottom <= 0 || r.top >= innerHeight || r.right <= 0 || r.left >= innerWidth) continue
     const cs = getComputedStyle(el)
     if (cs.visibility === "hidden" || cs.display === "none") continue
     const moved = cs.transform !== "none" && !/^matrix\(1, 0, 0, 1, 0, 0\)$/.test(cs.transform)
@@ -108,13 +108,18 @@ void (async () => {
       await page.setViewport({ width: WIDTH, height: HEIGHT, deviceScaleFactor: 1, isMobile: WIDTH < 700, hasTouch: WIDTH < 700 })
       await page.evaluateOnNewDocument("window.__name = (f) => f")
       await page.evaluateOnNewDocument(WATCH)
-      if (process.env.OLD_FILES) {
-        const dir = process.env.OLD_FILES
+      /* OLD_FILES: an installed theme's older files by name. NO_HEAD_FIX=1: the page without round 68's head fix (theme-motion-fix.ts), as before this round. */
+      if (process.env.OLD_FILES || process.env.NO_HEAD_FIX) {
+        const dir = process.env.OLD_FILES ?? ""
         await page.setRequestInterception(true)
         page.on("request", (req) => {
-          const name = decodeURIComponent(new URL(req.url()).pathname.split("/").pop() ?? "")
-          if (name && existsSync(join(dir, name))) void req.respond({ status: 200, contentType: name.endsWith(".css") ? "text/css" : "text/javascript", body: readFileSync(join(dir, name)) })
-          else void req.continue()
+          const name = decodeURIComponent(new URL(req.url()).pathname.split("/").pop() ?? "").replace(/\.[0-9a-f]{12}(\.\w+)$/, "$1")
+          if (dir && name && existsSync(join(dir, name))) { void req.respond({ status: 200, contentType: name.endsWith(".css") ? "text/css" : "text/javascript", body: readFileSync(join(dir, name)) }); return }
+          if (process.env.NO_HEAD_FIX && req.resourceType() === "document") {
+            void fetch(req.url()).then(async (r) => req.respond({ status: r.status, contentType: "text/html", body: (await r.text()).replace(/<style data-sl-motion-fix>[\s\S]*?<\/style>/, "").replace(/<script data-sl-popup-handoff>[\s\S]*?<\/script>/, "") })).catch(() => req.continue())
+            return
+          }
+          void req.continue()
         })
       }
       await page.goto(base + path, { waitUntil: "networkidle0", timeout: 90000 }).catch(() => {})
