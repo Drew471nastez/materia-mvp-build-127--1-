@@ -46,6 +46,13 @@
             "price_font_weight": "700"
           }
         },
+        "variant": {
+          "type": "variant_picker",
+          "settings": {
+            "variant_type": "swatches",
+            "picker_swatch_style": "theme"
+          }
+        },
         "short": {
           "type": "text",
           "settings": {
@@ -67,7 +74,6 @@
           "settings": {
             "enable_variant_selector": false,
             "addon_product": "subject-line-swipe-file",
-            "show_verified": false,
             "section_width_d": 640,
             "section_width_m": 680,
             "image_size": 64,
@@ -144,6 +150,7 @@
         "step",
         "title",
         "price",
+        "variant",
         "short",
         "included",
         "bump",

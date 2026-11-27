@@ -640,7 +640,6 @@
           "settings": {
             "enable_variant_selector": false,
             "addon_product": "subject-line-swipe-file",
-            "show_verified": false,
             "section_width_d": 640,
             "section_width_m": 680,
             "image_size": 64,

@@ -45,7 +45,8 @@ const MB = 1048576
 /* Changed on purpose (round 25 integration): 34 templates, four of them new this round, with 1600 px product pictures and real second shots. Each preview is its own folder served from the CDN and a visitor loads one, so the total is a deploy size, not a page weight; each template still keeps its own 11 MB. */
 /* Changed on purpose (round 26 upgrade): every preview now carries Materia 1.3.2's quick view and recently viewed data (about 0.1 to 0.2 MB a template) and its sign in and create account pages (about 0.4 MB), and the catalogue has 35 templates. */
 /* round 28 integration: 34 templates plus round 64's scripts; each preview is its own CDN folder, so the total is deploy size, not page weight. */
-const BUDGET_TOTAL = 320 * MB
+/* Changed on purpose (r68): LUT shop (about 13 MB) and Challenge funnel (about 6 MB) are added, 37 templates; still deploy size, not page weight. */
+const BUDGET_TOTAL = 345 * MB
 /* Changed on purpose (templates round 25): sample product pictures are 1600 px from their photographs now, each with a real second shot instead of a zoomed crop; the outerwear shop's 35 pages of HTML alone are 8 MB, so its pictures take it to about 10.7 MB. */
 /* Changed on purpose (round 26 upgrade): the quick view, recently viewed and account pages above, about 0.6 MB a template. */
 /* Changed on purpose (round 26 integration): the 1.3.2 upgrade adds quick view, recently viewed and account pages to every preview; Redline (rail, try the look) and Print on demand (four new collections) sit at about 12.1 to 12.6 MB. */

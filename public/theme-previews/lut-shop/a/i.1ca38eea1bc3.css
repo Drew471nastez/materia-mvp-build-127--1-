@@ -230,7 +230,7 @@
         --container-gutter: 16px;
         --grid-gap: var(--sl-live-grid-gap-mobile, 12px);
         --border-width: 1px;--card-shadow: none;--divider-style: solid;
-        --animation-duration: 700ms;
+        --animation-duration: 620ms;
         --animation-delay-base: 0ms;
         --input-font-size: var(--body-font-size, 16px);
         --input-placeholder-color: rgba(var(--color-heading-rgb), 0.6);

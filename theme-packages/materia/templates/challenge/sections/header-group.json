@@ -157,7 +157,7 @@
             "button_style": "primary",
             "custom_border": "#0c0c0c",
             "custom_radius": 6,
-            "show_on_mobile": true,
+            "show_on_mobile": false,
             "button_offset_x": 0,
             "button_offset_y": 0,
             "button_position": "after_icons",
