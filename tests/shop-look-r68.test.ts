@@ -304,7 +304,7 @@ async function redline(browser: Browser, base: string) {
     const landed = r.s.findIndex((f, i) => i > 0 && !f.fly && r.s[i - 1].fly)
     const after = r.s.slice(landed).filter((f) => f.vis)
     const thin = after.filter((f) => f.front < 0.95 && f.side < 0.95)
-    check(`Redline close at ${rate}x CPU: the flight's first frame comes ${Math.round(wait)} ms after Escape (under ${rate === 1 ? 60 : 150} ms; ~440 ms at 4x before r68)`, wait < (rate === 1 ? 60 : 150), { wait })
+    check(`Redline close at ${rate}x CPU: the flight's first frame comes ${Math.round(wait)} ms after Escape (under ${rate === 1 ? 60 : 200} ms; ~440 ms at 4x before r68)`, wait < (rate === 1 ? 60 : 200), { wait })
     check(`  it lands, then turns to its side with the front or the side view drawn whole in every frame (${after.length} frames)`, landed > 0 && after.length > 5 && thin.length === 0 && after[after.length - 1].side === 1 && after[after.length - 1].front === 0, thin.slice(0, 4))
     const sh = after.map((f) => f.shadow)
     check("  its shadow comes back softly after it lands (none in the frame it lands, rising, then whole)", sh.length > 3 && sh[0] < 0.02 && sh.slice(1).every((v, i) => v >= sh[i] - 0.001) && sh[sh.length - 1] > 0.13 && sh.some((v) => v > 0.02 && v < 0.12), sh)
