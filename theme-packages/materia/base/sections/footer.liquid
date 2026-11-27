@@ -3,23 +3,7 @@
   assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- assign fb_accessibility_background_image = 'accessibility.background_image' | t -%}
-{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
-{%- assign fb_section_anim = section.settings.animation | default: 'theme' -%}
-{%- if request.design_mode != true and fb_section_anim == 'theme' and settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
-<style>
-  #shopify-section-{{ section.id }}.scroll-trigger {
-    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
-    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
-  }
-</style>
-<script>
-  (function(){
-    var el = document.getElementById('shopify-section-{{ section.id }}');
-    if (!el || el.classList.contains('scroll-trigger') || document.documentElement.classList.contains('shopify-design-mode') || (window.Shopify && window.Shopify.designMode)) return;
-    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
-  })();
-</script>
-{%- endif -%}
+{%- comment -%} Round 68: the footer is never revealed as a block (the owner: it "comes animated and leaves white background, empty space"). Like the header it is simply there; animation.js and animation.css hold it still for older pages too. {%- endcomment -%}
 <style>
   {%- if section.settings.reset_spacing %}
   #shopify-section-{{ section.id }},#shopify-section-{{ section.id }}>.section,#shopify-section-{{ section.id }}>section,#shopify-section-{{ section.id }}>div,#shopify-section-{{ section.id }}>div>.section{margin-top:0!important;margin-bottom:0!important}

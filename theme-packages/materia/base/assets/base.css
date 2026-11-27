@@ -4019,7 +4019,7 @@ nav.mobile {
   --animation-fade-in: fadeIn var(--duration-extra-long) var(--ease-soft) both;
   --animation-zoom-in: revealZoom var(--duration-extra-longer) var(--ease-soft) both;
   --reveal-stagger: 75ms;
-  --reveal-shift: 56px;
+  --reveal-shift: 12px;
   --reveal-from-opacity: 0.2;
 }
 .scroll-trigger { --reveal-name: revealFade; --reveal-ease: var(--ease-out-quint); --reveal-time: 1; --reveal-dir: 1; --reveal-part: revealPartUp; }
@@ -4038,6 +4038,13 @@ nav.mobile {
 .scroll-trigger.mask_reveal { --reveal-name: revealUnmaskCard; --reveal-ease: cubic-bezier(0.65, 0, 0.35, 1); --reveal-part: revealPartUp; --reveal-time: 1.15; }
 .scroll-trigger.split_text { --reveal-name: revealFadeUp; --reveal-ease: var(--ease-out-expo); --reveal-part: revealPartUp; }
 .scroll-trigger.editorial { --reveal-name: revealEditorial; --reveal-ease: cubic-bezier(0.22, 1, 0.36, 1); --reveal-part: revealPartEditorial; --reveal-time: 1.25; }
+.scroll-trigger:is(.fade_in, .zoom_in, .blur_in) { --reveal-part: revealPartFade; }
+.scroll-trigger:not(.shopify-section) { --reveal-name: revealCard; --reveal-ease: cubic-bezier(0.25, 0.6, 0.3, 1); --reveal-time: 1; }
+.shopify-section.scroll-trigger:not(.reveal-parts),
+[id*="footer"].scroll-trigger,
+.scroll-trigger:has(> footer),
+.scroll-trigger:has(> .footer) { animation: none !important; opacity: 1 !important; }
+[id*="footer"].scroll-trigger :is([data-reveal-part], [data-reveal-zoom], .mt-word) { animation: none !important; }
 @media (prefers-reduced-motion: no-preference) {
   .scroll-trigger.scroll-trigger--armed.scroll-trigger--offscreen:is(.fade_in, .fade_up, .slide_in, .zoom_in, .subtle_rise, .cinematic, .blur_up, .blur_in, .slide_side, .mask_reveal, .stagger_up, .split_text, .editorial):not(.reveal-parts) {
     animation-name: var(--reveal-name);
@@ -4100,8 +4107,27 @@ nav.mobile {
   }
   .scroll-trigger--armed.scroll-trigger--offscreen [data-reveal-zoom] { animation: revealSettle 1s both paused; }
   .scroll-trigger--armed:not(.scroll-trigger--offscreen) [data-reveal-zoom] {
-    animation: revealSettle calc(var(--animation-duration, 700ms) * 1.8) var(--ease-out-expo) calc(var(--animation-delay-base, 0ms) + var(--reveal-order, 0) * var(--reveal-stagger) + var(--part, 0) * var(--reveal-stagger)) both;
+    animation: revealSettle clamp(500ms, var(--animation-duration, 700ms), 800ms) var(--ease-out-expo) calc(var(--animation-delay-base, 0ms) + min(var(--reveal-order, 0), 4) * min(var(--reveal-stagger), 40ms) + min(var(--part, 0), 6) * min(var(--reveal-stagger), 60ms)) both;
     will-change: transform;
+  }
+  .scroll-trigger.scroll-trigger--armed:not(.scroll-trigger--offscreen):not(.shopify-section):not(.reveal-parts) {
+    animation-duration: clamp(300ms, calc(var(--animation-duration, 700ms) * 0.6), 450ms);
+    animation-delay: calc(var(--animation-delay-base, 0ms) + min(var(--reveal-order, 0), 4) * min(var(--reveal-stagger, 75ms), 40ms));
+  }
+  .scroll-trigger--armed:not(.scroll-trigger--offscreen).reveal-parts [data-reveal-part],
+  .scroll-trigger--armed:not(.scroll-trigger--offscreen).reveal-parts.editorial [data-reveal-part] {
+    animation-duration: clamp(350ms, calc(var(--animation-duration, 700ms) * 0.7), 600ms);
+    animation-timing-function: cubic-bezier(0.25, 0.6, 0.3, 1);
+    animation-delay: calc(var(--animation-delay-base, 0ms) + min(var(--part, 0), 6) * min(var(--reveal-stagger, 75ms), 60ms));
+  }
+  .scroll-trigger--armed:not(.scroll-trigger--offscreen).reveal-parts.mask_reveal [data-reveal-part='media'] {
+    animation-duration: clamp(400ms, calc(var(--animation-duration, 700ms) * 0.8), 650ms);
+  }
+  .scroll-trigger--armed:not(.scroll-trigger--offscreen).reveal-parts.mask_reveal [data-reveal-part='media'] :is(img, video) {
+    animation: revealSettle clamp(500ms, var(--animation-duration, 700ms), 800ms) var(--ease-out-expo) calc(var(--animation-delay-base, 0ms) + min(var(--part, 0), 6) * min(var(--reveal-stagger), 60ms)) both;
+  }
+  .scroll-trigger--armed:not(.scroll-trigger--offscreen).reveal-parts.split_text .mt-word {
+    animation: revealWord clamp(350ms, calc(var(--animation-duration, 700ms) * 0.7), 550ms) var(--ease-out-expo) calc(var(--animation-delay-base, 0ms) + min(var(--part, 0), 6) * min(var(--reveal-stagger), 60ms) + var(--word, 0) * 25ms) both;
   }
 }
 .scroll-trigger[animation-end],
@@ -4118,7 +4144,7 @@ nav.mobile {
 }
 @keyframes revealFade { from { opacity: var(--reveal-from-opacity, 0.2); } to { opacity: 1; } }
 @keyframes revealFadeUp {
-  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 32px, 0); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 12px, 0); }
   to { opacity: 1; transform: none; }
 }
 @keyframes revealSlideUp {
@@ -4126,7 +4152,7 @@ nav.mobile {
   to { opacity: 1; transform: none; }
 }
 @keyframes revealZoom {
-  from { opacity: var(--reveal-from-opacity, 0.2); transform: scale(0.94); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: scale(0.98); }
   to { opacity: 1; transform: none; }
 }
 @keyframes revealRise {
@@ -4134,48 +4160,56 @@ nav.mobile {
   to { opacity: 1; transform: none; }
 }
 @keyframes revealCinematic {
-  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 24px, 0) scale(0.97); filter: blur(4px); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 12px, 0); filter: blur(2px); }
   to { opacity: 1; transform: none; filter: none; }
 }
 @keyframes revealBlurUp {
-  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 24px, 0); filter: blur(10px); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 12px, 0); filter: blur(4px); }
   to { opacity: 1; transform: none; filter: none; }
 }
 @keyframes revealBlurIn {
-  from { opacity: var(--reveal-from-opacity, 0.2); transform: scale(1.02); filter: blur(14px); }
+  from { opacity: var(--reveal-from-opacity, 0.2); filter: blur(6px); }
   to { opacity: 1; transform: none; filter: none; }
 }
 @keyframes revealSlideSide {
   from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(calc(var(--reveal-shift, 56px) * -1 * var(--reveal-dir, 1)), 0, 0); }
   to { opacity: 1; transform: none; }
 }
+@keyframes revealCard {
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 10px, 0); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes revealPartFade {
+  from { opacity: var(--reveal-from-opacity, 0.2); }
+  to { opacity: 1; }
+}
 @keyframes revealPartUp {
-  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 28px, 0); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 12px, 0); }
   to { opacity: 1; transform: none; }
 }
 @keyframes revealEditorial {
-  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 40px, 0); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 14px, 0); }
   to { opacity: 1; transform: none; }
 }
 @keyframes revealPartEditorial {
-  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 40px, 0); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 14px, 0); }
   to { opacity: 1; transform: none; }
 }
 @keyframes revealEditorialMedia {
-  from { opacity: var(--reveal-from-opacity, 0.2); transform: scale(0.96); }
-  to { opacity: 1; transform: none; }
+  from { opacity: var(--reveal-from-opacity, 0.2); }
+  to { opacity: 1; }
 }
 @keyframes revealUnmask {
-  from { opacity: 0.6; clip-path: inset(9% 7% 9% 7%); }
+  from { opacity: 0.6; clip-path: inset(4% 3% 4% 3%); }
   to { opacity: 1; clip-path: inset(0); }
 }
 @keyframes revealUnmaskCard {
-  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 24px, 0); clip-path: inset(0 0 22% 0); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 10px, 0); clip-path: inset(0 0 8% 0); }
   to { opacity: 1; transform: none; clip-path: inset(0); }
 }
-@keyframes revealSettle { from { transform: scale(1.12); } to { transform: none; } }
+@keyframes revealSettle { from { transform: scale(1.04); } to { transform: none; } }
 @keyframes revealWord {
-  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 0.55em, 0); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 0.3em, 0); }
   to { opacity: 1; transform: none; }
 }
 .scroll-trigger.mask_reveal.scroll-trigger--armed:not(.reveal-parts) { transform-origin: 50% 0; }

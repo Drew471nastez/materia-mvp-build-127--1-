@@ -30,6 +30,26 @@
  *     set by materia-popups.js just before) is changed, and only when the
  *     element rests between 0.05 and 1: it then fades to (or from) that.
  *     New files already pass the resting opacity, which this leaves as is.
+ *
+ * ROUND 68 (scripts/check-overlay-flash-r68.ts, scripts/check-reveal-r68.ts)
+ *
+ *  4. ONE POPUP AFTER ANOTHER, NO LIGHT FRAMES BETWEEN. Old materia-popups.js
+ *     (version 1) cut the shown popup away at once when another was picked
+ *     in the builder's overlay group, and the next one's shade faded in from
+ *     nothing: dark, light, dark. Picking another one now closes the shown
+ *     one with its own motion first, and a shade that fades in while another
+ *     popup is closing starts as dark as that one is drawn while that one's
+ *     dark goes (its colour and its ::before/::after). New files (version 2)
+ *     hand the shade over themselves; this stands aside for them.
+ *
+ *  5. REVEALS ON A FINE LINE. Old animation.css slid cards in from 56px to
+ *     the side, zoomed, blurred and clipped them over up to 1.7s, moved whole
+ *     sections (their colour arriving late over a band of the page) and the
+ *     footer. Old files now play the round 68 reveal: a card rises 10px in
+ *     300 to 450ms, 40ms at most after the one before; a section's box and
+ *     the footer never move; a section's parts rise 12px at most. New files
+ *     (data-mt-reveal="2" on <html>, set by animation.js) are left to their
+ *     own, identical rules.
  */
 
 const MOTION_FIX_CSS = [
@@ -62,4 +82,113 @@ function installPopupRestOpacity(win: Window & typeof globalThis): void {
   proto.animate = patched as typeof proto.animate
 }
 
-export const THEME_MOTION_FIX_HEAD = `<style data-sl-motion-fix>${MOTION_FIX_CSS}</style><script data-sl-popup-rest>try{(${installPopupRestOpacity.toString()})(window)}catch(e){}</script>`
+/** Runs in the page, in the head, after installPopupRestOpacity (it wraps that). */
+function installPopupHandoff(win: Window & typeof globalThis): void {
+  const doc = win.document
+  const w = win as unknown as { __slHandoff?: boolean; MateriaPopups?: { version?: number; design?: boolean; current(): string | null; close(id?: string): void } }
+  if (!doc || w.__slHandoff || !win.Element || typeof win.Element.prototype.animate !== "function") return
+  w.__slHandoff = true
+  const old = () => !!w.MateriaPopups && !((w.MateriaPopups.version ?? 1) >= 2)
+  /* The builder: picking another popup closes the shown one with its own motion first, never a cut. */
+  const pick = (e: Event) => {
+    try {
+      const P = w.MateriaPopups
+      if (!P || !old() || !P.design) return
+      const d = (e as CustomEvent<{ sectionId?: unknown }>).detail
+      const id = d && d.sectionId != null ? String(d.sectionId) : ""
+      const cur = P.current()
+      if (!cur || !id || cur === id || !doc.querySelector('[data-popup-id="' + win.CSS.escape(id) + '"]')) return
+      P.close(cur)
+    } catch {
+      /* the theme's own handler, as it was */
+    }
+  }
+  doc.addEventListener("shopify:section:select", pick, true)
+  doc.addEventListener("shopify:block:select", pick, true)
+  const alphaIn = (c: string) => {
+    const m = String(c || "").match(/rgba?\(([^)]+)\)/)
+    if (!m) return 0
+    const n = m[1].split(/[\s,/]+/).filter(Boolean)
+    const a = n.length > 3 ? parseFloat(n[3]) * (/%$/.test(n[3]) ? 0.01 : 1) : 1
+    return isFinite(a) ? Math.max(0, Math.min(1, a)) : 0
+  }
+  /* How dark an element draws over the whole screen: its colour, and a ::before/::after it draws its dark with. */
+  const darkOf = (el: Element) => {
+    let clear = 1 - alphaIn(win.getComputedStyle(el).backgroundColor)
+    for (const pe of ["::before", "::after"]) {
+      const cs = win.getComputedStyle(el, pe)
+      if (!cs || cs.content === "none" || cs.content === "normal" || cs.display === "none") continue
+      if (!(parseFloat(cs.width) >= win.innerWidth * 0.9)) continue
+      clear *= 1 - alphaIn(cs.backgroundColor) * (parseFloat(cs.opacity) || 0)
+    }
+    return 1 - clear
+  }
+  const full = (el: Element) => {
+    if (win.getComputedStyle(el).position !== "fixed") return false
+    const r = el.getBoundingClientRect()
+    return r.width >= win.innerWidth * 0.9 && r.height >= win.innerHeight * 0.85
+  }
+  const drawn = (el: Element) => {
+    let o = 1
+    for (let e: Element | null = el; e; e = e.parentElement) o *= parseFloat(win.getComputedStyle(e).opacity) || 0
+    return o
+  }
+  const proto = win.Element.prototype
+  const animate = proto.animate
+  const patched = function (this: Element, keyframes: Keyframe[] | PropertyIndexedKeyframes | null, options?: number | KeyframeAnimationOptions) {
+    try {
+      const k = keyframes as Keyframe[]
+      if (old() && Array.isArray(k) && k.length === 2 && k[0] && Object.keys(k[0]).length === 1 && Number(k[0].opacity) === 0 && this.closest && this.closest('[data-mp-motion="in"]') && full(this)) {
+        const mine = darkOf(this)
+        let carry = 0
+        const gone: Element[] = []
+        for (const root of doc.querySelectorAll('[data-mp-motion="out"]')) {
+          for (const el of [root, ...root.querySelectorAll("*")]) {
+            if (!full(el)) continue
+            const l = drawn(el) * darkOf(el)
+            if (l > 0.01) { carry = 1 - (1 - carry) * (1 - l); gone.push(el) }
+          }
+        }
+        if (carry > 0 && mine > 0) {
+          const rest = parseFloat(win.getComputedStyle(this).opacity)
+          const to = rest > 0.05 && rest < 0.999 ? rest : Number(k[1].opacity) || 1
+          keyframes = [{ opacity: Math.min(to, carry / mine) }, { opacity: to }]
+          for (const el of gone) el.setAttribute("data-sl-noshade", "")
+          win.setTimeout(() => { for (const el of gone) el.removeAttribute("data-sl-noshade") }, 700)
+        }
+      }
+    } catch {
+      /* the theme's own call, as it was */
+    }
+    return animate.call(this, keyframes, options)
+  }
+  proto.animate = patched as typeof proto.animate
+}
+
+/* Round 68's reveal for old animation.css / animation.js / global.js (5 above). Names start with "reveal": old animation.js ends a reveal on its own animationend by that. */
+const OLD = 'html:not([data-mt-reveal="2"])'
+const REVEAL_FIX_CSS = [
+  "@keyframes revealCardR68{from{opacity:var(--reveal-from-opacity,.2);transform:translate3d(0,10px,0)}to{opacity:1;transform:none}}",
+  "@keyframes revealPartR68{from{opacity:var(--reveal-from-opacity,.2);transform:translate3d(0,12px,0)}to{opacity:1;transform:none}}",
+  "@keyframes revealUnmaskR68{from{opacity:.6;clip-path:inset(4% 3% 4% 3%)}to{opacity:1;clip-path:inset(0)}}",
+  "@keyframes revealSettleR68{from{transform:scale(1.04)}to{transform:none}}",
+  "@keyframes revealWordR68{from{opacity:var(--reveal-from-opacity,.2);transform:translate3d(0,.3em,0)}to{opacity:1;transform:none}}",
+  `${OLD} .shopify-section.scroll-trigger:not(.reveal-parts),${OLD} [id*="footer"].scroll-trigger,${OLD} .scroll-trigger:has(>footer),${OLD} .scroll-trigger:has(>.footer){animation:none!important;opacity:1!important}`,
+  `${OLD} [id*="footer"].scroll-trigger :is([data-reveal-part],[data-reveal-zoom],.mt-word){animation:none!important}`,
+  `${OLD} motion-element{--animation-duration:450ms}`,
+  "@media (prefers-reduced-motion:no-preference){" +
+    `${OLD} .scroll-trigger.scroll-trigger--armed:not(.shopify-section):not(.reveal-parts){animation-name:revealCardR68!important}` +
+    `${OLD} .scroll-trigger.scroll-trigger--armed:not(.scroll-trigger--offscreen):not(.shopify-section):not(.reveal-parts){animation-duration:clamp(300ms,calc(var(--animation-duration,700ms)*.6),450ms)!important;animation-timing-function:cubic-bezier(.25,.6,.3,1)!important;animation-delay:calc(var(--animation-delay-base,0ms) + min(var(--reveal-order,0),4)*min(var(--reveal-stagger,75ms),40ms))!important}` +
+    `${OLD} .scroll-trigger--armed.reveal-parts [data-reveal-part]:not([data-reveal-part="media"]){animation-name:revealPartR68!important}` +
+    `${OLD} .scroll-trigger--armed.reveal-parts.editorial [data-reveal-part="media"]{animation-name:revealPartR68!important}` +
+    `${OLD} .scroll-trigger--armed.reveal-parts.mask_reveal [data-reveal-part="media"]{animation-name:revealUnmaskR68!important}` +
+    `${OLD} .scroll-trigger--armed:not(.scroll-trigger--offscreen).reveal-parts [data-reveal-part]{animation-duration:clamp(350ms,calc(var(--animation-duration,700ms)*.7),600ms)!important;animation-timing-function:cubic-bezier(.25,.6,.3,1)!important;animation-delay:calc(var(--animation-delay-base,0ms) + min(var(--part,0),6)*min(var(--reveal-stagger,75ms),60ms))!important}` +
+    `${OLD} .scroll-trigger--armed [data-reveal-zoom],${OLD} .scroll-trigger--armed.reveal-parts.mask_reveal [data-reveal-part="media"] :is(img,video){animation-name:revealSettleR68!important}` +
+    `${OLD} .scroll-trigger--armed:not(.scroll-trigger--offscreen) [data-reveal-zoom],${OLD} .scroll-trigger--armed:not(.scroll-trigger--offscreen).reveal-parts.mask_reveal [data-reveal-part="media"] :is(img,video){animation-duration:clamp(500ms,var(--animation-duration,700ms),800ms)!important}` +
+    `${OLD} .scroll-trigger--armed.reveal-parts.split_text .mt-word{animation-name:revealWordR68!important}` +
+    `${OLD} .scroll-trigger--armed:not(.scroll-trigger--offscreen).reveal-parts.split_text .mt-word{animation-duration:clamp(350ms,calc(var(--animation-duration,700ms)*.7),550ms)!important;animation-delay:calc(var(--animation-delay-base,0ms) + min(var(--part,0),6)*min(var(--reveal-stagger,75ms),60ms) + var(--word,0)*25ms)!important}` +
+    "}",
+  "[data-sl-noshade]{background-color:transparent!important}[data-sl-noshade]::before,[data-sl-noshade]::after{visibility:hidden!important}",
+].join("")
+
+export const THEME_MOTION_FIX_HEAD = `<style data-sl-motion-fix>${MOTION_FIX_CSS}${REVEAL_FIX_CSS}</style><script data-sl-popup-rest>try{(${installPopupRestOpacity.toString()})(window)}catch(e){}</script><script data-sl-popup-handoff>try{(${installPopupHandoff.toString()})(window)}catch(e){}</script>`

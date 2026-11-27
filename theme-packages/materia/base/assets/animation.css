@@ -150,7 +150,7 @@
   --animation-fade-in: fadeIn var(--duration-extra-long) var(--ease-soft) both;
   --animation-zoom-in: revealZoom var(--duration-extra-longer) var(--ease-soft) both;
   --reveal-stagger: 75ms;
-  --reveal-shift: 56px;
+  --reveal-shift: 12px;
   --reveal-from-opacity: 0.2;
 }
 
@@ -174,6 +174,31 @@
    parts arrive one by one with a long, soft rise; its pictures fade in and
    settle from a slight scale-down. Transform and opacity only. */
 .scroll-trigger.editorial { --reveal-name: revealEditorial; --reveal-ease: cubic-bezier(0.22, 1, 0.36, 1); --reveal-part: revealPartEditorial; --reveal-time: 1.25; }
+/* Parts of a section for the types that move as one (round 68: a section never moves as one). */
+.scroll-trigger:is(.fade_in, .zoom_in, .blur_in) { --reveal-part: revealPartFade; }
+
+/* ──────────────────────────────────────────────────────────────────────
+   ROUND 68: A FINE LINE (scripts/check-reveal-r68.ts). The owner: cards
+   came in "too exaggerated, keep it smooth and clean but not that
+   exaggerated", and Octavo's footer "comes animated and leaves white
+   background, empty space in the background as the animation arrives".
+   - A card (any element that reveals inside a section: a product, a post,
+     a collection) comes up 10px while it fades, 300 to 450ms on a gentle
+     ease, 40ms at most after the one before it. Every type: no slide from
+     the side, no scale, blur or clip on a card.
+   - A section's own box never moves or fades: its colour and pictures are
+     there when it is scrolled to. Its parts (headings, text, buttons,
+     small pictures) come up 12px at most, a little after one another
+     (animation.js marks them; a picture that fills the section is not a
+     part, it is the section's background).
+   - The footer is never revealed: it is there, like the header.
+   ────────────────────────────────────────────────────────────────────── */
+.scroll-trigger:not(.shopify-section) { --reveal-name: revealCard; --reveal-ease: cubic-bezier(0.25, 0.6, 0.3, 1); --reveal-time: 1; }
+.shopify-section.scroll-trigger:not(.reveal-parts),
+[id*="footer"].scroll-trigger,
+.scroll-trigger:has(> footer),
+.scroll-trigger:has(> .footer) { animation: none !important; opacity: 1 !important; }
+[id*="footer"].scroll-trigger :is([data-reveal-part], [data-reveal-zoom], .mt-word) { animation: none !important; }
 
 @media (prefers-reduced-motion: no-preference) {
   /* Waiting below the screen: the first frame of its own animation, so the start is seamless. */
@@ -246,8 +271,30 @@
   /* Zoom pictures as they scroll in: a picture in a revealing card or section settles from a slight zoom inside its own frame. */
   .scroll-trigger--armed.scroll-trigger--offscreen [data-reveal-zoom] { animation: revealSettle 1s both paused; }
   .scroll-trigger--armed:not(.scroll-trigger--offscreen) [data-reveal-zoom] {
-    animation: revealSettle calc(var(--animation-duration, 700ms) * 1.8) var(--ease-out-expo) calc(var(--animation-delay-base, 0ms) + var(--reveal-order, 0) * var(--reveal-stagger) + var(--part, 0) * var(--reveal-stagger)) both;
+    animation: revealSettle clamp(500ms, var(--animation-duration, 700ms), 800ms) var(--ease-out-expo) calc(var(--animation-delay-base, 0ms) + min(var(--reveal-order, 0), 4) * min(var(--reveal-stagger), 40ms) + min(var(--part, 0), 6) * min(var(--reveal-stagger), 60ms)) both;
     will-change: transform;
+  }
+
+  /* Round 68: the fine line. A card: short, near, a small step after the one before. */
+  .scroll-trigger.scroll-trigger--armed:not(.scroll-trigger--offscreen):not(.shopify-section):not(.reveal-parts) {
+    animation-duration: clamp(300ms, calc(var(--animation-duration, 700ms) * 0.6), 450ms);
+    animation-delay: calc(var(--animation-delay-base, 0ms) + min(var(--reveal-order, 0), 4) * min(var(--reveal-stagger, 75ms), 40ms));
+  }
+  /* A section's parts: at most 12px, at most 600ms, the seventh and later together with the sixth. */
+  .scroll-trigger--armed:not(.scroll-trigger--offscreen).reveal-parts [data-reveal-part],
+  .scroll-trigger--armed:not(.scroll-trigger--offscreen).reveal-parts.editorial [data-reveal-part] {
+    animation-duration: clamp(350ms, calc(var(--animation-duration, 700ms) * 0.7), 600ms);
+    animation-timing-function: cubic-bezier(0.25, 0.6, 0.3, 1);
+    animation-delay: calc(var(--animation-delay-base, 0ms) + min(var(--part, 0), 6) * min(var(--reveal-stagger, 75ms), 60ms));
+  }
+  .scroll-trigger--armed:not(.scroll-trigger--offscreen).reveal-parts.mask_reveal [data-reveal-part='media'] {
+    animation-duration: clamp(400ms, calc(var(--animation-duration, 700ms) * 0.8), 650ms);
+  }
+  .scroll-trigger--armed:not(.scroll-trigger--offscreen).reveal-parts.mask_reveal [data-reveal-part='media'] :is(img, video) {
+    animation: revealSettle clamp(500ms, var(--animation-duration, 700ms), 800ms) var(--ease-out-expo) calc(var(--animation-delay-base, 0ms) + min(var(--part, 0), 6) * min(var(--reveal-stagger), 60ms)) both;
+  }
+  .scroll-trigger--armed:not(.scroll-trigger--offscreen).reveal-parts.split_text .mt-word {
+    animation: revealWord clamp(350ms, calc(var(--animation-duration, 700ms) * 0.7), 550ms) var(--ease-out-expo) calc(var(--animation-delay-base, 0ms) + min(var(--part, 0), 6) * min(var(--reveal-stagger), 60ms) + var(--word, 0) * 25ms) both;
   }
 }
 
@@ -268,7 +315,7 @@
 /* Every keyframe starts partly visible (never a blank band) and ends at rest. */
 @keyframes revealFade { from { opacity: var(--reveal-from-opacity, 0.2); } to { opacity: 1; } }
 @keyframes revealFadeUp {
-  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 32px, 0); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 12px, 0); }
   to { opacity: 1; transform: none; }
 }
 @keyframes revealSlideUp {
@@ -276,7 +323,7 @@
   to { opacity: 1; transform: none; }
 }
 @keyframes revealZoom {
-  from { opacity: var(--reveal-from-opacity, 0.2); transform: scale(0.94); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: scale(0.98); }
   to { opacity: 1; transform: none; }
 }
 @keyframes revealRise {
@@ -284,49 +331,58 @@
   to { opacity: 1; transform: none; }
 }
 @keyframes revealCinematic {
-  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 24px, 0) scale(0.97); filter: blur(4px); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 12px, 0); filter: blur(2px); }
   to { opacity: 1; transform: none; filter: none; }
 }
 @keyframes revealBlurUp {
-  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 24px, 0); filter: blur(10px); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 12px, 0); filter: blur(4px); }
   to { opacity: 1; transform: none; filter: none; }
 }
 @keyframes revealBlurIn {
-  from { opacity: var(--reveal-from-opacity, 0.2); transform: scale(1.02); filter: blur(14px); }
+  from { opacity: var(--reveal-from-opacity, 0.2); filter: blur(6px); }
   to { opacity: 1; transform: none; filter: none; }
 }
 @keyframes revealSlideSide {
   from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(calc(var(--reveal-shift, 56px) * -1 * var(--reveal-dir, 1)), 0, 0); }
   to { opacity: 1; transform: none; }
 }
+/* A card (round 68): 10px and a fade, nothing else. */
+@keyframes revealCard {
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 10px, 0); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes revealPartFade {
+  from { opacity: var(--reveal-from-opacity, 0.2); }
+  to { opacity: 1; }
+}
 @keyframes revealPartUp {
-  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 28px, 0); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 12px, 0); }
   to { opacity: 1; transform: none; }
 }
 @keyframes revealEditorial {
-  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 40px, 0); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 14px, 0); }
   to { opacity: 1; transform: none; }
 }
 @keyframes revealPartEditorial {
-  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 40px, 0); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 14px, 0); }
   to { opacity: 1; transform: none; }
 }
 @keyframes revealEditorialMedia {
-  from { opacity: var(--reveal-from-opacity, 0.2); transform: scale(0.96); }
-  to { opacity: 1; transform: none; }
+  from { opacity: var(--reveal-from-opacity, 0.2); }
+  to { opacity: 1; }
 }
 /* A picture opens from a window that already shows most of it. */
 @keyframes revealUnmask {
-  from { opacity: 0.6; clip-path: inset(9% 7% 9% 7%); }
+  from { opacity: 0.6; clip-path: inset(4% 3% 4% 3%); }
   to { opacity: 1; clip-path: inset(0); }
 }
 @keyframes revealUnmaskCard {
-  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 24px, 0); clip-path: inset(0 0 22% 0); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 10px, 0); clip-path: inset(0 0 8% 0); }
   to { opacity: 1; transform: none; clip-path: inset(0); }
 }
-@keyframes revealSettle { from { transform: scale(1.12); } to { transform: none; } }
+@keyframes revealSettle { from { transform: scale(1.04); } to { transform: none; } }
 @keyframes revealWord {
-  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 0.55em, 0); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 0.3em, 0); }
   to { opacity: 1; transform: none; }
 }
 /* Mask reveal on a card opens from its top edge. */
