@@ -1,8 +1,8 @@
 /**
  * ===========================================================================
- *  FAQ 1, 2 AND 3 NEVER LEAVE A WHITE BAND (round 69)
+ *  NO SECTION LEAVES A WHITE BAND AS IT ARRIVES (round 69)
  * ===========================================================================
- *   npx tsx scripts/check-faq-band-r69.ts
+ *   npx tsx scripts/check-white-band-r69.ts
  *     TEMPLATES=challenge,digital   templates whose page has FAQ 1, 2 or 3
  *     PAGE=faqs                     a page other than home
  *     WIDTH=1440
@@ -16,8 +16,10 @@
  * the page's background showed where the section is.
  *
  * The page is scrolled by a wheel at a reading pace, and every animation
- * frame the part of each FAQ root on screen drawn below half opacity (or
- * clipped away) is measured: the tallest such band and how long any lasted.
+ * frame, for every section on screen, the box that carries its colour (the
+ * section, or the first box in it as wide and half as tall that paints a
+ * background) drawn below half opacity or clipped away is measured: the
+ * tallest such band and how long any lasted. Every template by default.
  */
 import { join } from "node:path"
 import puppeteer from "puppeteer-core"
@@ -25,31 +27,51 @@ import { importTemplate, serve } from "./theme-templates/site"
 import { auditSite } from "./theme-templates/fixtures"
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-const TEMPLATES = (process.env.TEMPLATES ?? "challenge,digital,ebooks,vslfunnel").split(",")
+import { existsSync, readdirSync } from "node:fs"
+const ROOT = "theme-packages/materia/templates"
+const TEMPLATES = process.env.TEMPLATES ? process.env.TEMPLATES.split(",") : readdirSync(ROOT).filter((d) => existsSync(join(ROOT, d, "config")))
 const WIDTH = Number(process.env.WIDTH ?? 1440)
 const HEIGHT = WIDTH < 700 ? 844 : 900
 
 const FILM = () => {
-  const w = window as unknown as { __band: { px: number; ms: number; first: number; on: boolean } }
-  w.__band = { px: 0, ms: 0, first: -1, on: true }
+  const w = window as unknown as { __band: { px: number; ms: number; first: number; on: boolean; who: Record<string, number> } }
+  w.__band = { px: 0, ms: 0, first: -1, on: true, who: {} }
   let last = performance.now()
-  /* Whether the section's own reveal still plays: its contents armed, then shown. */
+  /* Whether the FAQ's own reveal still plays: its contents armed, then shown. */
   const armed = new Set<string>()
   new MutationObserver((rs) => rs.forEach((r) => { const t = r.target as HTMLElement; if (t.hasAttribute("data-faq-armed")) armed.add(t.dataset.faqSection ?? "?") })).observe(document, { subtree: true, attributes: true, attributeFilter: ["data-faq-armed"] })
   ;(window as unknown as { __armed: Set<string> }).__armed = armed
+  const opacityOf = (el: Element) => { let o = 1; for (let e: Element | null = el; e; e = e.parentElement) o *= parseFloat(getComputedStyle(e).opacity); return o }
+  const painted = (el: Element) => { const cs = getComputedStyle(el); return !/rgba\(0, 0, 0, 0\)|transparent/.test(cs.backgroundColor) || cs.backgroundImage !== "none" }
+  /* A section's colour: the section, or the first box in it (three deep) as wide and half as tall that paints a background. */
+  const colourOf = (s: HTMLElement) => {
+    if (painted(s)) return s
+    const r = s.getBoundingClientRect()
+    let level: Element[] = [s]
+    for (let d = 0; d < 3; d++) {
+      const next: Element[] = []
+      for (const p of level) for (const c of p.children) {
+        const b = c.getBoundingClientRect()
+        if (b.width >= r.width * 0.95 && b.height >= r.height * 0.5) { if (painted(c)) return c; next.push(c) }
+      }
+      level = next
+    }
+    return null
+  }
   const tick = () => {
     if (!w.__band.on) return
     const now = performance.now()
     let band = 0
-    for (const root of document.querySelectorAll<HTMLElement>("[data-faq-root]")) {
-      const r = root.getBoundingClientRect()
+    for (const s of document.querySelectorAll<HTMLElement>(".shopify-section")) {
+      if (/header|announcement|popup|drawer|overlay|cart|notification/i.test(s.id)) continue
+      const r = s.getBoundingClientRect()
       const on = Math.min(r.bottom, innerHeight) - Math.max(r.top, 0)
-      if (on <= 0) continue
-      let o = 1
-      for (let e: Element | null = root; e; e = e.parentElement) o *= parseFloat(getComputedStyle(e).opacity)
-      const clip = getComputedStyle(root).clipPath
+      if (on <= 40 || getComputedStyle(s).display === "none") continue
+      const box = colourOf(s)
+      if (!box) continue
+      const clip = getComputedStyle(box).clipPath
       const clipped = /inset\(0(px)? 0(px)? (9\d|100)%/.test(clip)
-      if (o < 0.5 || clipped) band = Math.max(band, on)
+      if (opacityOf(box) < 0.5 || clipped) { band = Math.max(band, on); const id = s.id.replace(/^shopify-section-(template--\d+__|sections--\d+__)?/, ""); w.__band.who[id] = Math.max(w.__band.who[id] ?? 0, Math.round(on)) }
     }
     if (band > 0) { w.__band.ms += now - last; w.__band.px = Math.max(w.__band.px, Math.round(band)); if (w.__band.first < 0) w.__band.first = Math.round(now) }
     last = now
@@ -78,17 +100,17 @@ void (async () => {
     await page.evaluateOnNewDocument(FILM)
     await page.goto(base + (process.env.PAGE ? `/pages/${process.env.PAGE}` : "/"), { waitUntil: "networkidle0", timeout: 90000 }).catch(() => {})
     const roots = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("[data-faq-root]")].map((r) => `${r.dataset.faqRoot}${r.hasAttribute("data-faq-reveal") ? "+reveal" : ""}`))
-    const firstScreen = await page.evaluate(() => (window as unknown as { __band: { px: number; ms: number } }).__band)
-    await page.evaluate(() => { const w = window as unknown as { __band: { px: number; ms: number; first: number } }; w.__band.px = 0; w.__band.ms = 0 })
+    const firstScreen = await page.evaluate(() => { const b = (window as unknown as { __band: { px: number; ms: number; who: Record<string, number> } }).__band; return { px: b.px, ms: b.ms, who: { ...b.who } } })
+    await page.evaluate(() => { const w = window as unknown as { __band: { px: number; ms: number; first: number; who: Record<string, number> } }; w.__band.px = 0; w.__band.ms = 0; w.__band.who = {} })
     await page.mouse.move(WIDTH / 2, HEIGHT / 2)
     const h = await page.evaluate(() => document.documentElement.scrollHeight)
     /* A reading pace: 120px every 60ms. */
     for (let y = 0; y < h; y += 120) { await page.mouse.wheel({ deltaY: 120 }); await sleep(60) }
     await sleep(1200)
-    const scrolled = await page.evaluate(() => (window as unknown as { __band: { px: number; ms: number } }).__band)
+    const scrolled = await page.evaluate(() => (window as unknown as { __band: { px: number; ms: number; who: Record<string, number> } }).__band)
     const rest = await page.evaluate(() => ({ armed: (window as unknown as { __armed: Set<string> }).__armed.size, faint: [...document.querySelectorAll<HTMLElement>("[data-faq-root] > [class$='__inner']")].filter((e) => parseFloat(getComputedStyle(e).opacity) < 0.99).length }))
     worst = Math.max(worst, scrolled.px, firstScreen.px)
-    console.log(`${t}${process.env.PAGE ? "/" + process.env.PAGE : ""} ${WIDTH}  roots: ${roots.join(" ") || "none"}  first screen: ${firstScreen.px}px for ${Math.round(firstScreen.ms)}ms  scrolled: band up to ${scrolled.px}px, ${Math.round(scrolled.ms)}ms in all  own reveal played: ${rest.armed}  contents left faint: ${rest.faint}`)
+    console.log(`${t}${process.env.PAGE ? "/" + process.env.PAGE : ""} ${WIDTH}  roots: ${roots.join(" ") || "none"}  first screen: ${firstScreen.px}px for ${Math.round(firstScreen.ms)}ms  scrolled: band up to ${scrolled.px}px, ${Math.round(scrolled.ms)}ms in all  FAQ reveal played: ${rest.armed}  FAQ contents left faint: ${rest.faint}${Object.keys({ ...firstScreen.who, ...scrolled.who }).length ? "  sections: " + JSON.stringify({ ...firstScreen.who, ...scrolled.who }) : ""}`)
     if (rest.faint) worst = Math.max(worst, 1)
     await page.close()
     server.close()
