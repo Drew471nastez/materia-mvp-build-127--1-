@@ -105,7 +105,8 @@ console.log("\nFIT")
 console.log("\nEDGES")
 {
   const { parts } = page({ natural: [700, 1000], box: [400, 400] })
-  check("under half a percent off the frame's shape is a fill", parts.axisOf(0.749, 0.75) === null && parts.axisOf(0.7, 0.75) === "x" && parts.axisOf(16 / 9, 1) === "y")
+  /* Changed on purpose (r67): within 8% of the frame's shape a picture fills it (cover, under 4% off each edge); 0.7 in 3:4 is 7% off, 0.65 is 13%. */
+  check("near the frame's shape is a fill, further off are bands", parts.axisOf(0.749, 0.75) === null && parts.axisOf(0.7, 0.75) === null && parts.axisOf(0.65, 0.75) === "x" && parts.axisOf(16 / 9, 1) === "y")
   /* A dark poster, a magenta mark in its top left corner (4% of it). */
   const marked = parts.edgesOf(pixels(48, 48, (x, y) => (x < 2 && y < 2 ? [255, 0, 255, 255] : [16, 50, 79, 255])), 48, 48)
   check("a mark in a corner does not tint the band (median)", marked.l[0] === "rgb(16,50,79)" && marked.t[0] === "rgb(16,50,79)", marked.l[0])

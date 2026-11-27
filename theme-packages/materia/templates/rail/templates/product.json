@@ -4,16 +4,9 @@
       "type": "main-product",
       "settings": {
         "color_scheme": "default",
-        "section_width": "full_width",
-        "section_width_mobile": "full_width",
         "reset_spacing": true,
-        "desktop_layout": "grid_2_column",
-        "desktop_media_width": 60,
         "enable_sticky_content_on_desktop": true,
         "sticky_top_gap": 90,
-        "content_gap_desktop": 40,
-        "media_square": false,
-        "image_zoom": "open_lightbox",
         "enable_on_desktop": false,
         "enable_on_mobile": true,
         "sticky_show_image": true,
@@ -22,15 +15,7 @@
         "sticky_show_quantity": false,
         "sticky_button_radius": 4,
         "padding_top": 36,
-        "padding_bottom": 48,
-        "mobile_options": "hidden_thumbnail",
-        "mobile_slides_per_view": "1",
-        "enable_nav_dots_mobile": true,
-        "enable_custom_padding": true,
-        "padding_left_mobile": 16,
-        "padding_right_mobile": 16,
-        "padding_left_desktop": 0,
-        "padding_right_desktop": 28
+        "padding_bottom": 48
       },
       "blocks": {
         "title_1": {

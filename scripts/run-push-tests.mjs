@@ -566,6 +566,8 @@ const SUITES = [
   "tests/product-ratio-r65.test.ts",
   /* Round 66: product cards and product pages, universal (lib/storelib-theme/compat/shop-calm.ts): cards capped at 400px, the product picture fits the window, nothing moves on hover, hearts only with the header's wishlist icon, a logo at its own shape. */
   "tests/cards-universal-r66.test.ts",
+  /* Round 67: the shop parts of every theme: Wishlist (N) in a header of words, a bubble's number from its fill, the theme's own Wishlist page everywhere, product pictures that fill their frames, Recently viewed never repeating related, an About page for a website built before round 66, Redline's product page on Materia's main product section. */
+  "tests/commerce-r67.test.ts",
   "tests/admin-logic.test.ts",
   "tests/cron-reachable.test.ts",
   "tests/theme-presets.test.ts",

@@ -42,6 +42,7 @@ const POLICY_TITLES: Record<string, string> = Object.fromEntries([...POLICY_PAGE
 import type { CompatTheme } from "@/lib/storelib-theme/compat/theme"
 import type { CollectionLike } from "@/lib/storelib-theme/compat/objects"
 import { compatMenus } from "@/lib/storelib-theme/compat/menus"
+import { aboutFallbackSections } from "@/lib/admin/creator-site/about-fallback"
 import { liveNavigationEnd, liveNavigationMarkup } from "./live-navigation"
 import { creatorSitePlan } from "@/lib/sites/plan-server"
 import { siteLimits } from "@/lib/sites/plan"
@@ -811,6 +812,35 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   const sold = await soldAsked
   const blog = await blogAsked
   const creatorId = creator.creatorId
+  /*
+    AN ABOUT PAGE THE MENU LINKS TO (round 67, lib/admin/creator-site/about-fallback.ts): a website the admin console
+    built before round 66 links /pages/about and has no About page, which drew a heading over nothing. It is drawn
+    with the About page a website built now has, from what this one already holds. Nothing is written.
+  */
+  try {
+    const links: string[] = []
+    const walk = (list: { url?: string; links?: unknown[] }[] | undefined) => {
+      for (const l of list ?? []) {
+        if (typeof l.url === "string") links.push(l.url)
+        walk(l.links as { url?: string; links?: unknown[] }[] | undefined)
+      }
+    }
+    for (const m of Object.values(compatMenus(menus as never, Object.keys(pages)))) walk(m.links as never)
+    const about = aboutFallbackSections({
+      settings: settings as Record<string, unknown>,
+      themeValues: (theme.settingsValues ?? {}) as Record<string, unknown>,
+      pages: pages as never,
+      menuLinks: links,
+      products: products.map((p) => ({ id: p.id, title: typeof p.settings?.title === "string" ? p.settings.title : "", handle: typeof p.settings?.handle === "string" ? p.settings.handle : null })),
+      shopName: storeName,
+      avatar: await avatarAsked,
+      typeOf: (t) => theme.typeOf(t),
+      hasSection: (t) => theme.files[`sections/${t}.storelib`] !== undefined,
+    })
+    if (about) pages.about = about as unknown as StoredSection[]
+  } catch {
+    /* Drawn as before: the theme's plain page. */
+  }
   const site: SiteData = {
     creatorId: creator.creatorId,
     ...(partial.length ? { partial: [...new Set(partial)] } : {}),

@@ -58,6 +58,8 @@ export function installPicFit(doc: Document, win: Window): void {
     /* The whole picture in its frame, centred (a focal point means nothing when nothing is cut), on its own edge's colours. */
     style.textContent =
       "html.sl-pic-fit :is(" + FRAMES + ') img:not([data-pic-fit="off"]){object-fit:contain!important;object-position:50% 50%!important}' +
+      /* Round 67: a picture near its frame's shape fills it. */
+      "html.sl-pic-fit :is(" + FRAMES + ') img[data-pic-fit="fill"]{object-fit:cover!important}' +
       'html.sl-pic-fit img[data-pic-fit="band"]{background:var(--pf-bg)!important}'
     ;(doc.head || doc.documentElement).appendChild(style)
     doc.documentElement.classList.add("sl-pic-fit")
@@ -131,14 +133,119 @@ export function installPicFit(doc: Document, win: Window): void {
       : run(e.t, "to right") + " left top/100% 50.5% no-repeat," + run(e.b, "to right") + " left bottom/100% 50.5% no-repeat"
   }
 
-  /* Which bands a picture of natural ratio nr leaves in a box of ratio br: none when it fills it (under half a percent off). */
+  /*
+   * Which bands a picture of natural ratio nr leaves in a box of ratio br: none when it fills it. Round 67: a picture
+   * within NEAR of its frame's shape fills it (object-fit: cover), losing at most 7.4% across one side (under 4% at each edge), the trim every
+   * shop's grid makes; only a picture further off than that sits whole on its edge's colours. Before, anything over
+   * half a percent off was contained, so a 4:5 photo in a 3:4 card sat inside thin bands.
+   */
+  var NEAR = 1.08
   var axisOf = function (nr: number, br: number): "x" | "y" | null {
     if (!(nr > 0) || !(br > 0)) return null
     var k = nr / br
-    if (Math.abs(k - 1) < 0.005) return null
+    if (k <= NEAR && k >= 1 / NEAR) return null
     return k < 1 ? "x" : "y"
   }
-  w.__slPicFitParts = { edgesOf: edgesOf, backdrop: backdrop, axisOf: axisOf }
+
+  /*
+   * THE FRAME TAKES THE PICTURES' SHAPE (round 67). The owner: a card's picture sat small in a grey box (a 16:9
+   * banner in a 3:4 card covered 42% of it, a 4:3 photo 56%). A row of frames whose pictures are mostly another
+   * shape than the theme's setting takes theirs: the middle shape of the pictures in that row (a grid, a
+   * gallery), snapped to one of SHAPES, so a shop of banners gets banner cards, filled edge to edge. A row whose
+   * pictures are near its frame keeps the theme's shape. A frame on its own takes its picture's. A theme that
+   * already gives each frame its own picture's shape (frames of differing shapes) is left as it is.
+   */
+  var SHAPES = [16 / 9, 3 / 2, 4 / 3, 1, 4 / 5, 3 / 4, 2 / 3]
+  var snap = function (r: number): number {
+    var best = SHAPES[0]
+    var d = Infinity
+    for (var i = 0; i < SHAPES.length; i++) {
+      var x = Math.abs(Math.log(r / SHAPES[i]))
+      if (x < d) {
+        d = x
+        best = SHAPES[i]
+      }
+    }
+    return best
+  }
+  /* The row's shape from its pictures' ratios and the frame's own: null to keep the frame's. */
+  var shapeOf = function (ratios: number[], frame: number): number | null {
+    var list = ratios.filter(function (r) {
+      return r > 0
+    })
+    if (!list.length || !(frame > 0)) return null
+    list.sort(function (a, b) {
+      return a - b
+    })
+    var mid = list[list.length >> 1]
+    var k = mid / frame
+    if (k <= NEAR && k >= 1 / NEAR) return null
+    return snap(mid)
+  }
+  w.__slPicFitParts = { edgesOf: edgesOf, backdrop: backdrop, axisOf: axisOf, shapeOf: shapeOf, snap: snap }
+
+  /* A frame's declared shape: the theme's --aspect-ratio (3/4, 0.75) or its CSS aspect-ratio. */
+  var declared = function (frame: HTMLElement): number {
+    var v = (frame.style.getPropertyValue("--aspect-ratio") || "").trim()
+    if (!v) {
+      try {
+        v = (win.getComputedStyle(frame).aspectRatio || "").replace("auto", "").trim()
+      } catch {
+        v = ""
+      }
+    }
+    var m = v.match(/^([\d.]+)\s*(?:\/\s*([\d.]+))?$/)
+    if (!m) return 0
+    var r = Number(m[1]) / (m[2] ? Number(m[2]) : 1)
+    return r > 0 && isFinite(r) ? r : 0
+  }
+  /* The frames that are one row with this one: the nearest container holding more than one frame. */
+  var rowOf = function (frame: HTMLElement): HTMLElement[] {
+    var at = frame.parentElement
+    for (var i = 0; i < 8 && at && at !== doc.body; i++) {
+      var list = at.querySelectorAll(FRAMES)
+      if (list.length > 1) {
+        var out: HTMLElement[] = []
+        for (var j = 0; j < list.length; j++) if (!list[j].closest('[data-cover-padded="keep"]')) out.push(list[j] as HTMLElement)
+        return out
+      }
+      at = at.parentElement
+    }
+    return [frame]
+  }
+  var setShape = function (frame: HTMLElement, r: number) {
+    var v = String(Math.round(r * 10000) / 10000)
+    if (frame.getAttribute("data-pic-shape") === v) return
+    if (!frame.hasAttribute("data-pic-was")) frame.setAttribute("data-pic-was", String(declared(frame)))
+    frame.setAttribute("data-pic-shape", v)
+    if (frame.style.getPropertyValue("--aspect-ratio")) {
+      frame.style.setProperty("--aspect-ratio", v)
+      if (frame.style.getPropertyValue("--aspect-ratio-mb")) frame.style.setProperty("--aspect-ratio-mb", v)
+    } else frame.style.aspectRatio = v
+  }
+  /* Each frame in this picture's row given the row's shape, once its pictures' shapes are known. */
+  var reshape = function (img: HTMLImageElement) {
+    var frame = img.closest(FRAMES) as HTMLElement | null
+    if (!frame || frame.closest('[data-cover-padded="keep"]')) return
+    var row = rowOf(frame)
+    var own: number[] = []
+    var ratios: number[] = []
+    for (var i = 0; i < row.length; i++) {
+      var was = Number(row[i].getAttribute("data-pic-was")) || declared(row[i])
+      if (was > 0 && own.indexOf(Math.round(was * 100)) < 0) own.push(Math.round(was * 100))
+      var pics = row[i].getElementsByTagName("img")
+      var pic: HTMLImageElement | null = null
+      for (var q = 0; q < pics.length && !pic; q++) if (!pics[q].closest(".secondary-image,.hover-effect__alt") && !pics[q].classList.contains("secondary-image") && pics[q].getAttribute("data-pic-fit") !== "off") pic = pics[q]
+      if (pic && pic.naturalWidth > 0 && pic.naturalHeight > 0 && !(PADDED.test(pic.currentSrc || pic.src || "") && pic.getAttribute("data-cover-trim") !== "none")) ratios.push(pic.naturalWidth / pic.naturalHeight)
+    }
+    /* Frames of differing shapes: the theme gives each its picture's own (Adapt). */
+    if (own.length !== 1) return
+    var shape = shapeOf(ratios, own[0] / 100)
+    for (var j = 0; j < row.length; j++) {
+      if (shape) setShape(row[j], shape)
+      else if (row[j].hasAttribute("data-pic-shape")) setShape(row[j], Number(row[j].getAttribute("data-pic-was")) || own[0] / 100)
+    }
+  }
 
   var pixels = function (pic: HTMLImageElement): Edges | null {
     try {
@@ -227,6 +334,11 @@ export function installPicFit(doc: Document, win: Window): void {
     /* A padded copy is the trim's first: it loads its cut picture (painted then), or says there was nothing to cut. */
     if (PADDED.test(key) && img.getAttribute("data-cover-trim") !== "none") return
     if (sizes && !img.hasAttribute("data-pic-fit")) sizes.observe(img)
+    try {
+      reshape(img)
+    } catch {
+      /* The frame keeps the theme's shape. */
+    }
     if (key in edges) return apply(img)
     if (reading[key]) {
       reading[key].push(img)
