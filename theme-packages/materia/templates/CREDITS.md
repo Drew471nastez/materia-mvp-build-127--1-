@@ -692,7 +692,7 @@ VSL funnel (round 23, remade in round 25, round 26, round 28 and round 67): Habl
 | vslfunnel | assets/vslfunnel-desk-wide.webp | https://images.unsplash.com/photo-1713946598432-9bb1f09acf9b | Unsplash License |
 | vslfunnel | assets/vslfunnel-call.webp | https://images.unsplash.com/photo-1713946598424-815b1dc09901 | Unsplash License |
 | vslfunnel | assets/vslfunnel-notebook.webp | https://images.unsplash.com/photo-1772588627479-06ac7a264916 | Unsplash License |
-| vslfunnel | assets/vslfunnel-logo.webp | Drawn for this template (round 67: Hablo) | Storelib |
+| vslfunnel | assets/vslfunnel-logo.webp | Drawn for this template | Storelib |
 | vslfunnel | assets/vslfunnel-student-1.webp | Drawn for this template | Storelib |
 | vslfunnel | assets/vslfunnel-student-2.webp | Drawn for this template | Storelib |
 | vslfunnel | assets/vslfunnel-student-3.webp | Drawn for this template | Storelib |
@@ -1020,6 +1020,8 @@ Sound packs (round 25, redrawn in rounds 26 and 28): Lowmoth, a sample label mad
 | Template | File | Source | Licence |
 | --- | --- | --- | --- |
 | newleaf | assets/newleaf-logo.webp | Drawn for this template | Storelib |
+| newleaf | assets/newleaf-mark.webp | Drawn for this template | Storelib |
+| newleaf | assets/newleaf-how.webp | Drawn for this template | Storelib |
 | newleaf | assets/newleaf-card-exam-planner.webp | Drawn for this template | Storelib |
 | newleaf | assets/newleaf-card-lecture-notes.webp | Drawn for this template | Storelib |
 | newleaf | assets/newleaf-card-recall-cards.webp | Drawn for this template | Storelib |
