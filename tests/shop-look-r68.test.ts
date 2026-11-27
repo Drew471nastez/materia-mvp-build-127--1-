@@ -101,7 +101,8 @@ async function tryTheLook(browser: Browser, touchBrowser: Browser, base: string)
     await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
     type T = { i: number; lb: HTMLDialogElement; models: Element[]; closeView: () => void }
     const state = () => p.evaluate(() => { const t = document.querySelector("try-the-look") as unknown as T; return { i: t.i, open: t.lb.open } })
-    const closeLb = async () => { if ((await state()).open) { await p.keyboard.press("Escape"); await sleep(500) } }
+    const shut = () => p.waitForFunction(() => !(document.querySelector("try-the-look") as unknown as T).lb.open, { timeout: 4000 }).catch(() => undefined)
+    const closeLb = async () => { if ((await state()).open) { await p.keyboard.press("Escape"); await sleep(300); await shut() } }
     const fitAt = (side: number) => p.evaluate((side) => { const t = document.querySelector("try-the-look") as unknown as T; const n = t.models.length; const r = t.models[(t.i + side + n) % n].querySelector(".ttl__fit")!.getBoundingClientRect(); return [side === 0 ? r.x + r.width / 2 : side < 0 ? r.x + r.width * 0.3 : r.x + r.width * 0.7, r.y + r.height * 0.45] }, side)
     let ok = 0
     const TAPS = 16
@@ -112,6 +113,13 @@ async function tryTheLook(browser: Browser, touchBrowser: Browser, base: string)
       await sleep(450); if ((await state()).open) ok++; await closeLb()
     }
     check(`mouse at 4x CPU: a click with up to 4 px of jitter on the look in focus always opens it (${ok}/${TAPS})`, ok === TAPS)
+    {
+      const [x, y] = await fitAt(0); await p.mouse.click(x, y); await sleep(700)
+      await p.keyboard.press("Escape"); await sleep(30); await p.mouse.click(x, y); await sleep(900)
+      const again = await state()
+      check("  a click on the look while its card is still closing opens it again (the press is not lost)", again.open, again)
+      await closeLb()
+    }
     let moved = 0, opened = 0
     const DRAGS = 10
     for (let k = 0; k < DRAGS; k++) {
@@ -185,7 +193,7 @@ async function tryTheLook(browser: Browser, touchBrowser: Browser, base: string)
       await sleep(dt); await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
     }
     const fitAt = () => p.evaluate(() => { const t = document.querySelector("try-the-look") as unknown as { i: number; models: Element[] }; const r = t.models[t.i].querySelector(".ttl__fit")!.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height * 0.4] })
-    const closeLb = async () => { if ((await state()).open) { await p.evaluate(() => (document.querySelector("try-the-look") as unknown as { closeView: () => void }).closeView()); await sleep(600) } }
+    const closeLb = async () => { if ((await state()).open) { await p.evaluate(() => (document.querySelector("try-the-look") as unknown as { closeView: () => void }).closeView()); await sleep(300); await p.waitForFunction(() => !(document.querySelector("try-the-look") as unknown as { lb: HTMLDialogElement }).lb.open, { timeout: 4000 }).catch(() => undefined) } }
     let ok = 0
     for (let k = 0; k < 12; k++) { await sleep(700); const [x, y] = await fitAt(), j = rnd(0, 7); await touch([[x, y], [x + j, y + rnd(-3, 3)]], 30); await sleep(700); if ((await state()).open) ok++; await closeLb() }
     check(`touch at 4x CPU: a tap with up to 7 px of jitter always opens the look in focus (${ok}/12)`, ok === 12)
