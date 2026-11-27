@@ -831,7 +831,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
       themeValues: (theme.settingsValues ?? {}) as Record<string, unknown>,
       pages: pages as never,
       menuLinks: links,
-      products: products.map((p) => ({ id: p.id, title: typeof p.settings?.title === "string" ? p.settings.title : "", handle: typeof p.settings?.handle === "string" ? p.settings.handle : null })),
+      products: products.map((p) => ({ id: p.id, title: typeof p.settings?.title === "string" ? p.settings.title : "", handle: null })),
       shopName: storeName,
       avatar: await avatarAsked,
       typeOf: (t) => theme.typeOf(t),
