@@ -83,6 +83,15 @@ export function useCompatFilesVersion(installId: string | null): number {
   )
 }
 
+/* Each install's plain scripts by version, from the files answer (round 68, script-version.ts): their text is not read. */
+const scripts = new Map<string, Record<string, string>>()
+
+/** The version of a plain script the files answer named without its text; undefined for one it did not. */
+export function scriptVersionOf(installId: string, name: string): string | undefined {
+  const v = scripts.get(installId)?.[name]
+  return typeof v === "string" ? v : undefined
+}
+
 /* Each install's draft asset pass, from the files answer: one value per install, so an address never moves once drawn. */
 const passes = new Map<string, string>()
 
@@ -108,9 +117,11 @@ export function loadCompatFiles(installId: string): Promise<Record<string, strin
     () =>
       deadline(
         (async () => {
-          const r = await hedged(() => fetchSignedIn(() => fetchWithin(`/api/website-builder/themes/${installId}/files?compat=1`, { cache: "no-cache" }, FILES_WAIT_MS)), FILES_HEDGE_MS)
+          /* Round 68: plain scripts by their version alone (scripts=versions): 3.9 MB of Materia's 6.8 is their text, which the canvas loads by address. */
+          const r = await hedged(() => fetchSignedIn(() => fetchWithin(`/api/website-builder/themes/${installId}/files?compat=1&scripts=versions`, { cache: "no-cache" }, FILES_WAIT_MS)), FILES_HEDGE_MS)
           if (!r.ok) throw new Error(`the theme's files answered ${r.status}`)
-          const d = (await r.json()) as { files?: Record<string, string>; asset_pass?: unknown }
+          const d = (await r.json()) as { files?: Record<string, string>; asset_pass?: unknown; script_versions?: unknown }
+          if (d.script_versions && typeof d.script_versions === "object") scripts.set(installId, d.script_versions as Record<string, string>)
           /* The pass the canvas's draft asset addresses carry (lib/storelib-theme/compat/draft-version.ts), known before the first draw. */
           if (typeof d.asset_pass === "string" && d.asset_pass) passes.set(installId, d.asset_pass)
           return d.files ?? {}

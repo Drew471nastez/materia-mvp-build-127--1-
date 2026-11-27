@@ -11,6 +11,7 @@ import { GET as installGet } from "@/app/api/website-builder/themes/[installId]/
 import { GET as sectionsGet } from "@/app/api/website-builder/themes/[installId]/sections/route"
 import { GET as filesGet } from "@/app/api/website-builder/themes/[installId]/files/route"
 import { POST as publishPost } from "@/app/api/website-builder/themes/[installId]/publish/route"
+import { sectionTypesOf } from "@/lib/website-builder/source-parts"
 import * as nextCache from "../scripts/speed18/shims/next-cache"
 const out = console.log.bind(console)
 console.warn = () => {}; console.error = () => {}; console.info = () => {}
@@ -37,12 +38,19 @@ async function timed(path: string) {
   const body = await r.text()
   return { status: r.status, ms: Math.round(performance.now() - t), kb: Math.round(body.length / 1024), end: performance.now() }
 }
-async function editorOpen() {
+let TYPES = ""
+async function editorOpen(parts = true) {
   const t0 = performance.now()
   const [a, b] = await Promise.all([timed(base()), timed(`${base()}/sections?page=home`)])
   const first = Math.round(performance.now() - t0)
-  const [c, d] = await Promise.all([timed(`${base()}/files?compat=1`), timed(`${base()}/files?sources=1`)])
-  return { first, install: a, sections: b, compat: c, sources: d, canvasData: Math.round(performance.now() - t0) }
+  if (!parts) {
+    const [c, d] = await Promise.all([timed(`${base()}/files?compat=1`), timed(`${base()}/files?sources=1`)])
+    return { first, install: a, sections: b, compat: c, sources: d, canvasData: Math.round(performance.now() - t0) }
+  }
+  const [c, d] = await Promise.all([timed(`${base()}/files?compat=1`), timed(`${base()}/files?sources=1&types=${TYPES}`)])
+  const canvasData = Math.round(performance.now() - t0)
+  const r = await timed(`${base()}/files?sources=1&rest=${TYPES}`)
+  return { first, install: a, sections: b, compat: c, sources: d, rest: r, canvasData, all: Math.round(performance.now() - t0) }
 }
 async function main() {
   ;(globalThis as { __PUSH_TEST_NEXT_CACHE__?: unknown }).__PUSH_TEST_NEXT_CACHE__ = nextCache
@@ -53,11 +61,12 @@ async function main() {
   if (!stored.ok) { out("store failed", stored); return }
   INSTALL = stored.installId
   await fetch(base())
+  TYPES = sectionTypesOf((JSON.parse(await (await fetch(`${base()}/sections?page=home`)).text()) as { sections: { type: string }[] }).sections).join(",")
   net.rttMs = 25
   for (const mbps of [25, 10, 3]) {
     net.mbps = mbps; net.shared = true; net.pool = 10
     forgetHeldBlobs(); forgetSectionFileMemo(); resetCounts()
-    const q = await editorOpen()
+    const q = await editorOpen(process.env.PARTS !== "0")
     out(`quiet ${mbps}MB/s`, JSON.stringify(q), "db", (world.bytes / 1e6).toFixed(1), "MB")
     afterTasks.length = 0
     holdRequest()
@@ -67,7 +76,7 @@ async function main() {
     const tAfter = performance.now()
     const running = Promise.all(afterTasks.splice(0).map((task) => Promise.resolve().then(task).catch(() => {})))
     await new Promise((r) => setTimeout(r, Number(process.env.EDIT_AT ?? 2500)))
-    const busy = await editorOpen()
+    const busy = await editorOpen(process.env.PARTS !== "0")
     await running
     out(`after publish ${mbps}MB/s`, JSON.stringify(busy), "after work", Math.round(performance.now() - tAfter), "ms db", (world.bytes / 1e6).toFixed(1), "MB")
   }

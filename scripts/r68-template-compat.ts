@@ -5,6 +5,7 @@
 import { composeTemplateFiles } from "@/lib/themes/template-packages"
 import { convertTemplateFiles } from "@/lib/themes/template-install"
 import { partSectionPaths, partTypes, sectionTagNames } from "@/lib/website-builder/source-parts"
+import { PLAIN_SCRIPT, textVersion } from "@/lib/storelib-theme/compat/script-version"
 import { withStorelibReviewsSection } from "@/lib/storelib-theme/compat/storelib-reviews"
 
 export async function load(id: string) {
@@ -17,7 +18,17 @@ export async function load(id: string) {
   const pages = Object.fromEntries(r.theme.pages.map((p: { page_key: string; sections: unknown }) => [p.page_key, p.sections]))
   const filesAnswer = (query: string): unknown => {
     const q = new URLSearchParams(query)
-    if (q.get("compat") === "1") return { files }
+    if (q.get("compat") === "1") {
+      if (q.get("scripts") !== "versions") return { files }
+      const lean: Record<string, string> = {}
+      const versions: Record<string, string> = {}
+      for (const [p, t] of Object.entries(files)) {
+        const m = PLAIN_SCRIPT.exec(p)
+        if (m) versions[m[1]] = textVersion(t)
+        else lean[p] = t
+      }
+      return { files: lean, script_versions: versions }
+    }
     if (q.get("sources") === "1") {
       /* As app/api/website-builder/themes/[installId]/files/route.ts answers the two parts. */
       const types = partTypes(q.get("types"))

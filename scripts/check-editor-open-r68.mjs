@@ -99,6 +99,8 @@ try {
   await page.setViewport({ width, height: width < 700 ? 800 : 860, deviceScaleFactor: 1 })
   const cdp = await page.createCDPSession()
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: CPU })
+  /* As after an Add from the templates in this browser (lib/website-builder/compat-hint.ts); HINT=0 for another device. */
+  if (process.env.HINT !== "0") await page.evaluateOnNewDocument(() => { try { localStorage.setItem("wb-compat:probe-install", "1") } catch { /* none */ } })
   await page.evaluateOnNewDocument(() => {
     const w = window
     w.__r68 = { tasks: [], marks: {} }

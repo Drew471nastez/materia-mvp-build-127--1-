@@ -52,7 +52,7 @@ import { BlockPickerHandle, BlockPickerProvider, type BlockPickerRequest } from 
 import { CanvasBlockInserter, canvasAnchorAt, type CanvasBlockPlace } from "@/components/website-builder/editor/canvas-block-insert"
 import { insertIndexFor } from "@/lib/website-builder/block-gaps"
 import { ARRIVAL_MS, ARRIVAL_SCROLL_MS, afterAddSettles, arrivalPlaying, measureSectionTops, playArrival, sheetCoverAbovePeek } from "@/lib/website-builder/section-arrival"
-import { SectionLibrary, deferPreviewsForChange, holdPreviewsForAi } from "@/components/website-builder/editor/section-library"
+import { SectionLibrary, deferPreviewsForChange, holdLibraryForCanvas, holdPreviewsForAi, noteCanvasPainted } from "@/components/website-builder/editor/section-library"
 import { SectionsList } from "@/components/website-builder/editor/sections-list"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { hapticTap } from "@/lib/native-bridge"
@@ -2853,12 +2853,13 @@ const SOURCES_REST_IDLE_MS = 2_000
  * together within SOURCES_OPEN_MS, asked again after a failure or a 5xx (round 68). Null for an answer that says
  * there is nothing to read (4xx): the caller reads them whole.
  */
-async function readSourcesPart(installId: string, part: string): Promise<SourcesAnswer | null> {
+async function readSourcesPart(installId: string, part: string, signal?: AbortSignal): Promise<SourcesAnswer | null> {
   return retrying(
     () =>
       deadline(
         (async () => {
-          const r = await fetchSignedIn(() => fetchWithin(`/api/website-builder/themes/${installId}/files?sources=1${part}`, { cache: "no-cache" }, SOURCES_OPEN_MS))
+          if (signal?.aborted) throw new Error("the sources read was let go")
+          const r = await fetchSignedIn(() => fetchWithin(`/api/website-builder/themes/${installId}/files?sources=1${part}`, { cache: "no-cache", signal }, SOURCES_OPEN_MS))
           if (r.status >= 500 || r.status === 429) throw new Error(`the sources answered ${r.status}`)
           if (!r.ok) return null
           return (await r.json()) as SourcesAnswer
@@ -3091,7 +3092,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /** Raised when config/settings_data.json was saved in the code editor: the values are read again. */
   const [settingsFileVersion, setSettingsFileVersion] = useState(0)
   /** Also hands back what it loaded, for a caller that needs it this tick: see handleWriteDone. */
-  const loadStorelibSources = useCallback(async (opts?: { hold?: boolean; first?: boolean }): Promise<Record<string, string> | null> => {
+  const loadStorelibSources = useCallback(async (opts?: { hold?: boolean; first?: boolean; signal?: AbortSignal }): Promise<Record<string, string> | null> => {
     try {
       /* Round 27: asked every time, but what the browser already has comes back as a 304 with no body (the route's ETag, lib/website-builder/revalidated-json.ts): 21 MB on a Materia theme. */
       /*
@@ -3100,7 +3101,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         tests/editor-open-r68.test.ts measured 19.7s for this read at 3 MB/s).
       */
       const d = opts?.first
-        ? await readSourcesPart(installId, "")
+        ? await readSourcesPart(installId, "", opts.signal)
         : await (async () => {
           const res = await fetch(`/api/website-builder/themes/${installId}/files?sources=1`, { cache: "no-cache", signal: AbortSignal.timeout(PUSH_READ_MS) })
           return res.ok ? ((await res.json()) as SourcesAnswer) : null
@@ -3119,7 +3120,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       /* the bundled sources still render; the next save reloads */
       return null
     } finally {
-      setStorelibSourcesRead(true)
+      /* Let go for the page's part (loadSourcesInParts): that read says when the sources are in. */
+      if (!opts?.signal?.aborted) setStorelibSourcesRead(true)
     }
   }, [installId])
   /*
@@ -3178,18 +3180,32 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     a few small files and are asked for at once, as before.
   */
   const sourcesAsked = useRef(false)
+  /** The whole read asked at once for a website not yet known to be imported: let go once it is known to be (round 68). */
+  const wholeRead = useRef<AbortController | null>(null)
   useEffect(() => {
     if (knownCompatInstall(installId)) {
       warmCompatCode()
       return
     }
     sourcesAsked.current = true
-    void loadStorelibSources({ first: true })
+    /* Not known to be imported yet: read whole, and let go if the first read says it is (the effect below). */
+    const ctl = new AbortController()
+    wholeRead.current = ctl
+    void loadStorelibSources({ first: true, signal: ctl.signal }).finally(() => {
+      if (wholeRead.current === ctl) wholeRead.current = null
+    })
   }, [installId, loadStorelibSources])
   useEffect(() => {
     if (!openSettled) return
     const imported = importedTheme.current || knownCompatInstall(installId)
     if (imported) warmCompat(installId)
+    /* Round 68: an imported theme found by the first read, with its whole read still on its way: the page's part instead. */
+    const whole = wholeRead.current
+    if (imported && whole && !whole.signal.aborted) {
+      whole.abort()
+      wholeRead.current = null
+      sourcesAsked.current = false
+    }
     if (sourcesAsked.current) return
     sourcesAsked.current = true
     /* Round 68: an imported theme's page first, then the rest (loadSourcesInParts). */
@@ -10706,6 +10722,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   */
   const [compatPainted, setCompatPainted] = useState(false)
   const onCompatPainted = useCallback(() => setCompatPainted(true), [])
+  /* Round 68: an imported theme's library is drawn ahead once the canvas has its page, not beside its first draw (section-library.tsx noteCanvasPainted). */
+  useLayoutEffect(() => {
+    holdLibraryForCanvas()
+    return () => noteCanvasPainted()
+  }, [])
   const compatFirstPaint = !compatPainted && !!compatOf(settingsDraft)
   useEffect(() => {
     if (!compatFirstPaint || canvasBusy) return
@@ -10713,6 +10734,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     return () => window.clearTimeout(id)
   }, [compatFirstPaint, canvasBusy])
   const canvasLoaderUp = canvasBusy || compatFirstPaint
+  /* The canvas shows its page (any theme): what was held for it may run. */
+  useEffect(() => {
+    if (!loading && !canvasLoaderUp) noteCanvasPainted()
+  }, [loading, canvasLoaderUp])
   /*
     THE EDITOR OPENING, TIMED for /admin/performance (lib/perf/mark): from
     the screen opening (the page load, or the tap that opened it) to the

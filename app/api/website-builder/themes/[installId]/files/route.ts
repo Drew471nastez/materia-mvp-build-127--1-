@@ -18,6 +18,7 @@ import { filesRevision, revisionJson, unchangedSince } from "@/lib/website-build
 import { createHash } from "node:crypto"
 import { fileCols, isRefRow, refsOn, resolveRef, resolveRefs, withRefColumn, type MaybeRef } from "@/lib/website-builder/theme-file-refs"
 import { partSectionPaths, partTypes, sectionTagNames } from "@/lib/website-builder/source-parts"
+import { PLAIN_SCRIPT, textVersion } from "@/lib/storelib-theme/compat/script-version"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -157,10 +158,13 @@ async function handleGET(req: Request, { params }: Params) {
       files-revision.ts). Unchanged: a 304 before a file is read.
     */
     const pass = draftAssetPass(installId)
-    const revision = await filesRevision(supabase!, installId, ["shopify/%"], `compat:${createHash("sha1").update(pass).digest("base64url")}`)
+    /* Round 68: the editor's read names each plain script by its version, not its text (lib/storelib-theme/compat/script-version.ts). */
+    const leanScripts = searchParams.get("scripts") === "versions"
+    const revision = await filesRevision(supabase!, installId, ["shopify/%"], `compat:${createHash("sha1").update(pass).digest("base64url")}${leanScripts ? ":scripts" : ""}`)
     const unchanged = unchangedSince(req, revision)
     if (unchanged) return unchanged
     const files: Record<string, string> = {}
+    const scriptVersions: Record<string, string> = {}
     const refCols = withRefColumn("path, content, draft_content", await refsHere())
     for (let from = 0; from < 10_000; from += 1000) {
       const { data, error: readErr } = await supabase!
@@ -184,13 +188,16 @@ async function handleGET(req: Request, { params }: Params) {
       for (const r of rows) {
         if (/^shopify\/locales\/(?!.*\.default(\.schema)?\.json$)/.test(r.path)) continue
         const text = r.draft_content ?? r.content
-        if (typeof text === "string" && text !== "" && !text.startsWith("base64:")) files[r.path] = text
+        if (typeof text !== "string" || text === "" || text.startsWith("base64:")) continue
+        const script = leanScripts ? PLAIN_SCRIPT.exec(r.path) : null
+        if (script) scriptVersions[script[1]] = textVersion(text)
+        else files[r.path] = text
       }
       if (read.length < 1000) break
     }
     /* The pass the canvas's draft asset addresses carry (lib/storelib-theme/compat/draft-version.ts): only for whoever may read these files. */
     /* Round 27: megabytes on a Materia theme; asked again with what the browser has, unchanged files are a 304 and nothing is sent (revalidated-json.ts). */
-    return revisionJson(req, revision, { files, asset_pass: pass })
+    return revisionJson(req, revision, leanScripts ? { files, asset_pass: pass, script_versions: scriptVersions } : { files, asset_pass: pass })
   }
 
   if (searchParams.get("sources") === "1") {

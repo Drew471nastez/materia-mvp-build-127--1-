@@ -72,7 +72,8 @@ import { reportLoadProblem, reportSealed } from "@/lib/website-builder/load-guar
 import { siteCommerce } from "@/lib/website-builder/site-commerce"
 import { withPageFacts, type PageFacts } from "@/lib/storelib-theme/compat/product-facts"
 import { CanvasProblem, PageOutline } from "@/components/website-builder/canvas-problem"
-import { draftAssetPassOf, draftAssetVersion, forgetCompatFiles, loadCompatFiles } from "./compat-files"
+import { draftAssetPassOf, draftAssetVersion, forgetCompatFiles, loadCompatFiles, scriptVersionOf } from "./compat-files"
+import { textVersion } from "@/lib/storelib-theme/compat/script-version"
 import { CANVAS_ORIGIN, canvasFrameUrl } from "@/lib/website-builder/canvas-origin"
 import { editorSpares } from "@/lib/nav/prefetch-policy"
 import { shopImageName } from "@/lib/website-builder/picture-address"
@@ -336,7 +337,7 @@ function themeOfFiles(installId: string, files: Record<string, string>, values: 
   return themeOfInstall(files, values, {
     /* By what the file holds (THEME CODE THAT CHANGED): a push that changes it is a new address in the page. */
     /* The draft with its pass (lib/storelib-theme/compat/draft-version.ts): the frame has no origin and sends no session, so the address carries it. */
-    assetUrl: (name) => media[name] ?? `/api/site-theme/assets/${installId}/${draftAssetVersion(installId)}/${encodeURIComponent(name)}?v=${assetVersionIn(files, name)}`,
+    assetUrl: (name) => media[name] ?? `/api/site-theme/assets/${installId}/${draftAssetVersion(installId)}/${encodeURIComponent(name)}?v=${assetVersionIn(files, name, installId)}`,
     assetText: (name) => files[`shopify/assets/${name}`] ?? null,
     /* "shopify://shop_images/logo.png": the theme's own picture of that name where it brought one, as the live site draws it (lib/website-builder/compat-site.ts). */
     imageUrl: (v) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : media[shopImageName(v) ?? ""] ?? ""),
@@ -365,15 +366,14 @@ function themeOfFiles(installId: string, files: Record<string, string>, values: 
   two of every slider, scroll listener and timer it starts.
 */
 const assetVersions = new WeakMap<object, Map<string, string>>()
-export function assetVersionIn(files: Record<string, string>, name: string): string {
+export function assetVersionIn(files: Record<string, string>, name: string, installId?: string): string {
   let byName = assetVersions.get(files)
   if (!byName) assetVersions.set(files, (byName = new Map()))
   let v = byName.get(name)
   if (v === undefined) {
-    const text = files[`shopify/assets/${name}`] ?? files[`shopify/assets/${name}.liquid`] ?? ""
-    let h = 0x811c9dc5
-    for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193)
-    v = `${(h >>> 0).toString(36)}${text.length.toString(36)}`
+    const text = files[`shopify/assets/${name}`] ?? files[`shopify/assets/${name}.liquid`]
+    /* A script the editor's read handed by its version alone (round 68, script-version.ts): the same value its text gives. */
+    v = text === undefined ? ((installId ? scriptVersionOf(installId, name) : undefined) ?? textVersion("")) : textVersion(text)
     byName.set(name, v)
   }
   return v
