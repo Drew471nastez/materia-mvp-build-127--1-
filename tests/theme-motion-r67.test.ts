@@ -68,8 +68,9 @@ console.log("\nAn edit never plays an entrance again\n")
 
 console.log("\nPopups open and close with no flash\n")
 {
-  check("open: each part fades to its own resting opacity", /\{ opacity: 0 \}, \{ opacity: cardTo \}/.test(popups) && /\{ opacity: 0 \}, \{ opacity: shadeTo \}/.test(popups))
-  check("close: from its resting opacity", /\{ opacity: cardFrom \}, \{ opacity: 0 \}/.test(popups) && /\{ opacity: shadeFrom \}, \{ opacity: 0 \}/.test(popups))
+  /* Changed on purpose (r68): an open starts from what the screen shows (0, or the shade it takes over), a close from what was reached; both still end at the section's own resting opacity. */
+  check("open: each part fades to its own resting opacity", /\{ opacity: boxed \? cardTo : cardFrom \}, \{ opacity: cardTo \}/.test(popups) && /\{ opacity: f, '--mp-fade': '0' \}, \{ opacity: shadeTo, '--mp-fade': '1' \}/.test(popups))
+  check("close: from its resting opacity", /\{ opacity: cardFrom \}, \{ opacity: boxed \? cardFrom : 0 \}/.test(popups) && /\{ opacity: shadeFrom, '--mp-fade': '0' \}, \{ opacity: 0, '--mp-fade': '1' \}/.test(popups))
   check("never to 1 past it", !/\{ opacity: 0 \}, \{ opacity: 1 \}/.test(popups) && !/\{ opacity: 1 \}, \{ opacity: 0 \}/.test(popups))
   check("resting opacity read from the section's own style", /function restOpacity\(el\)/.test(popups))
 }
@@ -107,7 +108,8 @@ console.log("\nFor the theme files stores already have (theme-motion-fix.ts)\n")
   const calls: unknown[] = []
   class El { rest = "0.5"; inPopup = true; closest(sel: string) { return sel === "[data-mp-motion]" && this.inPopup ? {} : null } animate(k: unknown) { calls.push(k); return {} } }
   const win = { Element: El, getComputedStyle: (e: El) => ({ opacity: e.rest }) }
-  const body = THEME_MOTION_FIX_HEAD.match(/<script data-sl-popup-rest>([\s\S]*)<\/script>/)![1]
+  /* Changed on purpose (r68): a second script follows it in the head; this one ends at its own </script>. */
+  const body = THEME_MOTION_FIX_HEAD.match(/<script data-sl-popup-rest>([\s\S]*?)<\/script>/)![1]
   new Function("window", "__name", body)(win, (f: unknown) => f)
   new Function("window", "__name", body)(win, (f: unknown) => f)
   const e = new El()

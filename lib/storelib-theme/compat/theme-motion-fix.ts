@@ -172,7 +172,7 @@ const REVEAL_FIX_CSS = [
   "@keyframes revealPartR68{from{opacity:var(--reveal-from-opacity,.2);transform:translate3d(0,12px,0)}to{opacity:1;transform:none}}",
   "@keyframes revealUnmaskR68{from{opacity:.6;clip-path:inset(4% 3% 4% 3%)}to{opacity:1;clip-path:inset(0)}}",
   "@keyframes revealSettleR68{from{transform:scale(1.04)}to{transform:none}}",
-  "@keyframes revealWordR68{from{opacity:var(--reveal-from-opacity,.2);transform:translate3d(0,.25em,0)}to{opacity:1;transform:none}}",
+  "@keyframes revealWordR68{from{opacity:var(--reveal-from-opacity,.2);transform:translate3d(0,min(.25em,10px),0)}to{opacity:1;transform:none}}",
   `${OLD} .shopify-section.scroll-trigger:not(.reveal-parts),${OLD} [id*="footer"].scroll-trigger,${OLD} .scroll-trigger:has(>footer),${OLD} .scroll-trigger:has(>.footer){animation:none!important;opacity:1!important}`,
   `${OLD} [id*="footer"].scroll-trigger :is([data-reveal-part],[data-reveal-zoom],.mt-word){animation:none!important}`,
   `${OLD} motion-element{--animation-duration:450ms}`,
