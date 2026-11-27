@@ -162,6 +162,9 @@ function Desktop() {
 function Phone() {
   const [open, setOpen] = React.useState(true)
   ;(globalThis as unknown as { __setOpen: (v: boolean) => void }).__setOpen = setOpen
+  /* Round 69 (scripts/check-section-ai-r69.mjs): the selection can be changed, or cleared, on a phone too. */
+  const [selected, setSelected] = React.useState<string | undefined>("s2")
+  w.__setSelected = setSelected
   return (
     <>
       <div
@@ -178,7 +181,7 @@ function Phone() {
           sections={SECTIONS}
           settings={SETTINGS}
           store={STORE}
-          selectedSectionId="s2"
+          selectedSectionId={selected}
           onRunStart={onRunStart}
           onUndoRun={onUndoRun}
           onBusyChange={noop}
