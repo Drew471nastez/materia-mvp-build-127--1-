@@ -2909,7 +2909,60 @@ export const CANVAS_BRIDGE = `
     person scrolling, and ends it; so does the builder, or two seconds.
   */
   var holding = null;
+  /*
+    ROUND 69: THE SWITCH NEVER HIDES THE HEADER. The page keeps the place
+    under the eye through a switch by scrolling (above), and the page is
+    taller on a phone: Materia's "Show on scroll up" header read that scroll
+    as the person's, going down, and slid away as the canvas changed size
+    ("it hides the header section really abruptly"). New theme files no
+    longer do (snippets/header-sticky-controller.liquid, settleUntil); for
+    the files a store already has, a header bar that was showing when the
+    switch began is not let go of until the switch is over, or the person
+    scrolls, taps or types.
+  */
+  var barsHeld = null;
+  var holdBars = function (on) {
+    if (on) {
+      if (barsHeld) { clearTimeout(barsHeld.t); barsHeld.t = 0; return; }
+      if (typeof MutationObserver !== "function") return;
+      var shown = Array.prototype.filter.call(document.querySelectorAll(".shopify-section[data-storelib-sticky]"), function (x) { return !x.classList.contains("shopify-section-header-hidden"); });
+      if (!shown.length) return;
+      /* Held in place too: the switch lays the page out inside its own frames, so a class can be seen before it is taken off. */
+      if (!document.querySelector("style[data-sl-bar-held]")) {
+        var hs = document.createElement("style");
+        hs.setAttribute("data-sl-bar-held", "");
+        hs.setAttribute("data-sl", "");
+        hs.textContent = ".shopify-section.shopify-section.shopify-section-header-hidden[data-sl-bar-held][data-sl-bar-held]:is(#_,[data-sl-bar-held]){transform:none!important;pointer-events:auto!important}";
+        document.head.appendChild(hs);
+      }
+      shown.forEach(function (x) { x.setAttribute("data-sl-bar-held", ""); });
+      var keepShown = function () {
+        shown.forEach(function (x) { if (x.classList.contains("shopify-section-header-hidden")) x.classList.remove("shopify-section-header-hidden"); });
+        if (document.documentElement.hasAttribute("data-header-hidden")) document.documentElement.removeAttribute("data-header-hidden");
+      };
+      var mo = new MutationObserver(keepShown);
+      shown.forEach(function (x) { mo.observe(x, { attributes: true, attributeFilter: ["class"] }); });
+      var letGo = function () {
+        if (!barsHeld) return;
+        clearTimeout(barsHeld.t);
+        mo.disconnect();
+        keepShown();
+        shown.forEach(function (x) { x.removeAttribute("data-sl-bar-held"); });
+        removeEventListener("wheel", letGo, true);
+        removeEventListener("touchstart", letGo, true);
+        removeEventListener("keydown", letGo, true);
+        barsHeld = null;
+      };
+      addEventListener("wheel", letGo, { capture: true, passive: true });
+      addEventListener("touchstart", letGo, { capture: true, passive: true });
+      addEventListener("keydown", letGo, true);
+      barsHeld = { t: 0, letGo: letGo };
+      return;
+    }
+    if (barsHeld && !barsHeld.t) barsHeld.t = setTimeout(barsHeld.letGo, 700);
+  };
   var holdView = function (on) {
+    holdBars(!!on);
     if (holding) { holding.stop(); holding = null; }
     /* The theme's own scripts through the switch, and a moment after it (canvas-bridge.ts, CANVAS_SWITCH). */
     if (window.__slSwitch) window.__slSwitch(!!on);

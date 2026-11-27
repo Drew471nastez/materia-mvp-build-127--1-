@@ -189,6 +189,13 @@
          changes, and a class left behind by any script can never freeze the
          bar. Crossing the desktop / phone width starts afresh.{% endcomment %}
       if (s.fresh) { s.fresh = false; s.lastY = s.turnY = y; s.dir = 0; s.hidden = false; }
+      {%- comment %}The page changed width (the builder's phone, desktop and full screen,
+         a turned phone) or was drawn again: the scroll that moves with it is
+         the page's, not the shopper's, and never hides or shows the bar. A
+         height change alone (a phone's address bar) is still a scroll.{% endcomment %}
+      const now = performance.now();
+      if (s.vw !== innerWidth) { if (s.vw != null) s.settleUntil = now + 500; s.vw = innerWidth; }
+      const settling = now < (s.settleUntil || 0);
       {
         if (mode === 'on-scroll-up') {
           {%- comment %}Hides once its place has scrolled away, on a real change of
@@ -203,7 +210,8 @@
              phone menu focuses the hamburger, which froze the bar.{% endcomment %}
           const held = header.matches(':hover') && !!header.querySelector('.menu-parent.visible');
           if (s.reveal) { s.reveal = false; s.hidden = false; s.turnY = y; }
-          if (!away || held || y <= 0) s.hidden = false;
+          if (settling) { s.dir = 0; s.turnY = y; if (!away || y <= 0) s.hidden = false; }
+          else if (!away || held || y <= 0) s.hidden = false;
           else if (dir > 0 && y - s.turnY > 12) s.hidden = true;
           else if (dir < 0 && s.turnY - y > 8) s.hidden = false;
         } else {
@@ -226,7 +234,6 @@
         s.hidden = false;
         s.slide = null;
       }
-      const now = performance.now();
       if (s.wasHidden && !s.hidden && !still.matches) s.slide = {t0: now, dur: SHOW_MS};
       else if (s.hidden) s.slide = null;
       s.wasHidden = s.hidden;
@@ -333,7 +340,7 @@
     const editorRedraw = () => {
       measured = true;
       maxScroll = Infinity;
-      if (state) { state.markerDoc = null; state.stackTop = null; }
+      if (state) { state.markerDoc = null; state.stackTop = null; state.settleUntil = performance.now() + 500; }
       schedule();
     };
     document.addEventListener('storelib:settings-change', editorRedraw);
