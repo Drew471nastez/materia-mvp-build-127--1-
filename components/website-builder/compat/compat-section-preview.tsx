@@ -167,11 +167,7 @@ export function CompatPreviewProvider({
     if (kept && kept.key === key && kept.sources === sources) return kept.theme
     const media = assetAddresses(rows)
     try {
-      const made = themeOfInstall(rows, settings ?? {}, {
-        assetUrl: (name) => media[name] ?? `/api/site-theme/assets/${installId}/${draftAssetVersion(installId)}/${encodeURIComponent(name)}`,
-        assetText: (name) => rows[`shopify/assets/${name}`] ?? null,
-        imageUrl: (v) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : ""),
-      })
+      const made = themeOfInstall(rows, settings ?? {}, libraryThemeOptions(installId, rows, draftAssetVersion, media))
       keptThemes.set(files, { key, sources, theme: made })
       return made
     } catch {
@@ -204,6 +200,15 @@ export function CompatPreviewProvider({
   const heightsId = useMemo(() => `${installId}:${rows ? filesTag(rows, settings) : "none"}`, [installId, rows, settings])
   const value = useMemo(() => ({ theme, page, installId, heightsId, failed: failed || (!!files && !theme), rows }), [theme, page, installId, heightsId, failed, files, rows])
   return <CompatPreviewContext.Provider value={value}>{children}</CompatPreviewContext.Provider>
+}
+
+/** The addresses a card's theme draws its files and pictures from. Exported so the audit (scripts/check-library-thumbs-r69.ts) makes the theme the cards do. */
+export function libraryThemeOptions(installId: string, rows: Record<string, string>, version: (installId: string) => string, media: Record<string, string> = assetAddresses(rows)) {
+  return {
+    assetUrl: (name: string) => media[name] ?? `/api/site-theme/assets/${installId}/${version(installId)}/${encodeURIComponent(name)}`,
+    assetText: (name: string) => rows[`shopify/assets/${name}`] ?? null,
+    imageUrl: (v: string) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : ""),
+  }
 }
 
 /** A short tag of a theme's files and settings: each file's name, size, and its first and last words (textTag). */
