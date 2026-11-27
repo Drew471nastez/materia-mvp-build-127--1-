@@ -109,7 +109,7 @@ function main() {
   console.log("\nDIGITAL")
   const top = json(join(TEMPLATES, "digital", "sections", "header-group.json")).sections.top_bar.settings
   const barBg = settings("digital").color_schemes[top.color_scheme].settings.background
-  check("the announcement bar is black with white text", luminanceOf(barBg) < 0.01 && top.custom_text_color === "#ffffff", barBg)
+  check("the announcement bar is black with white text", luminanceOf(barBg) < 0.01 && top.custom_text_color === "#ffffff" && top.enable_custom_colors === true, barBg)
 
   console.log("\nVSL")
   const vslCopy = copyOf("vslfunnel")

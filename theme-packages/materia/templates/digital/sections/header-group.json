@@ -25,6 +25,7 @@
         "custom_bg_color": "",
         "transition_speed": 700,
         "custom_link_color": "",
+        "enable_custom_colors": true,
         "custom_text_color": "#ffffff",
         "custom_arrow_color": "",
         "show_arrows_mobile": false,
