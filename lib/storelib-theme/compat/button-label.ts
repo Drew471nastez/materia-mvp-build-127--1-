@@ -135,6 +135,9 @@ const PAIRS: { bg: string; fg: string; follow: string[] }[] = [
   { bg: "--btn-primary-hover-bg-color", fg: "--btn-primary-hover-color", follow: ["--btn-primary-hover-bg-color-graident", "--btn-primary-hover-border-color"] },
   { bg: "--btn-secondary-bg-color", fg: "--btn-secondary-color", follow: ["--btn-secondary-border-color"] },
   { bg: "--btn-secondary-hover-bg-color", fg: "--btn-secondary-hover-color", follow: ["--btn-secondary-hover-border-color"] },
+  /* The header's own button (header.liquid, written on its style attribute) */
+  { bg: "--hs-cta-bg", fg: "--hs-cta-fg", follow: ["--hs-cta-bd"] },
+  { bg: "--hs-cta-hbg", fg: "--hs-cta-hfg", follow: ["--hs-cta-hbd"] },
 ]
 
 const WHITE: Rgb = [255, 255, 255]
@@ -152,31 +155,61 @@ export function fixPair(fill: string, label: string): [string, string] | null {
 }
 
 const value = (body: string, name: string): string | null => {
-  const m = body.match(new RegExp(`${name}\\s*:\\s*(#[0-9a-fA-F]{3,6})\\s*(?:!important\\s*)?[;}]`))
+  const m = body.match(new RegExp(`(?:^|[\\s;{"'])${name}\\s*:\\s*(#[0-9a-fA-F]{3,6})\\s*(?:!important\\s*)?(?=[;}"']|$)`))
   return m ? m[1] : null
 }
 
 const setValue = (body: string, name: string, from: string, to: string): string =>
-  body.replace(new RegExp(`(${name}\\s*:\\s*)${from}(?=\\s*(?:!important\\s*)?[;}])`, "gi"), `$1${to}`)
+  body.replace(new RegExp(`((?:^|[\\s;{"'])${name}\\s*:\\s*)${from}(?=\\s*(?:!important\\s*)?(?:[;}"']|$))`, "gi"), `$1${to}`)
 
-/** Every CSS rule body in the page that sets a button pair, with the pair fixed where it needs to be. */
-export function fixButtonLabels(html: string): string {
-  if (!html.includes("--btn-")) return html
-  return html.replace(/\{[^{}<]*--btn-(?:primary|secondary)[^{}<]*\}/g, (body) => {
-    let out = body
-    for (const p of PAIRS) {
-      const fill = value(out, p.bg)
-      const label = value(out, p.fg)
-      if (!fill || !label) continue
-      const fixed = fixPair(fill, label)
-      if (!fixed) continue
-      const [nextFill, nextLabel] = fixed
-      if (nextFill.toLowerCase() !== fill.toLowerCase()) {
-        out = setValue(out, p.bg, fill, nextFill)
-        for (const f of p.follow) out = setValue(out, f, fill, nextFill)
-      }
-      if (nextLabel.toLowerCase() !== label.toLowerCase()) out = setValue(out, p.fg, label, nextLabel)
+/** Old default fills a button rule's :hover sets on its own (no colour beside it): the old fill to the new. */
+const LEGACY_HOVER_FILLS: Record<string, string> = Object.fromEntries(Object.entries(LEGACY_PAIRS).map(([k, v]) => [k.split("|")[0], v[0]]))
+
+function fixVars(body: string): string {
+  let out = body
+  for (const p of PAIRS) {
+    const fill = value(out, p.bg)
+    const label = value(out, p.fg)
+    if (!fill || !label) continue
+    const fixed = fixPair(fill, label)
+    if (!fixed) continue
+    const [nextFill, nextLabel] = fixed
+    if (nextFill.toLowerCase() !== fill.toLowerCase()) {
+      out = setValue(out, p.bg, fill, nextFill)
+      for (const f of p.follow) out = setValue(out, f, fill, nextFill)
     }
-    return out
+    if (nextLabel.toLowerCase() !== label.toLowerCase()) out = setValue(out, p.fg, label, nextLabel)
+  }
+  return out
+}
+
+/** A button's own rule written with plain declarations (a section's inline style: `.x__btn { background: #f07a5c; color: #13292c; }`). */
+function fixPlainRule(selector: string, body: string): string {
+  if (!/btn|button/i.test(selector)) return body
+  const bgName = value(body, "background") ? "background" : value(body, "background-color") ? "background-color" : null
+  if (!bgName) return body
+  const fill = value(body, bgName) as string
+  const label = value(body, "color")
+  if (!label) {
+    const next = /:hover|:focus/.test(selector) ? LEGACY_HOVER_FILLS[fill.toLowerCase()] : undefined
+    return next ? setValue(body, bgName, fill, next) : body
+  }
+  const fixed = fixPair(fill, label)
+  if (!fixed) return body
+  let out = body
+  if (fixed[0].toLowerCase() !== fill.toLowerCase()) out = setValue(out, bgName, fill, fixed[0])
+  if (fixed[1].toLowerCase() !== label.toLowerCase()) out = setValue(out, "color", label, fixed[1])
+  return out
+}
+
+/** Every button colour pair in the page (scheme variables, the header button's style attribute, a button's own rule), fixed where it needs to be. */
+export function fixButtonLabels(html: string): string {
+  if (!/--btn-|--hs-cta-|btn|button/i.test(html)) return html
+  let out = html.replace(/\{[^{}<]*--btn-(?:primary|secondary)[^{}<]*\}/g, fixVars)
+  out = out.replace(/style="[^"]*--hs-cta-bg[^"]*"/g, fixVars)
+  out = out.replace(/(^|[}\s>])([^{}<>]*(?:btn|button)[^{}<>]*)\{([^{}<]*)\}/gi, (m, lead: string, selector: string, body: string) => {
+    const next = fixPlainRule(selector, body)
+    return next === body ? m : `${lead}${selector}{${next}}`
   })
+  return out
 }

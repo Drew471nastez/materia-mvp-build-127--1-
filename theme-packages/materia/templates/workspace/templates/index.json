@@ -24,8 +24,8 @@
         "padding_bottom": 40,
         "ink": "#13292c",
         "muted": "#4b5a5c",
-        "accent": "#f07a5c",
-        "accent_hover": "#e4654a",
+        "accent": "#c4482b",
+        "accent_hover": "#a93c23",
         "line_color": "#dde5e3",
         "background": "#fbfbf9"
       }
