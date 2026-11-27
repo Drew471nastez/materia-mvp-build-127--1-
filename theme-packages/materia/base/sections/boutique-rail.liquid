@@ -187,12 +187,14 @@
   #shopify-section-{{ sid }} .brail__pic { position: absolute; left: 50%; top: 26px; width: var(--front-box); height: var(--g-h); translate: -50% 0; pointer-events: none; perspective: 900px; }
   #shopify-section-{{ sid }} .brail__pic img, #shopify-section-{{ sid }} .brail__pic svg {
     position: absolute; inset: 0; margin: auto; width: 100%; height: 100%; object-fit: contain; object-position: 50% 0;
-    backface-visibility: hidden; transition: transform var(--turn) var(--ease), opacity var(--turn) var(--ease);
+    backface-visibility: hidden; transition: transform var(--turn) var(--ease), opacity calc(var(--turn) * .4) ease;
     filter: drop-shadow(0 10px 12px rgb(0 0 0 / .14));
   }
   #shopify-section-{{ sid }} .brail__g--sample { cursor: default; }
   #shopify-section-{{ sid }} .brail__side { transform: rotateY(0deg); }
-  #shopify-section-{{ sid }} .brail__front { transform: rotateY(-90deg); opacity: 0; }
+  /* Storelib (r67): a shorter turn (50 degrees each side, with the two views swapping quickly) instead of a full quarter turn,
+     where both views showed half turned and see-through at once and the garment looked grey mid-turn. */
+  #shopify-section-{{ sid }} .brail__front { transform: rotateY(-50deg); opacity: 0; }
   /* Product photos with a background hang as tidy cards: a narrow crop on the rail, the whole picture when it turns. */
   #shopify-section-{{ sid }} .brail__pic--card img { inset: 4px 0 auto; margin: 0 auto; object-position: 50% 50%; border-radius: 6px; background: #fff; filter: none; box-shadow: 0 14px 26px -14px rgb(0 0 0 / .45), 0 0 0 1px rgb(0 0 0 / .04); }
   #shopify-section-{{ sid }} .brail__pic--card .brail__side { width: calc(var(--side-box) * .94); height: calc(var(--side-box) * 1.38); object-fit: cover; }
@@ -200,7 +202,7 @@
 
   /* Hover (and keyboard focus): the garment turns to face you, its neighbours slide aside, the hanger swings. */
   @media (hover: hover) and (pointer: fine) {
-    #shopify-section-{{ sid }} .brail__item.is-hot .brail__side { transform: rotateY(90deg); opacity: 0; }
+    #shopify-section-{{ sid }} .brail__item.is-hot .brail__side { transform: rotateY(50deg); opacity: 0; }
     #shopify-section-{{ sid }} .brail__item.is-hot .brail__front { transform: rotateY(0deg); opacity: 1; }
     #shopify-section-{{ sid }} .brail__item.is-hot { z-index: 2; position: relative; }
     #shopify-section-{{ sid }} .brail__track:has(.is-hot) .brail__item:has(~ .is-hot) { transform: translateX(calc(-1 * var(--shift))); }
@@ -209,15 +211,14 @@
     #shopify-section-{{ sid }} .brail__item.is-hot .brail__pic { translate: -50% -6px; }
   }
   #shopify-section-{{ sid }} .brail__tag { transition: translate var(--turn) var(--ease); }
-  /* The swing itself is a small damped pendulum run in script (see push()), so it eases out naturally and follows the pointer's direction. */
-  #shopify-section-{{ sid }} .brail__g { will-change: rotate; }
+  /* The swing itself is a small damped pendulum run in script (see push()): only the garment pointed at swings, once. */
   #shopify-section-{{ sid }} .brail__pic { transition: translate var(--turn) cubic-bezier(.22, 1, .36, 1); }
 
-  /* Garments drop onto the rail when it comes into view, and when a collection tab is opened */
-  #shopify-section-{{ sid }} [data-drop] .brail__g { opacity: 0; transform: translateY(-48px); }
-  #shopify-section-{{ sid }} [data-drop].is-in .brail__g { opacity: 1; transform: none; transition: opacity .5s ease, transform .9s cubic-bezier(.34, 1.4, .64, 1); transition-delay: calc(var(--i, 0) * 55ms); }
-  /* ...and lift off it when another tab is opened */
-  #shopify-section-{{ sid }} .brail__track.is-leaving .brail__g { opacity: 0; transform: translateY(-28px); transition: opacity .26s ease, transform .32s var(--ease); transition-delay: calc(min(var(--i, 0), 8) * 18ms); }
+  /* Garments settle onto the rail once, when it first comes into view: a short fall with no bounce.
+     Storelib (r67): switching Fleece and Jersey no longer replays it; the rail cross-fades (switchTo). */
+  #shopify-section-{{ sid }} [data-drop] .brail__g { opacity: 0; transform: translateY(-14px); }
+  #shopify-section-{{ sid }} [data-drop].is-in .brail__g { opacity: 1; transform: none; transition: opacity .4s ease-out, transform .5s var(--ease); transition-delay: calc(min(var(--i, 0), 8) * 30ms); }
+  #shopify-section-{{ sid }} [data-drop].is-in.is-dropped .brail__g { transition-delay: 0s; }
 
   /* Arrows (desktop, when the rail is wider than the screen) */
   #shopify-section-{{ sid }} .brail__arrow { position: absolute; top: calc(26px + var(--g-h) / 2); z-index: 4; translate: 0 -50%; display: none; place-items: center; width: 46px; height: 46px; border-radius: 50%; border: 0; background: color-mix(in srgb, var(--color-background) 85%, transparent); color: var(--color-heading); box-shadow: 0 4px 18px rgb(0 0 0 / .12); cursor: pointer; transition: opacity .25s ease, transform .25s ease; }
@@ -250,10 +251,12 @@
   /* Storelib: a garment's own size on the rail (Garment block > Size on the rail) */
   #shopify-section-{{ sid }} .brail__pic { height: calc(var(--g-h) * var(--k, 1)); }
   /* Storelib: a garment that has just come back from the focus view lands facing you, then turns to its side */
-  #shopify-section-{{ sid }} .brail__item.is-facing .brail__side { transform: rotateY(90deg); opacity: 0; }
+  #shopify-section-{{ sid }} .brail__item.is-facing .brail__side { transform: rotateY(50deg); opacity: 0; }
   #shopify-section-{{ sid }} .brail__item.is-facing .brail__front { transform: rotateY(0deg); opacity: 1; }
   /* Storelib: the garment in the focus view leaves its hanger empty while it is there */
   #shopify-section-{{ sid }} .brail__item.is-lifted .brail__pic { visibility: hidden; }
+  /* Storelib (r67): a garment put into its facing pose while hidden takes it at once, so it lands exactly as the copy that flew back */
+  #shopify-section-{{ sid }} .brail__item.is-snap .brail__pic, #shopify-section-{{ sid }} .brail__item.is-snap .brail__pic img { transition: none !important; }
   #shopify-section-{{ sid }} .brail__dots { display: inline-flex; gap: 5px; padding: 6px 10px; border-radius: 99px; background: color-mix(in srgb, var(--color-text) 6%, transparent); }
   #shopify-section-{{ sid }} .brail__dots:empty { display: none; }
   #shopify-section-{{ sid }} .brail__dot { width: 5px; height: 5px; border-radius: 99px; background: color-mix(in srgb, var(--color-text) 25%, transparent); transition: width .3s var(--ease), background-color .3s ease; }
@@ -343,6 +346,7 @@
   #shopify-section-{{ sid }} .bf__cart[hidden] { display: none; }
   #shopify-section-{{ sid }} .bf__with { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
   #shopify-section-{{ sid }} .bf__with[hidden] { display: none; }
+  #shopify-section-{{ sid }} [data-f-pairs] { display: grid; gap: 8px; }
   #shopify-section-{{ sid }} .bf__with-h { margin: 0; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; opacity: .65; }
   #shopify-section-{{ sid }} .bf__pair { display: grid; grid-template-columns: 56px minmax(0, 1fr) 40px; align-items: center; gap: 14px; padding: 8px 10px 8px 8px; border: 1px solid var(--color-border); border-radius: var(--card-radius, 8px); }
   #shopify-section-{{ sid }} .bf__pair img { width: 56px; height: 64px; object-fit: contain; border-radius: 4px; background: color-mix(in srgb, var(--color-text) 5%, var(--color-background)); }
@@ -373,7 +377,7 @@
     #shopify-section-{{ sid }} .bf__nav--prev:hover { transform: translateX(-4px); } #shopify-section-{{ sid }} .bf__nav--next:hover { transform: translateX(4px); }
   }
   @keyframes brailSpin { to { rotate: 360deg; } }
-  html.brail-lock { overflow: hidden; scrollbar-gutter: stable; }
+  html.brail-lock { overflow: hidden; }
   @media (prefers-reduced-motion: reduce) {
     #shopify-section-{{ sid }} .brail * { transition: none !important; animation: none !important; }
     #shopify-section-{{ sid }} [data-drop] .brail__g { opacity: 1; transform: none; }
@@ -760,14 +764,15 @@
             const btn = li.querySelector('.brail__g');
             const data = li.querySelector('[data-g-data]');
             li._data = data ? JSON.parse(data.textContent) : null;
-            btn.addEventListener('pointerenter', () => { if (fine.matches) this.hot(li, this._vx || 1); });
+            btn.addEventListener('pointerenter', () => { if (fine.matches && !this.busy()) this.hot(li, this._vx || 1); });
             btn.addEventListener('pointerdown', () => this.preload(li));
-            btn.addEventListener('focus', () => this.hot(li));
+            btn.addEventListener('focus', () => { if (!this._refocus) this.hot(li); });
             btn.addEventListener('click', () => this.open(i, btn));
           });
           track.addEventListener('pointermove', e => { if (this._lx != null) { const v = e.clientX - this._lx; if (v) this._vx = v; } this._lx = e.clientX; });
-          track.addEventListener('pointerleave', () => { this._lx = null; this.hot(null); });
-          track.addEventListener('focusout', e => { if (!track.contains(e.relatedTarget)) this.hot(null); });
+          // While the focus view is open (or opening) the rail stays as it was clicked: the garment comes back to the same pose.
+          track.addEventListener('pointerleave', () => { this._lx = null; if (!this.busy()) this.hot(null); });
+          track.addEventListener('focusout', e => { if (!track.contains(e.relatedTarget) && !this.busy()) this.hot(null); });
           track.addEventListener('scroll', () => this.queueSync(), { passive: true });
           if ('ResizeObserver' in window) new ResizeObserver(() => this.queueSync()).observe(track);
         });
@@ -779,9 +784,16 @@
         // Collection tabs
         this.tabs = [...this.querySelectorAll('[data-tab]')];
         this.tabs.forEach(tab => tab.addEventListener('click', () => this.switchTo(tab)));
+        // The other rail's garments are fetched before they are needed (lazy pictures in a hidden rail never load on their
+        // own), so the switch fades in whole garments rather than pictures still arriving. Pointing at a tab asks at once.
+        const warm = () => this.tracks.forEach(t => { if (t.hidden) t.querySelectorAll('.brail__side').forEach(im => { im.loading = 'eager'; }); });
+        this.tabs.forEach(tab => ['pointerenter', 'pointerdown', 'focus'].forEach(ev => tab.addEventListener(ev, warm, { once: true })));
+        const idle = () => (window.requestIdleCallback ? requestIdleCallback(warm, { timeout: 2500 }) : setTimeout(warm, 1200));
+        if (this.tabs.length) { if (document.readyState === 'complete') idle(); else addEventListener('load', idle, { once: true }); }
         // Drop onto the rail when it comes into view (at once when the editor redraws it, or with reduced motion)
         if (this.track && this.track.hasAttribute('data-drop')) {
-          const show = () => { this._seen = true; this.track.classList.add('is-in'); };
+          // Every rail is marked dropped once the first has settled, so a tab opened later shows its garments at once (it cross-fades as a whole).
+          const show = () => { this._seen = true; this.track.classList.add('is-in'); setTimeout(() => this.tracks.forEach(t => t.classList.add('is-in', 'is-dropped')), 900); };
           if (this.closest('[data-mt-redrawn]') || this.calm() || !('IntersectionObserver' in window)) show();
           else { const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { show(); io.disconnect(); } }, { threshold: 0.2 }); io.observe(this); }
         } else this._seen = true;
@@ -795,6 +807,7 @@
         });
       }
       calm() { return matchMedia('(prefers-reduced-motion: reduce)').matches; }
+      busy() { return !!(this._opening || (this.dialog && this.dialog.open)); }
       setTrack(track) {
         this.track = track; this.items = track ? track._items : [];
         if (this.dots) this.dots.innerHTML = this.items.length > 1 ? this.items.map(() => '<span class="brail__dot"></span>').join('') : '';
@@ -813,37 +826,50 @@
           [...this.dots.children].forEach((d, k) => d.classList.toggle('is-on', k === idx));
         }
       }
-      // Open another collection: the garments lift off, the new ones drop on, the background cross-fades.
+      // Open another collection (r67): the rail on show fades out (140 ms), the other fades in (260 ms) in the same
+      // place, opacity only, so the section never changes height and nothing drops, bounces or flashes. A second
+      // press during the fade turns it round from where it is.
       switchTo(tab, instant) {
         const next = this.tracks.find(t => t.dataset.track === tab.dataset.tab);
-        if (!next || next === this.track) return;
+        if (!next || next === (this._target || this.track)) return;
         this.tabs.forEach(b => b.setAttribute('aria-pressed', String(b === tab)));
         const n = tab.dataset.tab, own = this.querySelector('[data-bg="' + n + '"]');
         this.querySelectorAll('[data-bg]').forEach(bg => bg.classList.toggle('is-on', own ? bg === own : bg.dataset.bg === '0'));
         if (this.button && this.button.hasAttribute('data-follow-tab') && tab.dataset.url) this.button.href = tab.dataset.url;
         this.hot(null);
-        const prev = this.track, token = (this._switch = (this._switch || 0) + 1);
+        const cur = this.track, token = (this._switch = (this._switch || 0) + 1);
+        const at = cur ? +getComputedStyle(cur).opacity : 1;
+        (this._fade || []).forEach(a => a.cancel()); this._fade = [];
+        const calm = instant || this.calm() || !cur || !cur.animate;
+        // Back to the rail that was still fading out: it fades back in from where it is.
+        if (next === cur) {
+          this._target = null;
+          if (!calm && at < 1) this._fade = [cur.animate([{ opacity: at }, { opacity: 1 }], { duration: Math.round(260 * (1 - at)) + 1, easing: 'cubic-bezier(.2, 0, 0, 1)' })];
+          return;
+        }
+        this._target = next;
         const enter = () => {
           if (token !== this._switch) return;
-          prev.hidden = true; prev.classList.remove('is-leaving');
+          this._target = null;
+          this.tracks.forEach(t => { if (t !== next) t.hidden = true; t.classList.add('is-in', 'is-dropped'); });
           next.hidden = false; next.scrollLeft = 0; this.setTrack(next);
-          if (next.hasAttribute('data-drop') && this._seen && !instant && !this.calm()) { next.classList.remove('is-in'); void next.offsetWidth; next.classList.add('is-in'); }
-          else { next.classList.add('is-in'); if (!instant && !this.calm() && next.animate) next.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 350, easing: 'ease-out' }); }
+          if (calm) return;
+          this._fade = [next.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'cubic-bezier(.2, 0, 0, 1)' })];
         };
-        if (instant || this.calm()) return enter();
-        prev.classList.add('is-leaving');
-        setTimeout(enter, 300);
+        if (calm) return enter();
+        const out = cur.animate([{ opacity: at }, { opacity: 0 }], { duration: Math.round(140 * at) + 1, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' });
+        this._fade = [out];
+        out.finished.then(() => { if (token !== this._switch) return; enter(); out.cancel(); }, () => {});
       }
       hot(li, vx = 1) {
         if (this._hot === li) return;
         const dir = vx < 0 ? -1 : 1, speed = Math.min(1.25, Math.max(0.6, Math.abs(vx) / 12));
-        if (this._hot) { this._hot.classList.remove('is-hot'); this.push(this._hot, 0.35 * dir); }
+        if (this._hot) this._hot.classList.remove('is-hot');
         this._hot = li;
         if (li) {
           li.classList.add('is-hot');
+          // Storelib (r67): only the garment pointed at swings, once; its neighbours and the one left behind keep still.
           this.push(li, speed * dir);
-          // Neighbours slide aside, so their garments trail a little behind the hanger.
-          this.push(li.previousElementSibling, -0.3); this.push(li.nextElementSibling, 0.3);
           this.preload(li);
         }
         // The name takes the caption's place in the same cell, on one line: nothing under the rail moves.
@@ -858,7 +884,8 @@
       // The focus view's picture, fetched as soon as a garment is pointed at or pressed.
       preload(li) {
         const d = li && li._data; if (!d || li._pre) return;
-        li._pre = [d.front].filter(Boolean).map(src => { const im = new Image(); im.decoding = 'async'; im.src = src; return im; });
+        // Decoded ahead too (r67), so the focus view never draws it for the first time in the middle of the flight.
+        li._pre = [d.front].filter(Boolean).map(src => { const im = new Image(); im.decoding = 'async'; im.src = src; if (im.decode) im.decode().catch(() => {}); return im; });
       }
       // Damped pendulum: a gentle push, then smaller and smaller swings until it hangs still (about 2.5 s).
       push(li, kick) {
@@ -866,7 +893,7 @@
         if (this._swing == null) this._swing = this.calm() ? 0 : parseFloat(getComputedStyle(this).getPropertyValue('--swing')) || 0;
         if (!this._swing) return;
         const s = g._sw || (g._sw = { a: 0, v: 0 });
-        s.v -= kick * this._swing * 6.6;
+        s.v -= kick * this._swing * 4.4;
         (this._sw || (this._sw = new Set())).add(g);
         if (!this._swRaf) { this._swT = performance.now(); this._swRaf = requestAnimationFrame(t => this.swingTick(t)); }
       }
@@ -886,6 +913,19 @@
         this.f('prev').addEventListener('click', () => this.step(-1));
         this.f('next').addEventListener('click', () => this.step(1));
         d.addEventListener('cancel', e => { e.preventDefault(); this.close(); });
+        // Storelib (r67): the view opens in the top layer as a popover, so the page is not made inert (which restyled
+        // every element on the page, about a third of a second on a slow phone, before the first frame). Escape and
+        // Tab are kept inside it here instead.
+        document.addEventListener('keydown', e => {
+          if (!d.open || this._modal) return;
+          if (e.key === 'Escape') { e.preventDefault(); this.close(); return; }
+          if (e.key !== 'Tab') return;
+          const list = [...d.querySelectorAll('button:not([disabled]):not([hidden]), a[href]:not([hidden]), input, [tabindex="0"]')].filter(x => x.offsetParent || x.getClientRects().length);
+          if (!list.length) return;
+          const first = list[0], last = list[list.length - 1], inside = d.contains(document.activeElement);
+          if (e.shiftKey && (!inside || document.activeElement === first)) { e.preventDefault(); last.focus(); }
+          else if (!e.shiftKey && (!inside || document.activeElement === last)) { e.preventDefault(); first.focus(); }
+        });
         // A press on the background itself (outside the picture and the words) closes it too.
         d.addEventListener('click', e => { if ((e.target === d || e.target.classList.contains('bf')) && matchMedia('(min-width: 990px)').matches) this.close(); });
         d.addEventListener('keydown', e => { if (e.target.closest('input')) return; if (e.key === 'ArrowLeft') this.step(-1); if (e.key === 'ArrowRight') this.step(1); });
@@ -931,38 +971,68 @@
         if (this.dialog.open || this._opening) return;
         this._opening = true;
         this.from = from;
+        // Where the garment hangs, read before anything changes: the flight starts exactly there.
+        this._start = this.hangs(li);
         this.index = null; this.show(i, 0);
         // The picture the rail already shows is decoded, so it flies at once. Only a picture still loading is waited for, briefly.
         const front = this.f('front');
         if (!(front.complete && front.naturalWidth) && front.decode) await Promise.race([front.decode().catch(() => {}), new Promise(r => setTimeout(r, 160))]);
         this.dialog.classList.remove('is-closing');
-        this.dialog.showModal();
+        this.reveal();
         this.dialog.scrollTop = 0;
         this._opening = false;
         // The page's scroll is locked once the garment has landed: locking it re-lays out the whole page, which
         // would hold up the first frame of the flight. While it flies, the view itself holds the wheel and the finger (overscroll-behavior).
+        // Storelib (r67): the lock takes away exactly the scroll bar's width and gives it back as padding, so the page
+        // keeps its width (a reserved gutter made it 15 px narrower where scroll bars overlay, re-laid out every
+        // carousel on the page and shifted the rail sideways when the view closed).
         await this.motion();
+        const sb = innerWidth - document.documentElement.clientWidth;
         if (this.dialog.open && !this.dialog.classList.contains('is-closing')) document.documentElement.classList.add('brail-lock');
+        if (sb > 0 && document.documentElement.classList.contains('brail-lock')) document.documentElement.style.paddingRight = sb + 'px';
+      }
+      // In the top layer without making the page inert (a popover); where popovers are not supported, a modal dialog.
+      reveal() {
+        const d = this.dialog;
+        this._modal = !(d.showPopover && HTMLElement.prototype.hasOwnProperty('popover'));
+        if (this._modal) { d.showModal(); return; }
+        if (!d.hasAttribute('popover')) d.setAttribute('popover', 'manual');
+        d.setAttribute('aria-modal', 'true');
+        d.show(); try { d.showPopover(); } catch (_) {}
+        this.f('close').focus({ preventScroll: true });
+      }
+      conceal() {
+        const d = this.dialog;
+        try { if (d.matches(':popover-open')) d.hidePopover(); } catch (_) {}
+        d.close();
       }
       close() {
         const d = this.dialog; if (!d || !d.open || d.classList.contains('is-closing')) return;
         d.classList.add('is-closing');
         const li = this.items[this.index];
-        // The garment goes back to its own hanger: bring it into the rail's view first (the page is still).
+        // The garment goes back to its own hanger: bring it into the rail's view first (the page is still), and give it
+        // its facing pose at once while it is hidden, so the copy that flies back lands on exactly what the rail shows.
         if (li && this.track) {
           const r = li.getBoundingClientRect(), t = this.track.getBoundingClientRect();
           if (r.left < t.left || r.right > t.right) this.track.scrollLeft += (r.left + r.width / 2) - (t.left + t.width / 2);
-          li.classList.add('is-facing');
+          li.classList.add('is-snap', 'is-facing'); void li.offsetWidth; li.classList.remove('is-snap');
         }
         const end = this._endClose = () => {
           if (this._endClose !== end) return; this._endClose = null;
-          d.close(); d.classList.remove('is-closing');
-          this.clearMotion();
+          // The copy and the garment it lands on are the same picture in the same place: swapped in one frame.
+          // Focus goes back to the garment's button (closing a dialog may also put it there); that is not a hover, so it does not turn it.
+          this._refocus = true;
           this.items.forEach(x => x.classList.remove('is-lifted'));
-          document.documentElement.classList.remove('brail-lock');
-          // Landed facing you; it turns back to its side unless the pointer is on it.
-          if (li) requestAnimationFrame(() => requestAnimationFrame(() => li.classList.remove('is-facing')));
-          this.from && this.from.focus({ preventScroll: true });
+          this.conceal(); d.classList.remove('is-closing');
+          this.clearMotion();
+          if (this.from && this.from.isConnected) this.from.focus({ preventScroll: true });
+          this._refocus = false;
+          // Then it turns back to its side, and its neighbours slide home, together (the theme's turn speed, transform and opacity).
+          requestAnimationFrame(() => {
+            if (li) li.classList.remove('is-facing');
+            this.hot(null);
+            document.documentElement.classList.remove('brail-lock'); document.documentElement.style.removeProperty('padding-right');
+          });
         };
         this.closeMotion(li).then(end);
       }
@@ -972,28 +1042,47 @@
         this.dialog.querySelectorAll('.bf__info, .bf__close, .bf__nav, .bf__dots, .bf__inav, .bf__media, [data-f-bg], .bf__info > *').forEach(el => { el.style.removeProperty('opacity'); el.style.removeProperty('transform'); });
         this.dialog.querySelectorAll('.bf__fly').forEach(x => x.remove());
         this.f('media').classList.remove('is-flying');
+        this.items.forEach(x => { const pic = x.querySelector('.brail__pic'); if (pic) pic.style.removeProperty('opacity'); });
       }
       /*
-        Open: the background fades in (240 ms) while the garment flies from its hanger to the picture
-        area (380 ms) and the words rise in just behind it. Close is its own, shorter movement (about
-        220 ms) that starts at once from wherever things are, also mid-open: the words and the
-        background fade, and the garment flies back onto its hanger. Transform and opacity only.
+        Storelib (r67), simpler and measured at 4x CPU:
+        Open: the background fades in (240 ms) while the garment flies from its hanger to the picture area (380 ms);
+        the words and buttons fade up together, once, just behind it. A garment that was facing you flies as it is;
+        one hanging side on (a phone) cross-fades into its front view on the hanger as it lifts, so nothing pops.
+        Close: starts at once from wherever things are, also mid-open. The words go (140 ms), the background fades
+        (260 ms) and the garment flies back onto its hanger (300 ms), lands facing you exactly where the copy is, and
+        then turns to its side at the theme's turn speed. Transform and opacity only.
       */
       motion() {
         this.clearMotion(); this._run = null;
         const d = this.dialog, li = this.items[this.index];
-        if (li) li.classList.add('is-lifted');
-        if (this.calm() || !d.animate) return Promise.resolve();
+        if (this.calm() || !d.animate) { if (li) li.classList.add('is-lifted'); return Promise.resolve(); }
         const E = 'cubic-bezier(.22, 1, .36, 1)';
-        const parts = [...d.querySelectorAll('.bf__info > :not([hidden]), .bf__close, .bf__nav:not([hidden])')];
         const anims = [this.f('bg').animate([{ opacity: 0 }, { opacity: 1 }], { duration: 240, easing: 'cubic-bezier(.2, 0, 0, 1)', fill: 'both' })];
-        const fly = this.flight(li);
-        if (fly) anims.push(fly.el.animate(fly.kf, { duration: 380, easing: E, fill: 'both' }));
-        else anims.push(this.f('media').animate([{ opacity: 0, transform: 'translateY(16px)' }, { opacity: 1, transform: 'none' }], { duration: 300, easing: E, fill: 'both' }));
-        parts.forEach((el, k) => anims.push(el.animate([{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 260, delay: 40 + 16 * Math.min(k, 6), easing: E, fill: 'both' })));
+        const fly = this.flight(li, null, this._start);
+        if (fly) {
+          anims.push(fly.el.animate(fly.kf, { duration: 380, easing: E, fill: 'both' }));
+          if (fly.facing) li.classList.add('is-lifted');
+          else {
+            const pic = li.querySelector('.brail__pic'), fade = pic.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: 'linear', fill: 'forwards' });
+            anims.push(fade);
+            fade.finished.then(() => { if (this.items[this.index] === li && !d.classList.contains('is-closing')) li.classList.add('is-lifted'); }, () => {});
+          }
+        } else {
+          if (li) li.classList.add('is-lifted');
+          anims.push(this.f('media').animate([{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'none' }], { duration: 300, easing: E, fill: 'both' }));
+        }
+        const rise = { duration: 280, delay: 80, easing: E, fill: 'both' };
+        [...d.querySelectorAll('.bf__info, .bf__close, .bf__nav:not([hidden])')].forEach(el => anims.push(el.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], rise)));
         this._anims = anims;
         const run = this._run = {};
-        return Promise.all(anims.map(a => a.finished.catch(() => {}))).then(() => { if (this._run === run) this.clearMotion(); });
+        return Promise.all(anims.map(a => a.finished.catch(() => {}))).then(() => {
+          if (this._run !== run) return;
+          // The copy hands over to the picture in the view in one frame (same picture, same place), then goes.
+          this.clearMotion();
+          if (li && this.items[this.index] === li) li.classList.add('is-lifted');
+          this.sharpen();
+        });
       }
       closeMotion(li) {
         const d = this.dialog;
@@ -1003,15 +1092,24 @@
         (this._anims || []).forEach(a => { try { a.commitStyles(); } catch (_) {} a.cancel(); });
         this._anims = []; this._run = null;
         const parts = [...d.querySelectorAll('.bf__info, .bf__close, .bf__nav:not([hidden]), .bf__dots, .bf__inav')];
-        const out = { duration: 120, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' };
-        const anims = [this.f('bg').animate([{ opacity: 0 }], { duration: 200, easing: 'cubic-bezier(.4, 0, .2, 1)', fill: 'forwards' })];
+        const out = { duration: 140, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' };
+        const anims = [this.f('bg').animate([{ opacity: 0 }], { duration: 260, easing: 'cubic-bezier(.4, 0, .2, 1)', fill: 'forwards' })];
         parts.forEach(el => anims.push(el.animate([{ opacity: 0 }], out)));
         // The garment flies back when the first picture (the one that hangs) is showing; another picture just fades with the rest.
         const back = li && this.slideAt() === 0 ? this.flight(li, flying) : null;
-        if (back) anims.push(back.el.animate(back.el === flying ? [back.kf[0]] : [back.kf[1], back.kf[0]], { duration: 220, easing: 'cubic-bezier(.3, 0, .2, 1)', fill: 'forwards' }));
-        else { if (flying) flying.remove(); anims.push(this.f('media').animate([{ opacity: 0 }], out)); if (li) li.classList.remove('is-lifted'); }
+        if (back) {
+          if (li) { const pic = li.querySelector('.brail__pic'); if (pic) pic.style.removeProperty('opacity'); }
+          anims.push(back.el.animate(back.el === flying ? [{ transform: back.kf[0].transform, opacity: 1 }] : [{ transform: back.kf[1].transform, opacity: 1 }, { transform: back.kf[0].transform, opacity: 1 }], { duration: 300, easing: 'cubic-bezier(.4, 0, .2, 1)', fill: 'forwards' }));
+        } else { if (flying) flying.remove(); anims.push(this.f('media').animate([{ opacity: 0 }], out)); if (li) li.classList.remove('is-lifted'); }
         this._anims = anims;
         return Promise.all(anims.map(a => a.finished.catch(() => {})));
+      }
+      // Where the garment's picture is drawn on the rail now (the front view's box, as it would face you).
+      hangs(li) {
+        const pic = li && li.querySelector('.brail__pic'), rimg = li && (li.querySelector('.brail__front') || li.querySelector('img'));
+        if (!pic || !rimg || !rimg.naturalWidth) return null;
+        const pr = pic.getBoundingClientRect();
+        return this.drawn({ left: pr.left + rimg.offsetLeft, top: pr.top + rimg.offsetTop, width: rimg.offsetWidth, height: rimg.offsetHeight }, rimg);
       }
       // Where the garment's picture is drawn: its box, the picture's own size and how it is placed (object-fit: contain).
       drawn(box, img) {
@@ -1020,29 +1118,37 @@
         const top = /(^|\s)0(%|px)?$/.test(getComputedStyle(img).objectPosition.trim());
         return { x: box.left + (box.width - w) / 2, y: box.top + (top ? 0 : (box.height - h) / 2), w, h };
       }
-      // The flight: a copy of the focus picture between where the garment hangs and the picture area.
-      // keep: the copy already flying (a close that starts mid-open flies it back from where it is).
-      flight(li, keep) {
+      // The flight: a copy of the focus picture between where the garment hangs and the picture area (FLIP: the copy is
+      // laid out at the picture area's size and moved with one transform). keep: the copy already flying.
+      flight(li, keep, start) {
         const front = this.f('front'); if (!li || !front.naturalWidth) return null;
-        const pic = li.querySelector('.brail__pic'), rimg = li.querySelector('.brail__front') || li.querySelector('img');
-        if (!pic || !rimg || !rimg.naturalWidth) return null;
-        const pr = pic.getBoundingClientRect();
-        const from = this.drawn({ left: pr.left + rimg.offsetLeft, top: pr.top + rimg.offsetTop, width: rimg.offsetWidth, height: rimg.offsetHeight }, rimg);
+        const from = start || this.hangs(li);
         const to = this.drawn(front.getBoundingClientRect(), front);
         if (!from || !to || from.y + from.h < 0 || from.y > innerHeight || from.x + from.w < 0 || from.x > innerWidth) { if (keep) keep.remove(); return null; }
         let el = keep;
         if (!el) {
           el = document.createElement('img'); el.className = 'bf__fly'; el.alt = '';
           // The rail's own picture is already decoded: the copy draws on its first frame.
-          el.decoding = 'async'; el.src = front.currentSrc || front.src;
+          el.decoding = 'sync'; el.src = front.currentSrc || front.src;
           el.style.width = to.w + 'px'; el.style.height = to.h + 'px';
           this.dialog.appendChild(el);
         }
         this.f('media').classList.add('is-flying');
         const s = from.h / to.h, fx = from.x + from.w / 2 - (to.w * s) / 2;
-        const facing = li.classList.contains('is-hot') || li.classList.contains('is-facing');
-        const kf = [{ transform: 'translate(' + fx + 'px,' + from.y + 'px) scale(' + s + ')', opacity: facing ? 1 : 0.35 }, { transform: 'translate(' + to.x + 'px,' + to.y + 'px) scale(1)', opacity: 1 }];
-        return { el, kf };
+        const facing = li.classList.contains('is-hot') && matchMedia('(hover: hover) and (pointer: fine)').matches || li.classList.contains('is-facing');
+        // Side on, the copy starts clear and takes over as the garment on the hanger fades: a cross-fade in place, then the flight.
+        const kf = [{ transform: 'translate(' + fx + 'px,' + from.y + 'px) scale(' + s + ')', opacity: facing ? 1 : 0 }, { transform: 'translate(' + to.x + 'px,' + to.y + 'px) scale(1)', opacity: 1 }];
+        if (!facing) kf.splice(1, 0, { offset: 0.3, opacity: 1 });
+        return { el, kf, facing };
+      }
+      // The view's sharper picture, swapped in only once it is decoded, so the picture never blanks for a frame.
+      sharpen() {
+        const li = this.items[this.index], g = this.g, front = this.f('front'); if (!li || !g || !g.front || front.src === g.front) return;
+        this.preload(li);
+        const hi = li._pre && li._pre[0], at = this.index; if (!hi) return;
+        const swap = () => { if (this.index === at && hi.naturalWidth && !this.f('media').classList.contains('is-flying')) front.src = g.front; };
+        const ready = () => (hi.decode ? hi.decode().then(swap, () => {}) : swap());
+        if (hi.complete) ready(); else hi.addEventListener('load', ready, { once: true });
       }
       // The pictures of this garment: the first is the focus picture (and the flight's), the rest load as they come into view.
       slides(g) {
@@ -1092,7 +1198,8 @@
         const ready = li._pre && li._pre[0] && li._pre[0].complete && li._pre[0].naturalWidth;
         front.src = ready || !railFront || !railFront.currentSrc ? (g.front || '') : railFront.currentSrc;
         front.alt = g.title;
-        if (!ready && g.front && front.src !== g.front) { this.preload(li); const hi = li._pre[0], at = i; const swap = () => { if (this.index === at && hi.naturalWidth) front.src = g.front; }; if (hi.complete) swap(); else hi.addEventListener('load', swap, { once: true }); }
+        // Moving between garments in the view: the sharper one comes in once it is decoded (during an open, after the flight lands).
+        if (!ready && moving) this.sharpen();
         this.slides(g);
         if (moving) {
           this.f('slides').animate([{ opacity: 0, transform: 'translateX(' + (dir * 48) + 'px)' }, { opacity: 1, transform: 'none' }], { duration: 300, delay: 30, easing: E, fill: 'backwards' });
@@ -1108,7 +1215,8 @@
             fs.innerHTML = '<legend></legend><div class="bf__vals"></div>'; fs.querySelector('legend').textContent = name;
             vals.forEach(val => {
               const b = document.createElement('button'); b.type = 'button'; b.className = 'bf__val'; b.textContent = val; b.dataset.k = k; b.dataset.val = val;
-              b.addEventListener('click', () => { const want = this.variant.options.slice(); want[k] = val; this.variant = g.variants.find(v => v.options.every((o, j) => o === want[j])) || this.variant; this.paint(); });
+              // The exact combination when it exists; otherwise the closest one with this value (available first), so a press always selects.
+              b.addEventListener('click', () => { this.variant = this.pick(g, k, val); this.paint(); });
               fs.querySelector('.bf__vals').appendChild(b);
             });
             box.appendChild(fs);
@@ -1127,13 +1235,20 @@
         const at = list.indexOf(i);
         [list[(at + 1) % list.length], list[(at - 1 + list.length) % list.length]].forEach(k => this.preload(this.items[k]));
       }
+      pick(g, k, val) {
+        const want = this.variant.options.slice(); want[k] = val;
+        const exact = g.variants.find(v => v.options.every((o, j) => o === want[j]));
+        if (exact) return exact;
+        const score = v => v.options.reduce((n, o, j) => n + (o === want[j] ? 1 : 0), 0) + (v.available ? 0.5 : 0);
+        return g.variants.filter(v => v.options[k] === val).sort((a, b) => score(b) - score(a))[0] || this.variant;
+      }
       // Storelib: the pieces it is worn with (Garment block > Wear it with), each with its own add button.
       pairs(g) {
         const wrap = this.f('with'), box = this.f('pairs'); if (!wrap || !box) return;
         box.replaceChildren();
         (g.with || []).forEach(w => {
           const row = document.createElement('div'); row.className = 'bf__pair';
-          row.innerHTML = '<img alt="" width="56" height="64" loading="lazy"><div style="min-width:0"><a></a><span></span></div><button type="button" class="bf__plus"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>';
+          row.innerHTML = '<img alt="" width="56" height="64" decoding="async"><div style="min-width:0"><a></a><span></span></div><button type="button" class="bf__plus"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>';
           const img = row.querySelector('img'); if (w.image) img.src = w.image; else img.remove();
           const a = row.querySelector('a'); a.href = w.url; a.textContent = w.title;
           row.querySelector('span').textContent = w.price + (w.option ? ' · ' + w.option : '');
