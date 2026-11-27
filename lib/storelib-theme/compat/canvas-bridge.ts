@@ -3813,7 +3813,16 @@ export const CANVAS_SWITCH = `
     });
     take.forEach(function (item) {
       var s = item.section;
-      s.style.containIntrinsicHeight = Math.round(item.height) + "px";
+      /*
+        "auto" first (round 69): a section already resting far from the screen
+        (A SECTION FAR FROM THE SCREEN RESTS, data-sl-rest) keeps the size it
+        last had only while its intrinsic size says auto. Held at a plain
+        length it lost it, and let go it was zero tall: after one switch to
+        the phone the page was 2,264px long instead of 6,891px, everything
+        below the screen gone until it was scrolled to
+        (scripts/check-editor-stability-r69.ts).
+      */
+      s.style.containIntrinsicHeight = "auto " + Math.round(item.height) + "px";
       s.style.contentVisibility = "hidden";
       held.push(s);
     });

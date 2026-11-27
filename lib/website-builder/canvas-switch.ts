@@ -242,7 +242,15 @@ function holdIn(scroller: HTMLElement, boxes: HTMLElement[], viewTop: number, vi
     take.push([b, r.height])
   })
   for (const [b, h] of take) {
-    b.style.containIntrinsicHeight = `${Math.round(h * 10) / 10}px`
+    /*
+      "auto" first (round 69): a section the canvas already rests far from the
+      screen (canvas-bridge.ts, data-sl-rest: content-visibility hidden at the
+      size it last had) keeps that size only while its intrinsic size says
+      auto. Held at a plain length, it lost it: let go, every rested section
+      was zero tall, the page 6,891px long before a switch to the phone and
+      2,264px after (scripts/check-editor-stability-r69.ts, fitness).
+    */
+    b.style.containIntrinsicHeight = `auto ${Math.round(h * 10) / 10}px`
     b.style.contentVisibility = "hidden"
     b.setAttribute("data-wb-held", "")
     held.add({ el: b, scroller, frame })

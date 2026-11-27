@@ -54,7 +54,7 @@ const ROOT = "theme-packages/materia/templates"
 const ALL = readdirSync(ROOT).filter((d) => existsSync(join(ROOT, d, "config")))
 const TEMPLATES = process.env.TEMPLATES ? process.env.TEMPLATES.split(",") : ALL
 const PARTS = (process.env.PARTS ?? "editor,live").split(",")
-const STEPS = (process.env.STEPS ?? "scroll,sticky,header,sizes,sections").split(",")
+const STEPS = (process.env.STEPS ?? "scroll,sticky,header,sizes,sections,controls").split(",")
 const OUT = process.env.OUT ?? "/tmp/r69-stability"
 mkdirSync(OUT, { recursive: true })
 
@@ -171,14 +171,14 @@ async function editor(browser: Browser, template: string) {
   const zip = await JSZip.loadAsync(await composeTemplateZip(`materia/${template}`))
   const ed = await editorFor(browser, 1440, 900, false, undefined, zip)
   const errors: string[] = []
-  ed.page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource|favicon|net::ERR/i.test(m.text())) errors.push(m.text().slice(0, 160)) })
+  ed.page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource|favicon|net::ERR|Blocked autofocusing/i.test(m.text())) errors.push(m.text().slice(0, 160)) })
   ed.page.on("pageerror", (e) => errors.push(String(e).slice(0, 160)))
   const page = ed.page
   let f: Frame = await ed.frame()
   await sleep(3500)
   const box = async () => (await (await page.$("[data-compat-frame='front']"))!.boundingBox())!
   const fr = async () => (f = await ed.frame())
-  const audit = async (step: string, settle = 1200) => { await sleep(settle); await fr(); await found(step, await f.evaluate(AUDIT).catch((e) => [`the page could not be read: ${String(e).slice(0, 80)}`]), page) }
+  const audit = async (step: string, settle = 1200) => { if (process.env.DEBUG) console.log("    " + step); await sleep(settle); await fr(); await found(step, await f.evaluate(AUDIT).catch((e) => [`the page could not be read: ${String(e).slice(0, 80)}`]), page) }
   const wheel = async (dy: number, steps = 8) => { const b = await box(); await page.mouse.move(b.x + b.width / 2, b.y + Math.min(400, b.height / 2)); for (let i = 0; i < steps; i++) { await page.mouse.wheel({ deltaY: dy / steps }); await sleep(35) } }
   const toTop = async () => { await fr(); await f.evaluate(() => scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })); await sleep(500) }
 
@@ -227,6 +227,39 @@ async function editor(browser: Browser, template: string) {
     await toTop()
     await audit(`${label}: back at the top`, 600)
   }
+  /* Every select, segment and switch in the sidebar whose label matches: each value in turn, then the value it had. */
+  type Control = { kind: string; label: string; values: string[]; at: number; last?: boolean }
+  const controlSweep = async (prefix: string, re: RegExp, after: (step: string, c: Control) => Promise<void>) => {
+    const controls: Control[] = await page.evaluate((src) => {
+      const re = new RegExp(src, "i")
+      const out: { kind: string; label: string; values: string[]; at: number }[] = []
+      for (const c of document.querySelectorAll<HTMLElement>("select, [role=switch], [role=radiogroup]")) {
+        if (c.getBoundingClientRect().left > 420 || c.getBoundingClientRect().width === 0) continue
+        const label = c.getAttribute("aria-label") || (c.closest("label, div")?.querySelector("label") as HTMLElement | null)?.innerText.trim() || ""
+        if (!label || !re.test(label) || /^Menu: choose|^Sticky header$|colou?r scheme|font/i.test(label)) continue
+        if (c.tagName === "SELECT") { const sel = c as HTMLSelectElement; out.push({ kind: "select", label, values: [...sel.options].map((o) => o.value).slice(0, 4), at: sel.selectedIndex }) }
+        else if (c.getAttribute("role") === "radiogroup") { const rs = [...c.querySelectorAll("[role=radio]")]; out.push({ kind: "radio", label, values: rs.map((r) => (r as HTMLElement).innerText.trim() || r.getAttribute("aria-label") || "").slice(0, 4), at: Math.max(0, rs.findIndex((r) => r.getAttribute("aria-checked") === "true")) }) }
+        else out.push({ kind: "switch", label, values: ["flipped", "back"], at: -1 })
+      }
+      return out
+    }, re.source)
+    for (const c of controls.slice(0, Number(process.env.MAX_CONTROLS ?? 40))) {
+      const order = c.kind === "switch" ? [0, 1] : [...c.values.keys()].filter((i) => i !== c.at).concat(c.at >= 0 ? [c.at] : [])
+      for (const [n, i] of order.entries()) {
+        const did = await page.evaluate((c, i) => {
+          const els = [...document.querySelectorAll<HTMLElement>(c.kind === "select" ? "select" : c.kind === "radio" ? "[role=radiogroup]" : "[role=switch]")].filter((e) => e.getBoundingClientRect().left < 420)
+          const el = els.find((e) => (e.getAttribute("aria-label") || (e.closest("label, div")?.querySelector("label") as HTMLElement | null)?.innerText.trim() || "") === c.label)
+          if (!el) return null
+          if (c.kind === "select") { const s = el as HTMLSelectElement; if (!c.values[i] && c.values[i] !== "") return null; Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(s, c.values[i]); s.dispatchEvent(new Event("change", { bubbles: true })); return true }
+          if (c.kind === "radio") { const r = [...el.querySelectorAll<HTMLElement>("[role=radio]")][i]; r?.click(); return !!r }
+          el.click(); return true
+        }, c, i)
+        if (did === null) break
+        await sleep(1300)
+        await after(`${prefix} ${c.label} = ${c.kind === "switch" ? c.values[i] : c.values[i]}`, { ...c, last: n === order.length - 1 })
+      }
+    }
+  }
   if (!STEPS.includes("sticky")) { /* skipped */ } else if (await clickHeader()) {
     for (const v of ["on-scroll-up", "always", "on-scroll-up", "none", "always", "none", "on-scroll-up"]) {
       await setSelect("sticky", v)
@@ -234,37 +267,11 @@ async function editor(browser: Browser, template: string) {
       await stickyRound(`sticky ${v}`)
     }
     /* Every other header control: after each, the header is drawn. */
-    const controls = await page.evaluate((all) => {
-      const out: { kind: string; label: string; values: string[] }[] = []
-      const RE = all ? /./ : /sticky|transparent|menu|logo position|layout|pill|glass|border|width|search|actions as text/i
-      for (const c of document.querySelectorAll<HTMLElement>("select, [role=switch], [role=radiogroup]")) {
-        if (c.getBoundingClientRect().left > 420 || c.closest("[data-compat-frame]")) continue
-        const label = c.getAttribute("aria-label") || (c.closest("label, div")?.querySelector("label") as HTMLElement | null)?.innerText.trim() || ""
-        if (!label || !RE.test(label) || /^Menu: choose/.test(label)) continue
-        if (c.tagName === "SELECT") out.push({ kind: "select", label, values: [...(c as HTMLSelectElement).options].map((o) => o.value).slice(0, 5) })
-        else if (c.getAttribute("role") === "radiogroup") out.push({ kind: "radio", label, values: [...c.querySelectorAll("[role=radio]")].map((r) => (r as HTMLElement).innerText.trim() || r.getAttribute("aria-label") || "").slice(0, 4) })
-        else out.push({ kind: "switch", label, values: ["on", "off"] })
-      }
-      return out
-    }, process.env.HEADER === "all")
-    for (const c of STEPS.includes("header") ? controls : []) {
-      if (/^Sticky header$/.test(c.label)) continue
-      for (let i = 0; i < c.values.length + (c.kind === "switch" ? 0 : 0); i++) {
-        const did = await page.evaluate((c, i) => {
-          const els = [...document.querySelectorAll<HTMLElement>(c.kind === "select" ? "select" : c.kind === "radio" ? "[role=radiogroup]" : "[role=switch]")].filter((e) => e.getBoundingClientRect().left < 420)
-          const el = els.find((e) => (e.getAttribute("aria-label") || (e.closest("label, div")?.querySelector("label") as HTMLElement | null)?.innerText.trim() || "") === c.label)
-          if (!el) return null
-          if (c.kind === "select") { const s = el as HTMLSelectElement; const was = s.value; Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(s, c.values[i]); s.dispatchEvent(new Event("change", { bubbles: true })); return was }
-          if (c.kind === "radio") { const r = [...el.querySelectorAll<HTMLElement>("[role=radio]")][i]; r?.click(); return "" }
-          el.click(); return ""
-        }, c, i)
-        if (did === null) break
-        await sleep(1300)
-        await toTop()
-        await audit(`header ${c.label} = ${c.values[i]}`, 300)
-      }
-      if (/sticky|transparent/i.test(c.label)) await stickyRound(`after ${c.label}`)
-    }
+    if (STEPS.includes("header")) await controlSweep("header", process.env.HEADER === "all" ? /./ : /sticky|transparent|menu|logo position|layout|pill|glass|border|width|search|actions as text/i, async (step, c) => {
+      await toTop()
+      await audit(step, 300)
+      if (/sticky|transparent/i.test(c.label) && c.last) await stickyRound(`after ${c.label}`)
+    })
     await page.keyboard.press("Escape")
     await sleep(500)
   } else await found("sticky", ["the header's settings did not open"], page)
@@ -273,8 +280,16 @@ async function editor(browser: Browser, template: string) {
   const FILM = (ms: number) => new Promise<string[]>((done) => {
     const out: string[] = []
     const t0 = performance.now()
+    let wasShown: boolean | null = null
     const tick = () => {
       const h = document.querySelector<HTMLElement>("header.header")
+      /* Scrolled into the page with the bar showing: a switch never takes it away. */
+      if (h && scrollY >= 2) {
+        const b = h.getBoundingClientRect()
+        const shown = b.bottom > 10 && b.top > -5 && b.top < 260
+        if (wasShown === null) wasShown = shown
+        else if (wasShown && !shown) out.push(`${Math.round(performance.now() - t0)}ms header went away mid page (${Math.round(b.top)}..${Math.round(b.bottom)}) w=${innerWidth}`)
+      }
       if (h && scrollY < 2) {
         const sec = h.closest(".shopify-section") as HTMLElement
         const b = h.getBoundingClientRect()
@@ -309,6 +324,7 @@ async function editor(browser: Browser, template: string) {
         await fr()
         await f.evaluate((at) => scrollTo({ top: at === "top" ? 0 : document.documentElement.scrollHeight * 0.4, behavior: "instant" as ScrollBehavior }), at)
         await sleep(400)
+        if (at === "middle") { await wheel(-240); await sleep(700) }
         const film = f.evaluate(FILM, 1100).catch(() => ["the frame went away during the switch"])
         if (!(await press(sel))) { await found(`${w} ${label}`, [`no ${sel}`]); break }
         await found(`window ${w} ${label} (${at}), during`, await film, page)
@@ -384,6 +400,61 @@ async function editor(browser: Browser, template: string) {
     await page.keyboard.press("Escape")
     await audit(`let go of ${id.slice(-30)}`, 700)
   }
+  /* add: sections put in from the library (Add section), each scrolled to and read. */
+  if (STEPS.includes("add")) {
+    for (const type of (process.env.ADD_TYPES ?? "faq,faq5,Faq1,faq-pro,faq-side-image,faq-floating,faq-tabs").split(",")) {
+      const before = await (await fr()).evaluate(() => [...document.querySelectorAll(".shopify-section")].map((s) => s.id))
+      for (let i = 0; i < 3 && !(await page.$("[data-add-section]")); i++) {
+        /* The panel's own Back (under the Sections tab), not the editor's way out at the top. */
+        await page.evaluate(() => { const b = [...document.querySelectorAll<HTMLElement>("button")].find((x) => x.getAttribute("aria-label") === "Back" && x.getBoundingClientRect().top > 90 && x.getBoundingClientRect().left < 300); b?.click() })
+        await sleep(600)
+      }
+      const opened = await page.evaluate(() => { const b = document.querySelector<HTMLElement>("[data-add-section]"); b?.click(); return !!b })
+      if (!opened) { await found(`add ${type}`, ["no Add section button"]); break }
+      let card = false
+      for (let i = 0; i < 40 && !card; i++) { await sleep(150); card = await page.evaluate((t) => { const c = document.querySelector<HTMLElement>(`[data-library-card="${t}"]`); if (!c) return false; c.scrollIntoView({ block: "center" }); c.click(); return true }, type) }
+      if (!card) { await page.keyboard.press("Escape"); continue }
+      await sleep(3200)
+      await fr()
+      const added = await f.evaluate((was) => [...document.querySelectorAll(".shopify-section")].map((s) => s.id).find((id) => !was.includes(id)) ?? null, before)
+      if (!added) { await found(`add ${type}`, ["nothing was added to the canvas"], page); continue }
+      for (const at of ["start", "center", "end"] as const) {
+        await f.evaluate((sid, at) => document.getElementById(sid)?.scrollIntoView({ block: at, behavior: "instant" as ScrollBehavior }), added, at)
+        await audit(`add ${type}, in view (${at})`, 1000)
+      }
+      await toTop()
+      await wheel(await f.evaluate((sid) => (document.getElementById(sid)?.getBoundingClientRect().top ?? 0) - 100, added), 10)
+      await audit(`add ${type}, wheeled to`, 1200)
+    }
+  }
+  /* controls: each section's own selects, segments and switches, the section in view after each. */
+  if (STEPS.includes("controls")) {
+    const want = new RegExp(process.env.SECTIONS ?? ".")
+    const all = await (await fr()).evaluate(() => [...document.querySelectorAll(".shopify-section")].filter((s) => !/header|footer|announcement|popup|drawer|overlay|cart|notification|back-to-top|custom-colors/i.test(s.id) && s.getBoundingClientRect().height > 60).map((s) => s.id))
+    for (const id of all.filter((x) => want.test(x)).slice(0, Number(process.env.MAX_SECTIONS ?? 3))) {
+      await fr()
+      await f.evaluate((sid) => document.getElementById(sid)?.scrollIntoView({ block: "start", behavior: "instant" as ScrollBehavior }), id)
+      await sleep(1000)
+      const at = await f.evaluate((sid) => {
+        const s = document.getElementById(sid); if (!s) return null
+        const r = s.getBoundingClientRect()
+        for (let y = Math.max(r.top + 12, 12); y < Math.min(r.bottom, innerHeight) - 4; y += 29) for (let x = r.left + 12; x < r.right - 4; x += 41) { const e = document.elementFromPoint(x, y); if (e && s.contains(e) && !e.closest("a, button, input, select, textarea, label, summary, [role='button'], [role='tab']")) return { x, y } }
+        return null
+      }, id)
+      if (!at) continue
+      const b = await box()
+      await page.mouse.click(b.x + at.x, b.y + at.y)
+      await sleep(1400)
+      const short = id.replace(/^shopify-section-(template--\d+__)?/, "")
+      await controlSweep(short, /./, async (step) => {
+        await fr()
+        await f.evaluate((sid) => { const el = document.getElementById(sid) ?? document.querySelector(`[id$="${sid.split("__").pop()}"]`); el?.scrollIntoView({ block: "start", behavior: "instant" as ScrollBehavior }) }, id)
+        await audit(step, 900)
+      })
+      await page.keyboard.press("Escape")
+      await sleep(600)
+    }
+  }
   /* The page once more, after all of it. */
   if (STEPS.includes("sections")) await scroll("scroll after the edits")
   await found("console", [...new Set(errors)].slice(0, 8))
@@ -407,7 +478,7 @@ async function live(browser: Browser, template: string) {
     const { base, server } = await serve(built, join("scripts", "theme-templates", "products", template))
     const page = await browser.newPage()
     const errors: string[] = []
-    page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource|favicon|net::ERR/i.test(m.text())) errors.push(m.text().slice(0, 160)) })
+    page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource|favicon|net::ERR|Blocked autofocusing/i.test(m.text())) errors.push(m.text().slice(0, 160)) })
     page.on("pageerror", (e) => errors.push(String(e).slice(0, 160)))
     await page.evaluateOnNewDocument("window.__name = (f) => f")
     const widths = mode === "theme" ? [390, 768, 1280, 1440] : [1440, 390]
