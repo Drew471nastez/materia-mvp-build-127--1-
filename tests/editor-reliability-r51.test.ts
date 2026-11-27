@@ -200,7 +200,8 @@ async function main() {
     check("the save in front of a publish has an end", /deadline\(draftQueue\.save\(snap\), PUBLISH_SAVE_MS/.test(publish) && /within\(draftQueue\.idle\(\), PUBLISH_SAVE_MS/.test(publish))
     check("the button says when it is still publishing", /publishSlow \? "Still publishing" : "Publishing"/.test(editor))
     const files = src("components/website-builder/compat/compat-files.ts")
-    check("an imported theme's files are hedged and signed in", /hedged\(\(\) => fetchSignedIn\(\(\) => fetchWithin\(`\/api\/website-builder\/themes\/\$\{installId\}\/files\?compat=1`/.test(files))
+    /* Changed on purpose (r68): plain scripts by version (&scripts=versions), the same hedge and sign in. */
+    check("an imported theme's files are hedged and signed in", /hedged\(\(\) => fetchSignedIn\(\(\) => fetchWithin\(`\/api\/website-builder\/themes\/\$\{installId\}\/files\?compat=1(&scripts=versions)?`/.test(files))
   }
 
   out("\nThe code editor lists every file, or says it could not (round 51)")
