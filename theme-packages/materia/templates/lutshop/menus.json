@@ -1,0 +1,82 @@
+{
+  "main-menu": {
+    "title": "Main menu",
+    "links": [
+      {
+        "title": "LUT packs",
+        "url": "/collections/lut-packs"
+      },
+      {
+        "title": "Transitions",
+        "url": "/collections/transitions"
+      },
+      {
+        "title": "Overlays",
+        "url": "/collections/overlays"
+      },
+      {
+        "title": "Sound effects",
+        "url": "/collections/sound-effects"
+      },
+      {
+        "title": "Licence",
+        "url": "/pages/licence"
+      }
+    ]
+  },
+  "footer": {
+    "title": "Shop",
+    "links": [
+      {
+        "title": "LUT packs",
+        "url": "/collections/lut-packs"
+      },
+      {
+        "title": "Transitions",
+        "url": "/collections/transitions"
+      },
+      {
+        "title": "Overlays",
+        "url": "/collections/overlays"
+      },
+      {
+        "title": "Sound effects",
+        "url": "/collections/sound-effects"
+      },
+      {
+        "title": "Everything",
+        "url": "/collections/all"
+      }
+    ]
+  },
+  "footer-help": {
+    "title": "Help",
+    "links": [
+      {
+        "title": "Questions",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "Licence",
+        "url": "/pages/licence"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
+      }
+    ]
+  },
+  "footer-more": {
+    "title": "Coldframe",
+    "links": [
+      {
+        "title": "About",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Journal",
+        "url": "/blogs/news"
+      }
+    ]
+  }
+}

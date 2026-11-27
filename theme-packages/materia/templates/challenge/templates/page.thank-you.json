@@ -1,0 +1,171 @@
+/* Templates round 68: Letterday's thank you page: the order confirmed, three next steps beside a photograph of the host, and what to do if something is missing. */
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 72,
+        "padding_bottom": 16
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "You are in. Thank you."
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Your order is confirmed and lesson one is on its way. Here is what happens next.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2"
+      ]
+    },
+    "next": {
+      "type": "image-with-text-steps",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "image_position": "left",
+        "column_valign": "center",
+        "image_width_pct": 44,
+        "gap_desktop": 72,
+        "image": "shopify://shop_images/challenge-host-square.webp",
+        "image_alt": "Elise smiling at her desk, a phone in her hands",
+        "image_aspect_desktop": "1 / 1",
+        "image_radius": 12,
+        "step_style": "numbered",
+        "marker_size": 34,
+        "marker_font_size": 14,
+        "custom_colors": false,
+        "step_title_size": 19,
+        "step_desc_size": 16,
+        "use_theme_button": true,
+        "button_radius": 8,
+        "padding_top": 40,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Next steps"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Three things to do today",
+            "tag": "h2",
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "s1": {
+          "type": "step",
+          "settings": {
+            "title": "Open the email from Elise",
+            "description": "<p>It has your login, lesson one and the bonuses. Nothing there? Look in promotions or spam, then write to us.</p>"
+          }
+        },
+        "s2": {
+          "type": "step",
+          "settings": {
+            "title": "Put fifteen minutes in your calendar",
+            "description": "<p>Monday to Friday, the same time each day. Most people pick first thing or lunch.</p>"
+          }
+        },
+        "s3": {
+          "type": "step",
+          "settings": {
+            "title": "Say hello in the group",
+            "description": "<p>Reply to the welcome post with what your newsletter will be about, even if it is only a guess.</p>"
+          }
+        },
+        "button": {
+          "type": "button",
+          "settings": {
+            "label": "Questions about your order",
+            "url": "/pages/contact"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow",
+        "heading",
+        "s1",
+        "s2",
+        "s3",
+        "button"
+      ]
+    },
+    "help": {
+      "type": "faq",
+      "settings": {
+        "color_scheme": "scheme-5e1b7c3a-2d84-4f60-9b17-c3a8e0d4f921",
+        "section_width": "container",
+        "structured_data": true,
+        "heading": "If something is missing",
+        "subheading": "",
+        "first_item_open": true,
+        "allow_multiple_open": false,
+        "open_icon": "plus",
+        "content_alignment": "center",
+        "max_content_width": 780,
+        "gap_header_to_items": 36,
+        "gap_between_items": 10,
+        "item_padding_y": 20,
+        "item_padding_x": 24,
+        "item_radius": 12,
+        "show_dividers": false,
+        "enable_custom_style": false,
+        "question_size_desktop": 18,
+        "question_size_mobile": 16,
+        "answer_size_desktop": 16,
+        "answer_size_mobile": 15,
+        "padding_top": 88,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "faq_item_1": {
+          "type": "faq_item",
+          "settings": {
+            "question": "I did not get the email",
+            "answer": "<p>It can take a few minutes. Look in promotions and spam, then write from the contact page with the email you used.</p>"
+          }
+        },
+        "faq_item_2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I change the round I am in?",
+            "answer": "<p>Yes. Reply to the welcome email and say which month you would rather do.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Where is the Issue Library?",
+            "answer": "<p>If you added it, it is in the same email as lesson one, as a download link.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "next",
+    "help"
+  ]
+}

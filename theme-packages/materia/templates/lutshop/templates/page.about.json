@@ -1,0 +1,306 @@
+/* Templates round 68: Coldframe's about page, the maker's story beside his grading room, how looks are tested, reviews and the free LUT. */
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 56,
+        "padding_bottom": 24
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "About Coldframe"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Colour grades and editing assets by Jonas Wahl, a colourist in Rotterdam.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2"
+      ]
+    },
+    "story": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "image_position": "right",
+        "text_column_width": 50,
+        "content_align": "left",
+        "content_gap": 18,
+        "media_type": "image",
+        "image": "shopify://shop_images/lutshop-suite.webp",
+        "image_alt": "An editor at a grading desk in a dark room, a face on the monitor",
+        "aspect_w": 4,
+        "aspect_h": 3,
+        "image_fit": "cover",
+        "image_radius": 8,
+        "gap_desktop": 72,
+        "padding_top_desktop": 48,
+        "padding_bottom_desktop": 96,
+        "padding_top_mobile": 24,
+        "padding_bottom_mobile": 56,
+        "side_padding_mobile": 16
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "How it started"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Looks from the grading room, cleaned up",
+            "tag": "h2",
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "text": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Clients kept asking for the look from the last job. The packs here are those looks, rebuilt so they behave on footage I never saw: tested on Sony, Panasonic, Canon, Fujifilm, Blackmagic and Apple Log, and on two phones.</p><p>Every pack has a log and a Rec.709 version, because most people who buy a LUT shoot both.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow",
+        "heading",
+        "text"
+      ]
+    },
+    "camera": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "scheme-3c9e1d42-6f1a-4b7e-9d20-5a8c0e7b1f31",
+        "section_width": "container",
+        "reset_spacing": true,
+        "image_position": "left",
+        "text_column_width": 50,
+        "content_align": "left",
+        "content_gap": 18,
+        "media_type": "image",
+        "image": "shopify://shop_images/lutshop-camera.webp",
+        "image_alt": "A cinema camera with its monitor, an interview lit in the background",
+        "aspect_w": 4,
+        "aspect_h": 3,
+        "image_fit": "cover",
+        "image_radius": 8,
+        "gap_desktop": 72,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "side_padding_mobile": 16
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "What I will not sell"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "No look that breaks skin",
+            "tag": "h2",
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "text": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>A LUT that turns faces orange or green is a filter, not a grade. Every look is checked on four skin tones under daylight, tungsten and a coloured LED before it ships.</p>"
+          }
+        },
+        "button": {
+          "type": "button",
+          "settings": {
+            "label": "Shop LUT packs",
+            "link": "/collections/lut-packs"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow",
+        "heading",
+        "text",
+        "button"
+      ]
+    },
+    "reviews": {
+      "type": "testimonials",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "display_mode": "carousel",
+        "show_quote_mark": false,
+        "show_rating": true,
+        "columns": 3,
+        "column_gap": 20,
+        "header_alignment": "left",
+        "card_style": "boxed",
+        "card_align": "left",
+        "card_padding": 28,
+        "card_content_gap": 18,
+        "card_radius": 8,
+        "avatar_shape": "circle",
+        "avatar_size": 44,
+        "carousel_pagination": "show",
+        "pagination_style": "line",
+        "pagination_position": "center",
+        "enable_custom_colors": false,
+        "enable_custom_typography": false,
+        "reveal": false,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "columns_mobile": 1
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "enabled": true,
+            "text": "What editors say"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "enabled": true,
+            "text": "<p>Sample reviews in the layout this section shows. Replace them with what your own buyers write.</p>"
+          }
+        },
+        "testimonial_3": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Shot a wedding on an FX3 in S-Log3 and Teal Hour 04 got me ninety percent of the way. Skin stays skin, which is all I ask.</p>",
+            "rating": 5,
+            "name": "Maya Ferreira",
+            "role": "Teal Hour",
+            "avatar": "shopify://shop_images/lutshop-buyer-1.webp"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>The whip pans line up on the beat without me nudging keyframes. I use the Resolve versions on every travel edit now.</p>",
+            "rating": 5,
+            "name": "Dev Patel",
+            "role": "Clean Cuts",
+            "avatar": "shopify://shop_images/lutshop-buyer-2.webp"
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Quiet without going grey. The log and 709 versions in one folder saved me from guessing which one to load.</p>",
+            "rating": 5,
+            "name": "Lena Brandt",
+            "role": "Nordic Matte",
+            "avatar": "shopify://shop_images/lutshop-buyer-3.webp"
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Clean files, sensible names, no noise floor. I found the riser I needed in ten seconds because they are sorted by length.</p>",
+            "rating": 4,
+            "name": "Theo Marsh",
+            "role": "Whoosh and Hit",
+            "avatar": "shopify://shop_images/lutshop-buyer-4.webp"
+          }
+        },
+        "testimonial_7": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Bought the kit for a client series and the licence covered all of it. The PDF shows where the LUT goes in each app, which my editor needed.</p>",
+            "rating": 5,
+            "name": "Ines Vidal",
+            "role": "The Full Kit",
+            "avatar": "shopify://shop_images/lutshop-buyer-5.webp"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "testimonial_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6",
+        "testimonial_7"
+      ]
+    },
+    "newsletter": {
+      "type": "newsletter",
+      "settings": {
+        "color_scheme": "scheme-3c9e1d42-6f1a-4b7e-9d20-5a8c0e7b1f31",
+        "section_width": "full_width",
+        "reset_spacing": true,
+        "heading": "",
+        "email_label": "Email address",
+        "email_placeholder": "name@email.com",
+        "btn_text": "Subscribe",
+        "note": "Two or three emails a month. Unsubscribe any time.",
+        "subscribed_button_text": "Subscribed",
+        "success_text": "Thanks, the free LUT is on its way.",
+        "header_alignment": "center",
+        "form_layout": "horizontal",
+        "show_icon": false,
+        "show_content_background": false,
+        "button_style": "primary",
+        "use_theme_button": true,
+        "use_theme_fields": true,
+        "header_size": "medium",
+        "reveal": false,
+        "padding_top": 88,
+        "padding_bottom": 88
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "A free LUT for your inbox",
+            "tag": "h2",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Sign up and get Log to 709, then a note when a new pack is out.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "story",
+    "camera",
+    "reviews",
+    "newsletter"
+  ]
+}

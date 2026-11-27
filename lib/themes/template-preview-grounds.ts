@@ -41,4 +41,6 @@ export const TEMPLATE_PREVIEW_GROUNDS: Readonly<Record<string, { desktop: string
   "sound-packs": { desktop: "#0b0c14", phone: "#0b0d17" },
   "digital-studio": { desktop: "#fdfdfd", phone: "#fdfdfd" },
   "notion-template-shop": { desktop: "#f1f1ee", phone: "#f7f7f6" },
+  "lut-shop": { desktop: "#0c0e10", phone: "#0e1012" },
+  "challenge-funnel": { desktop: "#fbf9f5", phone: "#f3f2ee" },
 }

@@ -1,0 +1,141 @@
+/* Templates round 68: Letterday's contact page, the funnel template's layout in Letterday's words and colour schemes. */
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "height": "adapt",
+        "alignment": "left",
+        "padding_top": 72,
+        "padding_bottom": 24,
+        "color_scheme": "default",
+        "reset_spacing": true,
+        "section_width": "container",
+        "overlay_opacity": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "",
+            "header_size": "medium",
+            "heading_font_size": 44
+          }
+        }
+      },
+      "block_order": [
+        "heading_1"
+      ]
+    },
+    "form": {
+      "type": "contactformsimple2",
+      "settings": {
+        "color_scheme": "default",
+        "btn_text": "Send message",
+        "ph_website": "A question about the challenge, an order or a place for two",
+        "label_website": "Subject",
+        "success_text": "Thank you. Elise reads every message and replies within two working days."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Write to us"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "text": "<p>Questions about the challenge, an order, a refund or places for two. Every message is read by a person.</p>"
+          }
+        },
+        "info_3": {
+          "type": "info",
+          "settings": {
+            "icon": "mail",
+            "line1": "hello@example.com",
+            "line2": "Replies within two working days"
+          }
+        },
+        "info_4": {
+          "type": "info",
+          "settings": {
+            "icon": "map",
+            "line1": "Rather talk it through?",
+            "line2": "Get lesson one free first"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2",
+        "info_3",
+        "info_4"
+      ]
+    },
+    "faq": {
+      "type": "faq-pro",
+      "settings": {
+        "color_scheme": "scheme-5e1b7c3a-2d84-4f60-9b17-c3a8e0d4f921",
+        "first_item_open": true,
+        "content_alignment": "left",
+        "max_content_width": 820
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Before you write"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>The answer may already be here.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Who is it for?",
+            "answer": "<p>Makers, coaches and small business owners who want to start a newsletter and keep it going.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "When does the next round start?",
+            "answer": "<p>On the first Monday of every month. Join any time before then.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if I miss a day?",
+            "answer": "<p>Catch up the next day. The lessons stay open after the round ends.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Do the five days. If it was not worth it, email within 14 days for a full refund.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "form",
+    "faq"
+  ]
+}

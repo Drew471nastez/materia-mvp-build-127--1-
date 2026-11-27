@@ -116,7 +116,8 @@ const FEATURE_EVIDENCE: Record<ThemeFeature, (f: { files: string[]; types: strin
   licence: (f) => f.files.includes("page.licence.json"),
   podcast: (f) => f.types.some((t) => /podcast|-show$/i.test(t)) || f.files.includes("page.podcast.json"),
   /* A look, read from what the template was made as (marketplace-shared): a night sky, a starry black page, a dark course funnel. */
-  dark: (_f, t) => t === "space" || t === "vsl" || t === "renaissance",
+  /* Changed on purpose (r68): LUT shop (lutshop) is made as a dark store, like a grading suite. */
+  dark: (_f, t) => t === "space" || t === "vsl" || t === "renaissance" || t === "lutshop",
 }
 
 async function main() {

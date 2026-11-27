@@ -1,0 +1,139 @@
+/* Templates round 68: Letterday's article page, the funnel template's layout in Letterday's words and colour schemes. */
+{
+  "sections": {
+    "main": {
+      "type": "main-article",
+      "settings": {
+        "padding_top": 24,
+        "section_width": "container",
+        "padding_bottom": 72,
+        "author_margin_left": 0,
+        "author_margin_right": 0,
+        "content_width_desktop": 900,
+        "article_style": "editorial"
+      },
+      "name": "Main Blog Article",
+      "blocks": {
+        "breadcrumb_r61": {
+          "type": "breadcrumb",
+          "settings": {}
+        },
+        "featured_image_ne7Ufj": {
+          "type": "featured_image",
+          "settings": {
+            "image_height": "small",
+            "featured_image_top_padding": 0,
+            "featured_image_border_radius": 12,
+            "featured_image_bottom_padding": 0
+          }
+        },
+        "category_8bHVa7": {
+          "type": "category",
+          "settings": {
+            "enable_custom_style": false,
+            "category_border_radius": 36
+          }
+        },
+        "title_8UcLB3": {
+          "type": "title",
+          "settings": {
+            "blog_title_font_size": 38
+          }
+        },
+        "blog_meta_Gdcegm": {
+          "type": "blog_meta",
+          "settings": {
+            "enable_custom_style": false,
+            "blog_meta_border_radius": 29
+          }
+        },
+        "content_article_nGLPt4": {
+          "type": "content_article",
+          "settings": {}
+        },
+        "tags_share_r61": {
+          "type": "tags_share",
+          "settings": {
+            "show_tags": true,
+            "tags_label": "Tags:",
+            "show_share": true
+          }
+        },
+        "prev_next_r61": {
+          "type": "prev_next",
+          "settings": {
+            "show_back": false
+          }
+        },
+        "related_r61": {
+          "type": "related",
+          "settings": {
+            "heading": "Related posts",
+            "count": 6,
+            "show_excerpt": true,
+            "show_author": true,
+            "show_date": true
+          }
+        },
+        "comments_r61": {
+          "type": "comments",
+          "settings": {
+            "heading": "Leave a comment",
+            "text": "Your email address will not be published.",
+            "button_label": "Post comment"
+          }
+        }
+      },
+      "block_order": [
+        "breadcrumb_r61",
+        "featured_image_ne7Ufj",
+        "category_8bHVa7",
+        "title_8UcLB3",
+        "blog_meta_Gdcegm",
+        "content_article_nGLPt4",
+        "tags_share_r61",
+        "prev_next_r61",
+        "related_r61",
+        "comments_r61"
+      ]
+    },
+    "chapter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-5e1b7c3a-2d84-4f60-9b17-c3a8e0d4f921",
+        "image": "shopify://shop_images/challenge-day-3.webp",
+        "image_alt": "A notebook of handwritten notes on a wooden desk",
+        "image_position": "left",
+        "image_ratio": "landscape",
+        "image_width": 50,
+        "form_layout": "horizontal",
+        "btn_text": "Send me lesson one",
+        "email_placeholder": "Your email",
+        "note": "One email a month at most. Leave whenever you like.",
+        "success_text": "Done. Lesson one is on its way to your inbox."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Get lesson one free"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>A twelve minute lesson on picking what your newsletter is about, with a one page worksheet.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "main",
+    "chapter"
+  ]
+}

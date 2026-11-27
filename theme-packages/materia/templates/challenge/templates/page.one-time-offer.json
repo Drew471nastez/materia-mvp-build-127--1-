@@ -1,0 +1,126 @@
+/* Templates round 68: Letterday's one time offer, shown after the order: the Issue Library on video with a yes button and a no thanks link to the thank you page, what is in it, and the same choice again. */
+{
+  "sections": {
+    "offer": {
+      "type": "vslfunnel-video",
+      "settings": {
+        "color_scheme": "default",
+        "eyebrow": "Step 2 of 2: one more thing before your order",
+        "heading": "Plan your next twelve issues tonight",
+        "heading_size": 56,
+        "heading_size_mobile": 34,
+        "text": "<p>The Issue Library is a year of issue outlines for small businesses, with twelve templates to write them in. It is offered here, after you join, for $37.</p>",
+        "show_video": true,
+        "poster": "shopify://shop_images/challenge-oto-poster.webp",
+        "poster_alt": "Elise at her desk, typing on a laptop beside an open notebook",
+        "shade": 8,
+        "length_label": "3:20",
+        "video_title": "What is inside the Issue Library",
+        "play_label": "Play the video",
+        "caption": "Fifty two outlines sorted by month, the twelve templates, and how to turn one outline into an issue in under an hour.",
+        "empty_text": "The video plays here once it is added in the editor.",
+        "video_width": 960,
+        "radius": 14,
+        "video_gap": 36,
+        "button_label": "Yes, show me the Issue Library",
+        "button_link": "/pages/one-time-offer#shopify-section-library_offer",
+        "button2_label": "No thanks, take me to my order",
+        "button2_link": "/pages/thank-you",
+        "note": "",
+        "padding_top": 48,
+        "padding_bottom": 56,
+        "padding_top_mobile": 28,
+        "padding_bottom_mobile": 48
+      }
+    },
+    "library_offer": {
+      "type": "featured-product",
+      "settings": {
+        "color_scheme": "scheme-5e1b7c3a-2d84-4f60-9b17-c3a8e0d4f921",
+        "section_width": "container",
+        "reset_spacing": true,
+        "product": "the-issue-library",
+        "show_view_link": false,
+        "desktop_layout": "hidden_thumbnail",
+        "desktop_media_width": 50,
+        "desktop_main_image_position": "left",
+        "show_thumbnails": false,
+        "enable_dynamic_checkout": true,
+        "enable_image_square": false,
+        "enable_lightbox": false,
+        "enable_sticky_content_on_desktop": false,
+        "reveal": true,
+        "padding_top": 88,
+        "padding_bottom": 88
+      },
+      "blocks": {
+        "intro": {
+          "type": "text",
+          "settings": {
+            "heading": "Only after you join",
+            "content": "<p>One press adds it to the challenge you just joined. Skip it and nothing changes.</p>"
+          }
+        },
+        "title": {
+          "type": "title",
+          "settings": {
+            "show_vendor": false,
+            "title_font_size_desktop": 40,
+            "title_font_size_mobile": 30
+          }
+        },
+        "price": {
+          "type": "price",
+          "settings": {
+            "price_font_size_desktop": 34,
+            "price_font_size_mobile": 28,
+            "price_font_weight": "700"
+          }
+        },
+        "included": {
+          "type": "whats_included",
+          "settings": {
+            "heading": "In the Issue Library",
+            "items": "52 issue outlines, one for every week of the year\n12 issue templates: story, list, behind the scenes and nine more\nThe year on one planning sheet\nYours to keep",
+            "two_columns": false,
+            "boxed": true,
+            "spacing_top": 16,
+            "spacing_bottom": 12
+          }
+        },
+        "buy": {
+          "type": "buy_buttons",
+          "settings": {
+            "show_add_to_cart": true,
+            "show_dynamic_checkout": true,
+            "buy_now_style": "theme",
+            "show_quantity": false,
+            "buttons_full_width": true,
+            "show_wishlist_button": false,
+            "atc_appearance": "theme",
+            "buy_appearance": "theme"
+          }
+        },
+        "no": {
+          "type": "text",
+          "settings": {
+            "heading": "",
+            "content": "<p><a href=\"/pages/thank-you\">No thanks, take me to my order</a></p>"
+          }
+        }
+      },
+      "block_order": [
+        "intro",
+        "title",
+        "price",
+        "included",
+        "buy",
+        "no"
+      ]
+    }
+  },
+  "order": [
+    "offer",
+    "library_offer"
+  ]
+}

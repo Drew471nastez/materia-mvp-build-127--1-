@@ -1,0 +1,167 @@
+/* Templates round 68: Coldframe's contact page, the studio shop's layout in Coldframe's words and colour schemes. */
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "alignment": "center",
+        "height": "based_on_content",
+        "padding_top": 64,
+        "padding_bottom": 8
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "Contact",
+            "header_size": "large",
+            "vertical_gap": 10
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Questions about a pack, the licence or an order. Jonas replies within two working days.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2"
+      ]
+    },
+    "form": {
+      "type": "contactformsimple2",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "show_website": false,
+        "btn_text": "Send message",
+        "max_width": 1100,
+        "enable_shadow": false,
+        "reveal": false,
+        "pad_top": 24,
+        "pad_bottom": 56
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Send a message"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "text": "<p>Include your order number if it is about something you bought.</p>"
+          }
+        },
+        "info_3": {
+          "type": "info",
+          "settings": {
+            "icon": "mail",
+            "line1": "hello@halfmoon.example",
+            "line2": "Write any time"
+          }
+        },
+        "info_4": {
+          "type": "info",
+          "settings": {
+            "icon": "clock",
+            "line1": "Within two working days",
+            "line2": "Monday to Friday"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2",
+        "info_3",
+        "info_4"
+      ]
+    },
+    "faq": {
+      "type": "faq",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "structured_data": true,
+        "heading": "Before you write",
+        "subheading": "<p>The answers people ask for most.</p>",
+        "first_item_open": true,
+        "allow_multiple_open": false,
+        "open_icon": "plus",
+        "content_alignment": "center",
+        "max_content_width": 820,
+        "gap_header_to_items": 36,
+        "gap_heading_to_subheading": 12,
+        "gap_between_items": 10,
+        "item_padding_y": 22,
+        "item_padding_x": 26,
+        "item_radius": 10,
+        "show_dividers": false,
+        "enable_custom_style": false,
+        "card_bg": "#f4f2ee",
+        "card_border_color": "rgba(0,0,0,0)",
+        "question_color": "#17171a",
+        "icon_color": "#17171a",
+        "answer_color": "#55565b",
+        "heading_size_desktop": 40,
+        "heading_size_mobile": 30,
+        "question_size_desktop": 17,
+        "question_size_mobile": 16,
+        "enable_custom_question_weight": true,
+        "question_weight": "500",
+        "answer_size_desktop": 16,
+        "answer_size_mobile": 15,
+        "reveal": false,
+        "padding_top": 56,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "faq_item_1": {
+          "type": "faq_item",
+          "settings": {
+            "question": "When do I get my files?",
+            "answer": "<p>Straight after you pay. The link is on the confirmation page and in an email a minute later.</p>"
+          }
+        },
+        "faq_item_2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Which apps do I need?",
+            "answer": "<p>Any of Premiere Pro, DaVinci Resolve, Final Cut Pro and CapCut. The LUTs also load in After Effects, Photoshop and LumaFusion.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I download them again later?",
+            "answer": "<p>Yes. Use the link in your email or sign in and download as many times as you need.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I get updates?",
+            "answer": "<p>Yes, for free. When a pack changes, the new zip replaces the old one in your account.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3",
+        "faq_item_4"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "form",
+    "faq"
+  ]
+}

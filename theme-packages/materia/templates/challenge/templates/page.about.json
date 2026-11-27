@@ -1,0 +1,330 @@
+/* Templates round 68: Letterday's about page: the host's story, how a round runs, past writers and a last call. */
+{
+  "sections": {
+    "story": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "image_position": "left",
+        "text_column_width": 50,
+        "content_align": "left",
+        "content_gap": 18,
+        "media_type": "image",
+        "image": "shopify://shop_images/challenge-host.webp",
+        "image_alt": "Elise Mora at her desk, looking up from her laptop",
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "image_fit": "cover",
+        "image_radius": 12,
+        "enable_overlay": false,
+        "enable_custom_style": false,
+        "gap_desktop": 72,
+        "padding_top_desktop": 72,
+        "padding_bottom_desktop": 96,
+        "side_padding_desktop": 32,
+        "content_align_mobile": "left",
+        "mobile_order": "media_first",
+        "gap_mobile": 28,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "side_padding_mobile": 16
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "About Letterday"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Six years of Thursday letters",
+            "tag": "h2",
+            "size_desktop": 42,
+            "size_mobile": 30
+          }
+        },
+        "text": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>I am Elise Mora. I write a weekly letter for people who run small shops, and I have sent it every Thursday for six years. Before that I wrote newsletters for other people's businesses: bakeries, a bike shop, two potters and a music teacher.</p><p>Every one of them had put it off for months. Not because writing was hard, but because starting meant a dozen decisions at once. The First Issue breaks those decisions into five days.</p>"
+          }
+        },
+        "button": {
+          "type": "button",
+          "settings": {
+            "label": "Join the next round",
+            "link": "/#shopify-section-offer",
+            "button_style": "primary"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow",
+        "heading",
+        "text",
+        "button"
+      ]
+    },
+    "desk": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "scheme-5e1b7c3a-2d84-4f60-9b17-c3a8e0d4f921",
+        "section_width": "container",
+        "reset_spacing": true,
+        "image_position": "right",
+        "text_column_width": 50,
+        "content_align": "left",
+        "content_gap": 18,
+        "media_type": "image",
+        "image": "shopify://shop_images/challenge-host-wide.webp",
+        "image_alt": "Elise at her desk, typing on a laptop beside an open notebook",
+        "aspect_w": 4,
+        "aspect_h": 3,
+        "image_fit": "cover",
+        "image_radius": 12,
+        "enable_overlay": false,
+        "enable_custom_style": false,
+        "gap_desktop": 72,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "side_padding_desktop": 32,
+        "content_align_mobile": "left",
+        "mobile_order": "media_first",
+        "gap_mobile": 28,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "side_padding_mobile": 16
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "How I run it"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Small rounds, real answers",
+            "tag": "h2",
+            "size_desktop": 42,
+            "size_mobile": 30
+          }
+        },
+        "text": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Each round starts on the first Monday of the month. I am in the group every weekday to answer questions, and I read every first issue people share.</p>"
+          }
+        },
+        "button": {
+          "type": "button",
+          "settings": {
+            "label": "Get lesson one free",
+            "link": "/pages/free-lesson",
+            "button_style": "secondary"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow",
+        "heading",
+        "text",
+        "button"
+      ]
+    },
+    "readers": {
+      "type": "testimonials",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "display_mode": "carousel",
+        "show_quote_mark": false,
+        "show_rating": true,
+        "columns": 3,
+        "column_gap": 20,
+        "header_alignment": "center",
+        "card_style": "boxed",
+        "card_align": "left",
+        "card_padding": 28,
+        "card_content_gap": 16,
+        "card_radius": 12,
+        "avatar_shape": "circle",
+        "avatar_size": 48,
+        "carousel_pagination": "show_dots_on_mobile",
+        "enable_custom_colors": false,
+        "enable_custom_typography": false,
+        "reveal": true,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "columns_mobile": 1
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "enabled": true,
+            "text": "Past rounds"
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "enabled": true,
+            "text": "What past writers say"
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "enabled": true,
+            "text": "<p>Sample quotes in the layout this section shows. Replace them with your own readers' words.</p>"
+          }
+        },
+        "testimonial_1": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I had put off the newsletter for two years. Day four I sent issue one to 38 people, and three of them replied that afternoon.</p>",
+            "rating": 5,
+            "name": "Priya Nair",
+            "role": "Runs a pottery studio",
+            "avatar": "shopify://shop_images/challenge-reader-1.webp"
+          }
+        },
+        "testimonial_2": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>The welcome email template alone was worth it. I stopped trying to sound like a magazine and wrote like I talk at the shop.</p>",
+            "rating": 5,
+            "name": "Tom Becker",
+            "role": "Bike mechanic",
+            "avatar": "shopify://shop_images/challenge-reader-2.webp"
+          }
+        },
+        "testimonial_3": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Fifteen minutes a day was honest. I did every day on my lunch break and had a schedule I could keep by Friday.</p>",
+            "rating": 5,
+            "name": "Hannah Cole",
+            "role": "Illustrator",
+            "avatar": "shopify://shop_images/challenge-reader-3.webp"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I expected tips. It was a checklist with a deadline, which is what I needed. My list is small and it is mine.</p>",
+            "rating": 5,
+            "name": "Marcus Lee",
+            "role": "Personal trainer",
+            "avatar": "shopify://shop_images/challenge-reader-4.webp"
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Elise answered my day two question in the group within the hour. The subject line file is on my desk.</p>",
+            "rating": 5,
+            "name": "Sofia Ruiz",
+            "role": "Bakery owner",
+            "avatar": "shopify://shop_images/challenge-reader-5.webp"
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>The challenge made me pick one day of the week and stick to it. Twelve issues later I still send on Thursday.</p>",
+            "rating": 5,
+            "name": "Jonah Price",
+            "role": "Podcast host",
+            "avatar": "shopify://shop_images/challenge-reader-6.webp"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "testimonial_1",
+        "testimonial_2",
+        "testimonial_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6"
+      ]
+    },
+    "final": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "scheme-2c8f4a61-7e3d-4b09-a5c2-6d1e9f0b3a84",
+        "section_width": "container",
+        "reset_spacing": true,
+        "text_align": "center",
+        "max_width": 720,
+        "heading_tag": "h2",
+        "use_custom_text": false,
+        "use_custom_bg": false,
+        "banner_surface": "section",
+        "use_theme_radius": true,
+        "reveal": false,
+        "section_padding_top": 88,
+        "section_padding_bottom": 88,
+        "pad_top_desktop": 24,
+        "pad_bottom_desktop": 24
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "The next round starts on the first Monday"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Send your first issue this Friday",
+            "size_d": 44,
+            "size_m": 32
+          }
+        },
+        "subheading": {
+          "type": "subheading",
+          "settings": {
+            "text": "Five days, fifteen minutes a day, and a refund if you do not send it."
+          }
+        },
+        "button": {
+          "type": "button",
+          "settings": {
+            "label": "Join the challenge for $29",
+            "link": "/#shopify-section-offer",
+            "use_theme_button": true,
+            "radius": 8,
+            "pad_h": 28,
+            "pad_v": 15,
+            "size_d": 17,
+            "size_m": 16
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow",
+        "heading",
+        "subheading",
+        "button"
+      ]
+    }
+  },
+  "order": [
+    "story",
+    "desk",
+    "readers",
+    "final"
+  ]
+}
