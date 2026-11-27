@@ -139,16 +139,15 @@ export async function POST(req: Request) {
   /*
     ROUND 69: NEVER THE OLD DEFAULT. The frame is the closest template for this business by its words, the example
     picked and the kind of site (lib/storelib-ai/materia/compose.ts chooseBase), never Storelib Default; the job then
-    composes home and the look from all of the templates. From scratch is the same theme with nothing of its site
-    (template-install.ts bareSite): every Materia section to place, no header, footer or pages, never the native theme.
+    composes home and the look from all of the templates (lib/ai-builder/agent/blueprint.ts). From scratch stays the
+    free start (no theme header, footer or sections; nothing of any default drawn), with the same composed plan and
+    the templates' knowledge as its guide.
   */
-  const onMateria = generating && engine === "agent" && !noJobsTable
-  const fromTemplate = onMateria ? chooseBase({ prompt, category: options.category ?? null }) : null
-  const bare = onMateria && options.generation === "blank"
+  const fromTemplate = generating && engine === "agent" && options.generation === "theme" && !noJobsTable ? chooseBase({ prompt, category: options.category ?? null }) : null
   const made = await createStartWebsite(
     { supabase, admin },
     /* r63: userId too, so Start from blank imports the current Storelib Default (create-website.ts) into the owner's media folder. */
-    { creatorId, mode, name: body?.name, chrome: generating && options.generation === "blank" ? "none" : "theme", ...(fromTemplate ? { template: { id: fromTemplate, userId: site.ownerUserId, ...(bare ? { bare: true } : {}) } } : {}), userId: site.ownerUserId },
+    { creatorId, mode, name: body?.name, chrome: generating && options.generation === "blank" ? "none" : "theme", ...(fromTemplate ? { template: { id: fromTemplate, userId: site.ownerUserId } } : {}), userId: site.ownerUserId },
     { installTemplate: installCodeTemplate },
   )
   if (!made.ok) {

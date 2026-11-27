@@ -483,7 +483,8 @@ section("Start with AI makes the website from the closest Materia template")
   /* The route: chosen and imported before the job, the job told which template, From scratch and the older paths kept. */
   const route = code("app/api/website-builder/themes/create/route.ts")
   check("the route chooses the closest template from the words and the example, before the website is made",
-    /const fromTemplate = generating && engine === "agent" && options\.generation === "theme" && !noJobsTable \? chooseMateriaTemplate\(\{ prompt, category: options\.category \?\? null \}\)\.template\.template : null/.test(route) && route.indexOf("const fromTemplate") < route.indexOf("createStartWebsite(") && route.indexOf("createStartWebsite(") < route.indexOf("startJobRow("))
+    /* Changed on purpose (r69): the frame is chosen by chooseBase (never Storelib Default). */
+    /const fromTemplate = generating && engine === "agent" && options\.generation === "theme" && !noJobsTable \? chooseBase\(\{ prompt, category: options\.category \?\? null \}\) : null/.test(route) && route.indexOf("const fromTemplate") < route.indexOf("createStartWebsite(") && route.indexOf("createStartWebsite(") < route.indexOf("startJobRow("))
   check("  the job is told which template it was made from", /options: fromTemplate \? \{ \.\.\.options, template: fromTemplate \} : options/.test(route))
   check("  From scratch stays a blank page, and the classic engine and the in-request path keep Storelib Default", /options\.generation === "theme"/.test(route) && /engine === "agent"/.test(route) && /!noJobsTable/.test(route) && /chrome: generating && options\.generation === "blank" \? "none" : "theme"/.test(route))
   check("  a job that cannot be written still takes its website back", /if \(job\.kind !== "made"\) \{\s*await admin\.from\("store_theme_installs"\)\.delete\(\)\.eq\("id", made\.install\.id\)\.eq\("creator_id", creatorId\)/.test(route))

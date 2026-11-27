@@ -22,8 +22,9 @@
  *      model reads the plan (not the template's running order), finish refuses
  *      while sample words remain and passes once they are rewritten.
  *   4. NEVER THE OLD DEFAULT: no prompt (not even "a candle shop") chooses
- *      Storelib Default; from scratch is the Materia theme with nothing of its
- *      site (bareSite), and the create route says so.
+ *      Storelib Default, and the create route frames by chooseBase. From
+ *      scratch stays the free start (nothing of any theme drawn) and reads the
+ *      same composed plan and what the templates do well, as its guide.
  *
  * WHAT THIS DOES NOT MEASURE: what a real model writes into the plan. The
  * likeness numbers are of the deterministic blueprint and of scripted sites.
@@ -46,7 +47,6 @@ import type { AgentDeps, AgentJobInput } from "@/lib/ai-builder/agent/ports"
 import { DEFAULT_JOB_BUDGET } from "@/lib/ai-builder/types"
 import { BANNED_WORDS } from "@/lib/ai-builder/agent/prompts"
 import { composeTemplateZip } from "@/lib/themes/template-packages"
-import { bareSite } from "@/lib/themes/template-install"
 import { convertShopifyTheme } from "@/lib/storelib-theme/shopify/convert"
 import { CAPS, scripted } from "./ai-builder-agent-fixtures"
 
@@ -245,24 +245,19 @@ async function main() {
   check("no prompt starts the AI from Storelib Default (chooseMateriaTemplate, chooseBase, the blueprint)", !chosen.includes("default"), chosen)
   check("  a candle shop example starts in a shop frame", chooseBase({ prompt: BRIEFS[0].prompt, category: "candle_shop" }) === "podshop")
   check("  a coach starts in a coaching frame", ["trainer", "fitness", "coach", "coachpro"].includes(chooseBase({ prompt: BRIEFS[1].prompt, category: "fitness_coach" })))
-  const bare = bareSite([{ page_key: "home", sections: [{ group: "header" }, {}] }, { page_key: "about", sections: [{}] }, { page_key: "product", sections: [{}] }, { page_key: "collection", sections: [{}] }, { page_key: "faqs", sections: [{}] }])
-  check("from scratch keeps the theme and the store's templates, nothing of the template's site", JSON.stringify(bare.map((p) => [p.page_key, p.sections.length])) === JSON.stringify([["home", 0], ["product", 1], ["collection", 1]]), bare)
   const route = readFileSync(join(process.cwd(), "app/api/website-builder/themes/create/route.ts"), "utf8")
-  check("the create route frames both doors in Materia by chooseBase, from scratch bare", /const fromTemplate = onMateria \? chooseBase\(/.test(route) && /const bare = onMateria && options\.generation === "blank"/.test(route) && /bare: true/.test(route) && !/chooseMateriaTemplate/.test(route))
+  check("the create route chooses the frame by chooseBase, never chooseMateriaTemplate's old fallback", /\? chooseBase\(\{ prompt, category: options\.category \?\? null \}\) : null/.test(route) && !/chooseMateriaTemplate/.test(route))
 
-  /* A from scratch job on the bare theme: the look is set, nothing is placed, the frame is the AI's. */
-  const scratchStore = memoryStore({
-    files: Object.fromEntries(Object.entries(trainer.files).filter(([p]) => p.endsWith(".storelib"))),
-    pages: Object.fromEntries(bareSite(trainer.pages).map((p) => [p.page_key, p.sections as never])),
-    settings: JSON.parse(JSON.stringify(trainer.settings)),
-  })
+  /* From scratch: the free start (nothing of any theme drawn), with the plan composed from every template as its guide. */
+  const scratchStore = memoryStore({ pages: { home: [] } })
   const scratchModel = scripted([{ calls: [["list_pages", {}]] }], { id: "plan" })
-  const sr = await runAgentSlice({ ...job, jobId: "69696969-5555-2222-3333-444444444444", mode: "blank", options: { generation: "blank", category: "fitness_coach", template: "trainer" } }, null, { ...deps, store: scratchStore, models: { ...deps.models, plan: { provider: scratchModel, model: "claude-opus-5-5", effort: "medium" } } }, { deadline: T0 + 10 * 60_000, maxIterations: 1 })
+  const sr = await runAgentSlice({ ...job, jobId: "69696969-5555-2222-3333-444444444444", mode: "blank", options: { generation: "blank", category: "fitness_coach" } }, null, { ...deps, store: scratchStore, models: { ...deps.models, plan: { provider: scratchModel, model: "claude-opus-5-5", effort: "medium" } } }, { deadline: T0 + 10 * 60_000, maxIterations: 1 })
   const scratchFirst = turnText(scratchModel)
-  check("from scratch: a blueprint for the look, nothing placed on home", sr.checkpoint.blueprint?.mode === "scratch" && ((await scratchStore.listPages()).find((p) => p.key === "home")?.sections.length ?? -1) === 0)
-  check("  told Materia's sections are there to place, its frame its own, with what the templates do well", /BUILT FROM SCRATCH ON MATERIA/.test(scratchFirst) && /WHAT STORELIB'S TEMPLATES DO WELL/.test(scratchFirst) && /THE SITE PLAN FOR THIS BUSINESS/.test(scratchFirst), scratchFirst.slice(0, 400))
+  check("from scratch: a blueprint as the guide, nothing placed, no settings written", sr.checkpoint.blueprint?.mode === "scratch" && !AI_NEVER_STARTS_FROM.includes(sr.checkpoint.blueprint.base) && ((await scratchStore.listPages()).find((p) => p.key === "home")?.sections.length ?? -1) === 0 && Object.keys(await scratchStore.readSettings()).length === 0, sr.checkpoint.blueprint && { ...sr.checkpoint.blueprint, samples: sr.checkpoint.blueprint.samples.length })
+  check("  told to write each section on its Materia model, with the plan and what the templates do well", /ON THE MATERIA PATTERN/.test(scratchFirst) && /WHAT STORELIB'S TEMPLATES DO WELL/.test(scratchFirst) && /THE SITE PLAN FOR THIS BUSINESS/.test(scratchFirst) && /write each as your own component on that pattern/.test(scratchFirst), scratchFirst.slice(0, 400))
+  check("  finish holds a from scratch site to no template (it started from none)", blueprintIssues(sr.checkpoint.blueprint, await scratchStore.listPages(), {}).length === 0)
   if (process.env.PARTS) for (const part of first.split("\n\n")) console.log("PART", part.length, JSON.stringify(part.slice(0, 70)))
-  check("  the first turn stays within budget (under 30,000 characters)", scratchFirst.length < 30_000 && first.length < 30_000, { scratch: scratchFirst.length, template: first.length })
+  check("  the first turns stay within budget (under 30,000 characters)", scratchFirst.length < 30_000 && first.length < 30_000, { scratch: scratchFirst.length, template: first.length })
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) process.exit(1)

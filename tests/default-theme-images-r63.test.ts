@@ -91,7 +91,8 @@ async function main() {
     check("a listing row naming the native theme is retired: never offered", !shown.some((l) => l.builtinThemeId) && shown.filter((l) => l.name === "Storelib Default").length === 1 && shown.find((l) => l.name === "Storelib Default")?.id === DEFAULT_TEMPLATE_LISTING_ID)
     check("Add theme takes no native theme any more (the old default is not offered)", BROWSABLE_THEME_IDS.length === 0 && /BROWSABLE_THEME_IDS\.includes\(def\.id\)/.test(code("app/api/website-builder/themes/add/route.ts")))
     check("a first visit starts on it", STARTER_TEMPLATE === DEFAULT_CODE_TEMPLATE && STARTER_NAME === DEFAULT_TEMPLATE_NAME && !/getThemeDefinition|buildThemePreset|STORELIB_DEFAULT_ID/.test(code("lib/website-builder/starter-website.ts")))
-    check("the AI builder's fallback is it too", chooseMateriaTemplate({ prompt: "zzqx" }).template.template === DEFAULT_CODE_TEMPLATE)
+    /* Changed on purpose (r69): the owner, "the AI should not use the old Storelib default": never its fallback. */
+    check("the AI builder's fallback is never it", chooseMateriaTemplate({ prompt: "zzqx" }).template.template !== DEFAULT_CODE_TEMPLATE)
     check("Start from blank names it", /DEFAULT_CODE_TEMPLATE/.test(code("lib/website-builder/create-website.ts")) && /userId: site\.ownerUserId \}/.test(code("app/api/website-builder/themes/create/route.ts")))
     check("the Website page and the initialize route pass the owner's id, for the pictures' folder",
       /ensureStarterWebsite\(createAdminClient\(\), creator\.id, \{ userId: access\.ownerUserId \}\)/.test(code("app/(storelib)/app/website-builder/website-page.tsx")) &&

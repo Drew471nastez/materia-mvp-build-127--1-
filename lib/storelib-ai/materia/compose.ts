@@ -444,17 +444,27 @@ export function chooseBase(input: ComposeInput): string {
   return byKind[archetypeOf({ prompt: input.prompt, category: input.category, productKinds: (input.products ?? []).map((p) => p.kind ?? "") })]
 }
 
+/** How well something tagged with moods fits this brief's: each shared mood, the first (strongest) twice. */
+const fit = (tags: readonly string[], moods: string[]) => tags.filter((m) => moods.includes(m)).length + (moods[0] && tags.includes(moods[0]) ? 1 : 0)
+
+/** A seeded choice among the close fits only (within one mood of the best): varied, never a poor fit. */
+function pickFitting<T>(rand: () => number, items: readonly T[], tags: (t: T) => readonly string[], moods: string[]): T {
+  const best = Math.max(...items.map((t) => fit(tags(t), moods)))
+  const close = items.filter((t) => fit(tags(t), moods) >= Math.max(1, best - 1))
+  return pickWeighted(rand, close.length ? close : items, (t) => 1 + fit(tags(t), moods))!
+}
+
 function pickPair(rand: () => number, moods: string[], avoid: { heading?: string; body?: string }): TypePair {
   const usable = TYPE_PAIRS.filter((p) => !isSlopDisplayFont(p.display) && p.display !== avoid.heading)
-  return pickWeighted(rand, usable, (p) => 0.1 + p.moods.filter((m) => moods.includes(m)).length * 3 + (moods[0] && p.moods.includes(moods[0]) ? 3 : 0))!
+  return pickFitting(rand, usable, (p) => p.moods, moods)
 }
 
 function pickPalette(rand: () => number, moods: string[]): Palette {
-  return pickWeighted(rand, PALETTES, (p) => 0.1 + p.moods.filter((m) => moods.includes(m)).length * 3 + (moods[0] && p.moods.includes(moods[0]) ? 3 : 0))!
+  return pickFitting(rand, PALETTES, (p) => p.moods, moods)
 }
 
 function pickMotion(rand: () => number, moods: string[]): Motion {
-  return { ...pickWeighted(rand, MOTIONS, (x) => 0.2 + x.moods.filter((m) => moods.includes(m)).length * 2)!.m }
+  return { ...pickFitting(rand, MOTIONS, (x) => x.moods, moods).m }
 }
 
 /** The scheme for each job: openings and calls to action stand out, the rest alternate light and soft, a dark band every few. */
@@ -561,7 +571,7 @@ const SCHEME_NAMES = ["light", "soft", "dark", "accent"] as const
 export function blueprintText(bp: SiteBlueprint, opts: { mode: "template" | "scratch"; baseName?: string } = { mode: "template" }): string {
   const styleText = (s: BlueprintSection["style"]) => Object.entries(s).slice(0, 4).map(([k, v]) => `${k} ${String(v)}`).join(", ")
   const lines = [
-    `THE SITE PLAN FOR THIS BUSINESS (composed from all ${MATERIA_CATALOGUE.templates.length} Storelib templates for a ${bp.archetype} site, mood ${bp.moods.slice(0, 3).join(", ")}). ${opts.mode === "template" ? `"${opts.baseName ?? bp.base}" gives the frame (header, footer, other pages); its home and its look are replaced by this plan, already placed and set before your first turn.` : "Nothing is placed yet: build every page with these sections."} Write every word for this business; give every picture slot this business's own picture. Change a section only for a better one for the same job.`,
+    `THE SITE PLAN FOR THIS BUSINESS (composed from all ${MATERIA_CATALOGUE.templates.length} Storelib templates for a ${bp.archetype} site, mood ${bp.moods.slice(0, 3).join(", ")}). ${opts.mode === "template" ? `"${opts.baseName ?? bp.base}" gives the frame (header, footer, other pages); its home and its look are replaced by this plan, already placed and set before your first turn.` : "Nothing is placed yet: each line is a section to build, in this order, and the Materia section named is its model (its job, its kind of controls, its layout); write each as your own component on that pattern, for this business."} Write every word for this business; give every picture slot this business's own picture. Change a section only for a better one for the same job.`,
     `HOME, in order (job: Materia section, scheme; the layout a template gave it):`,
     ...bp.home.map((s, i) => `${i + 1}. ${s.role}: ${s.type}, ${SCHEME_NAMES[s.scheme]}${Object.keys(s.style).length ? `; ${styleText(s.style)}` : ""} (as in ${s.from})`),
     `TYPE: ${bp.type.display} ${bp.type.weight} for headings (${bp.type.set === "caps" ? "set in capitals, tight" : bp.type.set === "tight" ? "large, tracked tight" : bp.type.set === "italic" ? "an italic word or phrase for emphasis" : "set plainly, sized with care"}), ${bp.type.body} for body.`,

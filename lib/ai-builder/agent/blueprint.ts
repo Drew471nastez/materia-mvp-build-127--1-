@@ -14,9 +14,10 @@
  *                     says them, and the site is held under
  *                     TEMPLATE_LIKENESS_MAX against the template.
  *   from scratch      nothing is placed (the AI writes the frame and every
- *                     page); the fonts, schemes and motion are set so a
- *                     Materia section it places is in the plan's look, and
- *                     the plan and the templates' knowledge are its guide.
+ *                     page as its own components, on the Materia pattern);
+ *                     the plan and what the templates do well are its
+ *                     guide, and on a Materia install the fonts, schemes
+ *                     and motion are set so a Materia section is in its look.
  *
  * Deterministic: no model call. The seed is the brief and the job.
  */
@@ -46,10 +47,11 @@ export interface BlueprintState {
 
 const MAX_SAMPLES = 900
 
-/** Whether a job gets a blueprint: a new website (not an edit, not a redesign) on a Materia install. */
+/** Whether a job gets a blueprint: a new website (not an edit, not a redesign) from a Materia template, or from scratch. */
 export function wantsBlueprint(job: AgentJobInput, materiaInstall: boolean): "template" | "scratch" | null {
-  if (job.edit || job.redesign || !materiaInstall) return null
-  return job.mode === "blank" ? "scratch" : "template"
+  if (job.edit || job.redesign) return null
+  if (job.mode === "blank") return "scratch"
+  return materiaInstall ? "template" : null
 }
 
 /**

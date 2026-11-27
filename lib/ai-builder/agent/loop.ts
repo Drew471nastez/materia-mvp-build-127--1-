@@ -276,8 +276,10 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
     if (plan) {
       cp.blueprint = plan.state
       pagesNow = plan.pages
-      if (planMode === "template") cp.pagesTouched = addUnique(cp.pagesTouched, "home")
-      emit({ kind: "note", text: `Composed a ${plan.blueprint.archetype} site from Storelib's templates: ${plan.blueprint.home.length} sections on home, ${plan.blueprint.type.display} with ${plan.blueprint.type.body}.` })
+      if (planMode === "template") {
+        cp.pagesTouched = addUnique(cp.pagesTouched, "home")
+        emit({ kind: "note", text: `Composed a ${plan.blueprint.archetype} site from Storelib's templates: ${plan.blueprint.home.length} sections on home, ${plan.blueprint.type.display} with ${plan.blueprint.type.body}.` })
+      }
     }
     const materia = (() => {
       try {
@@ -781,7 +783,7 @@ export async function verify(job: AgentJobInput, deps: AgentDeps, cp: LoopCheckp
   if (!job.edit && !job.redesign) {
     const src: Record<string, string> = {}
     for (const f of await deps.store.listFiles()) if (f.text.trim()) src[f.path] = f.text
-    issues.push(...completenessIssues({ pages: stored, sources: src, settings: await deps.store.readSettings(), caps: cp.caps ?? null, mode: job.mode, plan: cp.sitePlan ?? null, materia: isMateriaInstall(src) && job.mode !== "blank", placesMateria: isMateriaInstall(src) && job.mode === "blank" }))
+    issues.push(...completenessIssues({ pages: stored, sources: src, settings: await deps.store.readSettings(), caps: cp.caps ?? null, mode: job.mode, plan: cp.sitePlan ?? null, materia: isMateriaInstall(src) }))
   }
   /*
     COMPLETE SECTIONS AND PICTURES (round P, P5, ./content-check.ts). Every placed ai_ section holds enough real

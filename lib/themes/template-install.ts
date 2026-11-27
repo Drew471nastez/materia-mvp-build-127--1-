@@ -132,28 +132,15 @@ export function homeChromeOnly<P extends { page_key: string; sections: { group?:
   return pages.map((p) => (p.page_key === "home" ? { ...p, sections: p.sections.filter((s) => !!s.group) } : p))
 }
 
-/** Round 69: the pages a from scratch website keeps of its template: the store's working templates, never its marketing pages. */
-export const BARE_KEEPS: ReadonlySet<string> = new Set(["product", "collection", "products", "list-collections", "collections", "search", "cart", "404", "blog", "article", "password"])
-
-/**
- * Round 69, Start with AI from scratch: the template's theme (every Materia section, its settings) with nothing of
- * its site: home empty (no header, no footer, no sections), its own pages (about, contact, faqs...) left out, the
- * store's working templates (product, collection, search, cart...) kept so the store works until the AI designs them.
- */
-export function bareSite<P extends { page_key: string; sections: unknown[] }>(pages: P[]): P[] {
-  return pages.filter((p) => p.page_key === "home" || BARE_KEEPS.has(p.page_key) || /^policy|policy$/.test(p.page_key)).map((p) => (p.page_key === "home" ? { ...p, sections: [] } : p))
-}
-
 /**
  * `template` is a CODE_TEMPLATES folder ("trainer"). The website is named `name`. `blankHome` keeps the template's
- * frame and every other page, and leaves its home page's own sections out (Start from blank). `bare` keeps the
- * theme and the store's templates only (Start with AI from scratch, round 69).
+ * frame and every other page, and leaves its home page's own sections out (Start from blank).
  */
 export async function installCodeTemplate(
   admin: Admin,
   who: { userId: string; creatorId: string },
   template: string,
-  opts: { name: string; blankHome?: boolean; bare?: boolean; deps?: TemplateInstallDeps },
+  opts: { name: string; blankHome?: boolean; deps?: TemplateInstallDeps },
 ): Promise<TemplateInstalled | StoreFailure> {
   const packageId = `${CODE_THEME_PACKAGE}/${template}`
   if (!isCodePackageId(packageId)) return { ok: false, status: 400, error: "No template has this name." }
@@ -174,7 +161,7 @@ export async function installCodeTemplate(
     console.error("[themes/template-install] the template did not convert", { template })
     return { ok: false, status: 500, error: FAILED }
   }
-  const converted = opts.bare ? { ...theme.theme, pages: bareSite(theme.theme.pages) } : opts.blankHome ? { ...theme.theme, pages: homeChromeOnly(theme.theme.pages) } : theme.theme
+  const converted = opts.blankHome ? { ...theme.theme, pages: homeChromeOnly(theme.theme.pages) } : theme.theme
   const stored = await (deps.store ?? storeImportedTheme)(admin, who, converted, theme.report, { name: opts.name })
   if (stored.ok === false) return stored
   await (deps.menus ?? templateMenusForEmptyStore)(admin, who.creatorId, packageId)
