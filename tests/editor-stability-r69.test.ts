@@ -99,7 +99,7 @@ async function browserHalf() {
     await page.setViewport({ width: 1280, height: 800 })
     const state = () => page.evaluate(() => { const s = document.getElementById("shopify-section-hdr")!; const b = s.querySelector("header")!.getBoundingClientRect(); return { mode: s.dataset.storelibSticky ?? "", hidden: s.classList.contains("shopify-section-header-hidden"), top: Math.round(b.top), bottom: Math.round(b.bottom), y: Math.round(scrollY) } })
     /* A hand on a wheel: scroll events, a frame apart. */
-    const scrollBy = async (dy: number) => { for (let i = 0; i < 8; i++) { await page.evaluate((d) => scrollBy(0, d), dy / 8); await sleep(30) } await sleep(500) }
+    const scrollBy = async (dy: number) => { for (let i = 0; i < 8; i++) { await page.evaluate((d) => window.scrollBy(0, d), dy / 8); await sleep(30) } await sleep(500) }
     /* The canvas drawing the header again, as canvas-bridge.ts does: the new section in place, its inline scripts run again. */
     const redraw = (mode: string) => page.evaluate((html, src) => {
       const w = window as unknown as { __ran?: Set<string>; __runScripts?: (el: Element, again: boolean) => void }
@@ -151,7 +151,7 @@ async function browserHalf() {
       await page.evaluate(() => { const w = window as unknown as { __quiet: (e: Event) => void }; w.__quiet = (e) => { if (e.target === document || e.target === window) e.stopImmediatePropagation() }; addEventListener("scroll", w.__quiet, true) })
       const eye = await page.evaluate(() => { const el = document.getElementById("shopify-section-b")!; return el.getBoundingClientRect().top })
       await page.setViewport({ width: w, height: 800 })
-      await page.evaluate((at) => { const el = document.getElementById("shopify-section-b")!; scrollBy(0, el.getBoundingClientRect().top - at) }, eye)
+      await page.evaluate((at) => { const el = document.getElementById("shopify-section-b")!; window.scrollBy(0, el.getBoundingClientRect().top - at) }, eye)
       await sleep(120)
       await page.evaluate(() => removeEventListener("scroll", (window as unknown as { __quiet: () => void }).__quiet, true))
       await sleep(700)
