@@ -9,7 +9,7 @@
         "heading": "Plan your next twelve issues tonight",
         "heading_size": 56,
         "heading_size_mobile": 34,
-        "text": "<p>The Issue Library is a year of issue outlines for small businesses, with twelve templates to write them in. It is shown here once, after you join, at $37.</p>",
+        "text": "<p>The Issue Library is a year of issue outlines for small businesses, with twelve templates to write them in. It is offered here, after you join, for $37.</p>",
         "show_video": true,
         "poster": "shopify://shop_images/challenge-host-wide.webp",
         "poster_alt": "Elise at her desk, typing on a laptop beside an open notebook",
@@ -106,43 +106,55 @@
       ]
     },
     "decide": {
-      "type": "banner3",
+      "type": "Image-and-video-text",
       "settings": {
         "color_scheme": "default",
         "section_width": "container",
         "reset_spacing": true,
-        "text_align": "center",
-        "max_width": 720,
-        "heading_tag": "h2",
-        "use_custom_text": false,
-        "use_custom_bg": false,
-        "banner_surface": "section",
-        "use_theme_radius": true,
-        "reveal": false,
-        "section_padding_top": 72,
-        "section_padding_bottom": 96,
-        "pad_top_desktop": 24,
-        "pad_bottom_desktop": 24
+        "image_position": "left",
+        "text_column_width": 50,
+        "content_align": "left",
+        "content_gap": 18,
+        "media_type": "image",
+        "image": "shopify://shop_images/challenge-day-5.webp",
+        "image_alt": "A spiral notebook and a coffee cup on a wooden board",
+        "aspect_w": 4,
+        "aspect_h": 3,
+        "image_fit": "cover",
+        "image_radius": 12,
+        "enable_overlay": false,
+        "enable_custom_style": false,
+        "gap_desktop": 72,
+        "padding_top_desktop": 88,
+        "padding_bottom_desktop": 104,
+        "side_padding_desktop": 32,
+        "content_align_mobile": "left",
+        "mobile_order": "media_first",
+        "gap_mobile": 28,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "side_padding_mobile": 16
       },
       "blocks": {
         "eyebrow": {
           "type": "eyebrow",
           "settings": {
-            "text": "Only on this page"
+            "text": "Only after you join"
           }
         },
         "heading": {
           "type": "heading",
           "settings": {
             "text": "Add it to your order?",
-            "size_d": 44,
-            "size_m": 32
+            "tag": "h2",
+            "size_desktop": 42,
+            "size_mobile": 30
           }
         },
-        "subheading": {
+        "text": {
           "type": "subheading",
           "settings": {
-            "text": "One press adds it to the challenge you just joined. Skip it and nothing changes."
+            "text": "<p>One press adds the Issue Library to the challenge you just joined, for $37. Skip it and nothing changes.</p><p><a href=\"/pages/thank-you\">No thanks, take me to my order</a></p>"
           }
         },
         "button": {
@@ -150,34 +162,15 @@
           "settings": {
             "label": "Yes, add the Issue Library for $37",
             "link": "/products/the-issue-library",
-            "use_theme_button": true,
-            "radius": 8,
-            "pad_h": 28,
-            "pad_v": 15,
-            "size_d": 17,
-            "size_m": 16
-          }
-        },
-        "button_2": {
-          "type": "button",
-          "settings": {
-            "label": "No thanks, take me to my order",
-            "link": "/pages/thank-you",
-            "use_theme_button": true,
-            "radius": 8,
-            "pad_h": 28,
-            "pad_v": 15,
-            "size_d": 16,
-            "size_m": 15
+            "button_style": "primary"
           }
         }
       },
       "block_order": [
         "eyebrow",
         "heading",
-        "subheading",
-        "button",
-        "button_2"
+        "text",
+        "button"
       ]
     }
   },

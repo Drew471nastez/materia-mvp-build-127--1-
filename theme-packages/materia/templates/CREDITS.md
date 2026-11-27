@@ -1076,3 +1076,48 @@ Sound packs (round 25, redrawn in rounds 26 and 28): Lowmoth, a sample label mad
 | newleaf (photos inside the drawn Notion pages) | Meal Planner gallery | https://images.unsplash.com/photo-1565299624946-b28f40a0ae38 | Unsplash License |
 | newleaf (photos inside the drawn Notion pages) | Budget Tracker cover | https://images.unsplash.com/photo-1554224155-6726b3ff858f | Unsplash License |
 | newleaf (photos inside the drawn Notion pages) | Reading Journal cover | https://images.unsplash.com/photo-1495446815901-a7297e633e8d | Unsplash License |
+
+## LUT shop (lutshop, Coldframe)
+<!-- lutshop (templates round 68): Coldframe, its colourist Jonas Wahl and every product are made up. Every frame is a real Unsplash photograph. The "after" side of each before and after, and every pack cover, is that photograph graded with the pack's own look for this template (a numpy colour transform: curves, split toning and saturation, as a LUT does); the "before" side is the same photograph flattened to look like log footage (blacks lifted, highlights pulled in, colour muted). Covers, the 16mm grain and dust, the light leak glow, the whip pan blend and the sound waveform are drawn over the photographs for this template. The logo and mark are drawn for it. No picture is AI generated. -->
+| Template | File | Source | License |
+| --- | --- | --- | --- |
+| lutshop | assets/lutshop-logo.webp, assets/lutshop-mark.webp | Drawn for this template | Storelib |
+| lutshop | assets/lutshop-ba-street-before.webp, -after.webp (Teal Hour) | https://images.unsplash.com/photo-1641071059359-fa5907ae440c, flattened and graded | Unsplash License |
+| lutshop | assets/lutshop-ba-sea-before.webp, -after.webp (Warm Stock) | https://images.unsplash.com/photo-1772352037989-4c5dcabe88e6, flattened and graded | Unsplash License |
+| lutshop | assets/lutshop-ba-fog-before.webp, -after.webp (Nordic Matte) | https://images.unsplash.com/photo-1527928407206-c0a98085a5ec, flattened and graded | Unsplash License |
+| lutshop | assets/lutshop-ba-palms-before.webp, -after.webp (Night Signal) | https://images.unsplash.com/photo-1752330094889-2b1b31d61485, flattened and graded | Unsplash License |
+| lutshop | assets/lutshop-ba-neon-before.webp, -after.webp (Night Signal) | https://images.unsplash.com/photo-1721637686340-de9f8cebda5a, flattened and graded | Unsplash License |
+| lutshop | assets/lutshop-ba-hill-before.webp, -after.webp, assets/lutshop-cat-luts.webp | https://images.unsplash.com/photo-1769084783547-9b3da5adefe8, flattened and graded | Unsplash License |
+| lutshop | assets/lutshop-cat-clean-cuts.webp | https://images.unsplash.com/photo-1641071059359-fa5907ae440c and https://images.unsplash.com/photo-1769084783547-9b3da5adefe8, graded and blended with a drawn whip pan blur | Unsplash License |
+| lutshop | assets/lutshop-cat-light-leaks.webp | https://images.unsplash.com/photo-1752330094889-2b1b31d61485, graded, a light leak glow drawn over it | Unsplash License |
+| lutshop | assets/lutshop-cat-grain-dust.webp | https://images.unsplash.com/photo-1744060204728-f68e434a3edf, graded, grain, dust and scratches drawn over it | Unsplash License |
+| lutshop | assets/lutshop-cat-sound.webp | https://images.unsplash.com/photo-1546663250-e28569a9706d | Unsplash License |
+| lutshop | assets/lutshop-maker.webp | https://images.unsplash.com/photo-1587050265310-1a2d98ccce5f | Unsplash License |
+| lutshop | assets/lutshop-timeline.webp | https://images.unsplash.com/photo-1528109966604-5a6a4a964e8d | Unsplash License |
+| lutshop | assets/lutshop-suite.webp | https://images.unsplash.com/photo-1627244714766-94dab62ed964 | Unsplash License |
+| lutshop | assets/lutshop-camera.webp | https://images.unsplash.com/photo-1497015289639-54688650d173 | Unsplash License |
+| lutshop | assets/lutshop-buyer-1.webp | https://images.unsplash.com/photo-1780322195200-64e71db074c2 | Unsplash License |
+| lutshop | assets/lutshop-buyer-2.webp | https://images.unsplash.com/photo-1625241152315-4a698f74ceb7 | Unsplash License |
+| lutshop | assets/lutshop-buyer-3.webp | https://images.unsplash.com/photo-1625786682948-2168238883d2 | Unsplash License |
+| lutshop | assets/lutshop-buyer-4.webp | https://images.unsplash.com/photo-1608662868070-97b987b190ca | Unsplash License |
+| lutshop | assets/lutshop-buyer-5.webp | https://images.unsplash.com/photo-1779212508632-673f06f27210 | Unsplash License |
+| lutshop (sample products) | scripts/theme-templates/products/lutshop/lutshop-*.webp (pack covers and their before and after) | the frames above (Teal Hour and Log to 709: the street; Warm Stock: the lake; Nordic Matte: the fog; Night Signal: the neon portrait; Bleach Day: https://images.unsplash.com/photo-1580837303653-5112afbac20d; Mono 400: https://images.unsplash.com/photo-1782179284550-311f707c7722), graded, with the pack's name drawn on | Unsplash License |
+| lutshop (sample products) | scripts/theme-templates/products/lutshop/lutshop-clean-cuts.webp, -light-leaks.webp, -grain-dust.webp, -whoosh-hit.webp, -full-kit.webp | the category pictures above with the pack's name drawn on; the full kit is four graded frames in a grid; the waveform is drawn | Unsplash License |
+| lutshop (sample products) | scripts/theme-templates/products/lutshop/lutshop-post-log.webp, -post-trail.webp, -post-dawn.webp | https://images.unsplash.com/photo-1641071059359-fa5907ae440c, https://images.unsplash.com/photo-1594882645126-14020914d58d, https://images.unsplash.com/photo-1502224562085-639556652f33, graded | Unsplash License |
+
+## Challenge funnel (challenge, Letterday)
+<!-- challenge (templates round 68): Letterday, its host Elise Mora, the challenge and every reader are made up. The host is two Unsplash photographs from one session of the same woman at her desk, cropped several ways; the five days are Unsplash photographs of notebooks, a calendar and a desk. The logo, mark and product cards (a photograph beside the product's name) are drawn for this template. No picture is AI generated. -->
+| Template | File | Source | License |
+| --- | --- | --- | --- |
+| challenge | assets/challenge-logo.webp, assets/challenge-mark.webp | Drawn for this template | Storelib |
+| challenge | assets/challenge-video-poster.webp, assets/challenge-host-square.webp | https://images.unsplash.com/photo-1768875848964-63e9073adc53, cropped | Unsplash License |
+| challenge | assets/challenge-host.webp, assets/challenge-host-wide.webp | https://images.unsplash.com/photo-1783094269325-4ba186e8e01b, cropped | Unsplash License |
+| challenge | assets/challenge-day-1.webp | https://images.unsplash.com/photo-1501618669935-18b6ecb13d6d | Unsplash License |
+| challenge | assets/challenge-day-2.webp | https://images.unsplash.com/photo-1506784983877-45594efa4cbe | Unsplash License |
+| challenge | assets/challenge-day-3.webp | https://images.unsplash.com/photo-1783118975868-5c746e0480e8 | Unsplash License |
+| challenge | assets/challenge-day-4.webp | https://images.unsplash.com/photo-1772588627479-06ac7a264916 | Unsplash License |
+| challenge | assets/challenge-day-5.webp | https://images.unsplash.com/photo-1599008634438-fc6d2be54835 | Unsplash License |
+| challenge | assets/challenge-desk.webp | https://images.unsplash.com/photo-1664575197229-3bbebc281874 | Unsplash License |
+| challenge | assets/challenge-reader-1.webp to -6.webp (sample portraits beside sample quotes) | https://images.unsplash.com/photo-1580489944761-15a19d654956, https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d, https://images.unsplash.com/photo-1438761681033-6461ffad8d80, https://images.unsplash.com/photo-1566492031773-4f4e44671857, https://images.unsplash.com/photo-1520813792240-56fc4a3765a7, https://images.unsplash.com/photo-1554151228-14d9def656e4 | Unsplash License |
+| challenge (sample products) | scripts/theme-templates/products/challenge/challenge-first-issue.webp, -swipe-file.webp, -issue-library.webp | the host and notebook photographs above, beside the product's name, drawn for this template | Unsplash License |
+| challenge (sample products) | scripts/theme-templates/products/challenge/challenge-post-short.webp, -post-day.webp, -post-subject.webp | the day 1, day 2 and desk photographs above | Unsplash License |

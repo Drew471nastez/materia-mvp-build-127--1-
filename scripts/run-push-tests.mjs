@@ -1749,6 +1749,8 @@ const SUITES = [
   "tests/theme-r30.test.ts",
   /* Round 67, templates after the owner's notes: Octavo's buttons a deep orange with white text (5.18:1), Schibsted Grotesk and Albert Sans, a folded page logo, how it works and product pages from the theme's own sections (Image with text steps, Testimonial wall, FAQ pro); the ebook in Manrope 800; the VSL funnel is Hablo, a Spanish course; Digital studio's brand is Halfmoon; no heading font is every template's. Measured by scripts/check-theme-templates-r67.mjs. */
   "tests/theme-templates-r67.test.ts",
+  /* Round 68, two new templates: Coldframe, a LUT and video editing asset shop (lutshop), and Letterday, a five day challenge funnel (challenge) with an opt-in, an order bump, a one time offer and a thank you page; every colour from the theme's schemes, real credited photographs, no countdowns or income claims. Measured by scripts/check-theme-templates-new-r68.mjs. */
+  "tests/theme-templates-new-r68.test.ts",
 ]
 
 /**

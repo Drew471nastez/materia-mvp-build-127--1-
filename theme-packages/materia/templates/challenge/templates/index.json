@@ -464,7 +464,7 @@
         "color_scheme": "scheme-5e1b7c3a-2d84-4f60-9b17-c3a8e0d4f921",
         "section_width": "container",
         "reset_spacing": true,
-        "display_mode": "grid",
+        "display_mode": "carousel",
         "show_quote_mark": false,
         "show_rating": true,
         "columns": 3,

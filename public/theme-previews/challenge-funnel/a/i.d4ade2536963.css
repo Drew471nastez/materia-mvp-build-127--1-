@@ -1,0 +1,338 @@
+
+      
+        
+        
+        :root,
+        .color-default {
+          --color-background: #fbf9f5;
+          --gradient-background: #fbf9f5;
+          --color-primary: #1f4a3b;
+          --color-primary-rgb: 31, 74, 59;
+          --color-text: #4a514d;
+          --color-text-rgb: 74, 81, 77;
+          --color-heading: #18201c;
+          --color-heading-rgb:24, 32, 28;
+          --color-link: #18201c;
+          --color-link-hover: #1f4a3b;
+          --color-border: #e7e2d8;
+          --badge-background: var(--btn-primary-bg-color);
+          --badge-text: var(--btn-primary-color);
+          --btn-primary-color: #ffffff;
+          --btn-primary-hover-color: #ffffff;
+          --btn-primary-bg-color: #1f4a3b;
+          --btn-primary-bg-graident-color: #1f4a3b;
+          --btn-primary-hover-bg-color: #173a2e;--btn-primary-border-color: #1f4a3b;--btn-primary-hover-border-color: #173a2e;
+          --btn-primary-hover-bg-color-graident: #173a2e;
+          --btn-secondary-color: #18201c;
+          --btn-secondary-bg-color: rgba(0, 0, 0, 0);
+          --btn-secondary-border-color: #cfc9bc;
+          --btn-secondary-hover-color: #fbf9f5;
+          --btn-secondary-hover-bg-color: #18201c;--btn-secondary-hover-border-color: #18201c;
+          --btn-secondary-bg: var(--btn-secondary-bg-color);
+          --btn-secondary-bg-hover: var(--btn-secondary-hover-bg-color);
+          --btn-secondary-color-hover: var(--btn-secondary-hover-color);
+          --btn-outline-color: #18201c;
+          --btn-outline-border-color: #e7e2d8;
+          --btn-link-color: #18201c;
+          --btn-link-hover-color: #1f4a3b;
+          --input-color: var(--color-text);
+          --input-placeholder-color: rgba(var(--color-heading-rgb), 0.55);
+          --input-bg: rgba(251, 249, 245, 0.6);
+        }
+      
+        
+        
+        
+        .color-scheme-5e1b7c3a-2d84-4f60-9b17-c3a8e0d4f921 {
+          --color-background: #eef1ea;
+          --gradient-background: #eef1ea;
+          --color-primary: #1f4a3b;
+          --color-primary-rgb: 31, 74, 59;
+          --color-text: #4a514d;
+          --color-text-rgb: 74, 81, 77;
+          --color-heading: #18201c;
+          --color-heading-rgb:24, 32, 28;
+          --color-link: #18201c;
+          --color-link-hover: #1f4a3b;
+          --color-border: #d9dfd3;
+          --badge-background: var(--btn-primary-bg-color);
+          --badge-text: var(--btn-primary-color);
+          --btn-primary-color: #ffffff;
+          --btn-primary-hover-color: #ffffff;
+          --btn-primary-bg-color: #1f4a3b;
+          --btn-primary-bg-graident-color: #1f4a3b;
+          --btn-primary-hover-bg-color: #173a2e;--btn-primary-border-color: #1f4a3b;--btn-primary-hover-border-color: #173a2e;
+          --btn-primary-hover-bg-color-graident: #173a2e;
+          --btn-secondary-color: #18201c;
+          --btn-secondary-bg-color: rgba(0, 0, 0, 0);
+          --btn-secondary-border-color: #c3cbbd;
+          --btn-secondary-hover-color: #eef1ea;
+          --btn-secondary-hover-bg-color: #18201c;--btn-secondary-hover-border-color: #18201c;
+          --btn-secondary-bg: var(--btn-secondary-bg-color);
+          --btn-secondary-bg-hover: var(--btn-secondary-hover-bg-color);
+          --btn-secondary-color-hover: var(--btn-secondary-hover-color);
+          --btn-outline-color: #18201c;
+          --btn-outline-border-color: #d9dfd3;
+          --btn-link-color: #18201c;
+          --btn-link-hover-color: #1f4a3b;
+          --input-color: var(--color-text);
+          --input-placeholder-color: rgba(var(--color-heading-rgb), 0.55);
+          --input-bg: rgba(238, 241, 234, 0.6);
+        }
+      
+        
+        
+        
+        .color-scheme-a7d03e5c-91b2-4c6e-8f45-0b2d6e9c1a73 {
+          --color-background: #ffffff;
+          --gradient-background: #ffffff;
+          --color-primary: #1f4a3b;
+          --color-primary-rgb: 31, 74, 59;
+          --color-text: #4a514d;
+          --color-text-rgb: 74, 81, 77;
+          --color-heading: #18201c;
+          --color-heading-rgb:24, 32, 28;
+          --color-link: #18201c;
+          --color-link-hover: #1f4a3b;
+          --color-border: #e9e6df;
+          --badge-background: var(--btn-primary-bg-color);
+          --badge-text: var(--btn-primary-color);
+          --btn-primary-color: #ffffff;
+          --btn-primary-hover-color: #ffffff;
+          --btn-primary-bg-color: #1f4a3b;
+          --btn-primary-bg-graident-color: #1f4a3b;
+          --btn-primary-hover-bg-color: #173a2e;--btn-primary-border-color: #1f4a3b;--btn-primary-hover-border-color: #173a2e;
+          --btn-primary-hover-bg-color-graident: #173a2e;
+          --btn-secondary-color: #18201c;
+          --btn-secondary-bg-color: rgba(0, 0, 0, 0);
+          --btn-secondary-border-color: #cfc9bc;
+          --btn-secondary-hover-color: #ffffff;
+          --btn-secondary-hover-bg-color: #18201c;--btn-secondary-hover-border-color: #18201c;
+          --btn-secondary-bg: var(--btn-secondary-bg-color);
+          --btn-secondary-bg-hover: var(--btn-secondary-hover-bg-color);
+          --btn-secondary-color-hover: var(--btn-secondary-hover-color);
+          --btn-outline-color: #18201c;
+          --btn-outline-border-color: #e9e6df;
+          --btn-link-color: #18201c;
+          --btn-link-hover-color: #1f4a3b;
+          --input-color: var(--color-text);
+          --input-placeholder-color: rgba(var(--color-heading-rgb), 0.55);
+          --input-bg: rgba(255, 255, 255, 0.6);
+        }
+      
+        
+        
+        
+        .color-scheme-2c8f4a61-7e3d-4b09-a5c2-6d1e9f0b3a84 {
+          --color-background: #17261f;
+          --gradient-background: #17261f;
+          --color-primary: #e3c79b;
+          --color-primary-rgb: 227, 199, 155;
+          --color-text: #c6cfc8;
+          --color-text-rgb: 198, 207, 200;
+          --color-heading: #fbf9f5;
+          --color-heading-rgb:251, 249, 245;
+          --color-link: #fbf9f5;
+          --color-link-hover: #e3c79b;
+          --color-border: #2d3e36;
+          --badge-background: var(--btn-primary-bg-color);
+          --badge-text: var(--btn-primary-color);
+          --btn-primary-color: #18201c;
+          --btn-primary-hover-color: #18201c;
+          --btn-primary-bg-color: #f3ead8;
+          --btn-primary-bg-graident-color: #f3ead8;
+          --btn-primary-hover-bg-color: #ffffff;--btn-primary-border-color: #f3ead8;--btn-primary-hover-border-color: #ffffff;
+          --btn-primary-hover-bg-color-graident: #ffffff;
+          --btn-secondary-color: #fbf9f5;
+          --btn-secondary-bg-color: rgba(0, 0, 0, 0);
+          --btn-secondary-border-color: #4a5d54;
+          --btn-secondary-hover-color: #17261f;
+          --btn-secondary-hover-bg-color: #fbf9f5;--btn-secondary-hover-border-color: #fbf9f5;
+          --btn-secondary-bg: var(--btn-secondary-bg-color);
+          --btn-secondary-bg-hover: var(--btn-secondary-hover-bg-color);
+          --btn-secondary-color-hover: var(--btn-secondary-hover-color);
+          --btn-outline-color: #fbf9f5;
+          --btn-outline-border-color: #2d3e36;
+          --btn-link-color: #fbf9f5;
+          --btn-link-hover-color: #e3c79b;
+          --input-color: var(--color-text);
+          --input-placeholder-color: rgba(var(--color-heading-rgb), 0.55);
+          --input-bg: rgba(23, 38, 31, 0.6);
+        }
+      
+      body, .color-default, .color-scheme-5e1b7c3a-2d84-4f60-9b17-c3a8e0d4f921, .color-scheme-a7d03e5c-91b2-4c6e-8f45-0b2d6e9c1a73, .color-scheme-2c8f4a61-7e3d-4b09-a5c2-6d1e9f0b3a84 {
+        color: var(--color-text);
+        background-color: var(--color-background);
+      }:root { --input-border-color: #bababa; }html:root {
+  --field-style: outline;
+  --field-border-widths: var(--inputs-border-width, 1px);
+}html:root, .color-default {
+  --field-surface: rgb(251, 249, 245);
+  --field-text: rgb(74, 81, 77);
+  --field-placeholder: rgb(106, 111, 107);
+  --field-placeholder-opacity: 1;
+  --input-color: var(--field-text);
+  --input-placeholder-color: var(--field-placeholder);
+}.color-scheme-5e1b7c3a-2d84-4f60-9b17-c3a8e0d4f921 {
+  --field-surface: rgb(238, 241, 234);
+  --field-text: rgb(74, 81, 77);
+  --field-placeholder: rgb(104, 110, 105);
+  --field-placeholder-opacity: 1;
+  --input-color: var(--field-text);
+  --input-placeholder-color: var(--field-placeholder);
+}.color-scheme-a7d03e5c-91b2-4c6e-8f45-0b2d6e9c1a73 {
+  --field-surface: rgb(255, 255, 255);
+  --field-text: rgb(74, 81, 77);
+  --field-placeholder: rgb(107, 112, 109);
+  --field-placeholder-opacity: 1;
+  --input-color: var(--field-text);
+  --input-placeholder-color: var(--field-placeholder);
+}.color-scheme-2c8f4a61-7e3d-4b09-a5c2-6d1e9f0b3a84 {
+  --field-surface: rgb(23, 38, 31);
+  --field-text: rgb(248, 248, 248);
+  --field-placeholder: rgb(163, 168, 166);
+  --field-placeholder-opacity: 1;
+  --input-color: var(--field-text);
+  --input-placeholder-color: var(--field-placeholder);
+}:root, body, [class*="color-"] { --input-focus-color: #adadad; }
+        input:focus-visible, textarea:focus-visible, select:focus-visible {
+          outline: 2px solid color-mix(in srgb, #adadad 70%, transparent);
+          outline-offset: 1px;
+        }/* GLOBAL BUTTON TEXT GUARANTEE
+         The scheme's "Text color" customiser MUST NOT control button
+         label colour anywhere in the theme. Button labels are owned
+         by the per-button colour customisers:
+           - .btn-primary      → --btn-primary-color
+           - .btn-outline      → --btn-outline-color
+           - .btn-white        → --btn-outline-color
+           - .btn-secondary    → --btn-secondary-color
+         Without this rule, sections that pin `color` on a parent
+         (e.g. cart sidebar, faq, info box) cascade into buttons via
+         their inner `<span>` and override the button's own colour.
+         These rules win because they have a class selector AND
+         `!important`, and they walk into `*` so inner spans inherit. */
+      .btn-primary,
+      .btn-primary *,
+      :is(.shopify-payment-button__more-options, .shopify-payment-button__button--unbranded, .shopify-challenge__button, .dmp_discount-form button),
+      :is(.shopify-payment-button__more-options, .shopify-payment-button__button--unbranded, .shopify-challenge__button, .dmp_discount-form button) * {
+        color: var(--btn-color, var(--btn-primary-color, #ffffff)) !important;
+      }
+      .btn-outline,
+      .btn-outline *,
+      .btn-white,
+      .btn-white * {
+        color: var(--btn-color, var(--btn-outline-color, var(--color-text, #111111))) !important;
+      }
+      .btn-secondary,
+      .btn-secondary * {
+        color: var(--btn-secondary-color, var(--btn-outline-color, var(--color-text, #111111))) !important;
+      }
+      /* The cart drawer "View Cart" button uses .viewcart on a .btn-outline.
+         Pin its label to scheme secondary so the text colour follows the
+         Button-secondary customiser, not the global Text colour. */
+      .btn-outline.viewcart,
+      .btn-outline.viewcart * {
+        color: var(--btn-secondary-color, var(--btn-outline-color, var(--color-text, #111111))) !important;
+      }
+      /* The cart "Checkout" button always uses primary. */
+      .btn-checkout,
+      .btn-checkout * {
+        color: var(--btn-primary-color, #ffffff) !important;
+      }
+      :root {
+        --border-color-base: #e5e5e5;
+        --light-grey-color: #f5f5f5;
+         --rounded-radius: 12px;
+        --body-font-size: 17px;
+        --body-line-height: 1.7;
+        --body-weight: 400;
+        --heading-font-scale: 1.0;
+        --heading-line-height: 1.2;
+        --heading-text-transform: none;
+        --heading-letter-spacing: 0em;
+        --heading-weight: 600;
+        --subheading-weight: 500;
+        --medium-font-weight: 400;
+        --btn-text-transform: none;--btn-radius: 8px;
+        --btn-font-size: 16px;
+        --btn-padding-y: 14px;
+        --btn-padding-x: 26px;
+        --btn-font-weight: 600;
+        --btn-border-width: 0px;
+        --btn-letter-spacing: 0px;
+        --btn-anim-duration: 225ms;
+        --btn-anim-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+        --btn-shadow: none;
+        --btn-shadow-hover: 0 10px 22px -8px rgba(0, 0, 0, 0.25);
+        --icon-btn-size: 44px;
+        --input-height: 48px;
+        --input-padding: 1rem 11px;
+        --inputs-border-width: 1px;
+        --input-label-weight: var(--body-weight, 400);
+        --input-color: var(--color-text);
+        --input-border-radius: 3px;
+        --search-input-radius: 7px;
+        --pill-radius: 7px;
+        --card-radius: 6px;
+        --container-gutter: 16px;
+        --grid-gap: var(--sl-live-grid-gap-mobile, 12px);
+        --border-width: 1px;--card-shadow: none;--divider-style: solid;
+        --animation-duration: 500ms;
+        --animation-delay-base: 0ms;
+        --input-font-size: var(--body-font-size, 16px);
+        --input-placeholder-color: rgba(var(--color-heading-rgb), 0.6);
+        --page-width: 1200px;
+        --fluid-container-width: 1360px;
+        --color-white: #FFF;
+        --color-dark: #111;
+        --h0-size: calc(var(--heading-font-scale) * 4.8rem);
+        --h1-size: calc(var(--heading-font-scale) * 4rem);
+        --h2-size: calc(var(--heading-font-scale) * 3.6rem);
+        --h3-size: calc(var(--heading-font-scale) * 3rem);
+        --h4-size:  calc(var(--heading-font-scale) * 2.4rem);
+        --h5-size: calc(var(--heading-font-scale) * 1.8rem);
+        --h6-size: calc(var(--heading-font-scale) * 1.6rem);
+        --transition: 0.4s cubic-bezier(.3, 1, .3, 1);
+        --duration-short: 0.3s;
+        --duration-long: 0.5s;
+        --transition-popup: transform .6s cubic-bezier(.7,0,.2,1);
+        --zoom-transform: scale(1.05);
+        --overlay-bg: rgba(0, 0, 0, 0.50);
+        --grey-color: #f5f5f5;--section-spacing: var(--sl-live-space-mobile, 50px);
+        --bs-gutter-x: 1.5rem;
+        --shadow: 5px 0px 30px 0px rgba(0, 0, 0, 0.08);
+        /* Badge color */
+        --bages-radius: 0px;
+        --badges-font-weight: 500;
+        --badges-letter-spacing: 1px;
+        --badges-transform: uppercase;
+        --badges-padding-x: 10px;
+        --badges-padding-y: 5px;
+        --badges-offset-x: 18px;
+        --badges-offset-y: 14px;
+        --badges-gap: 6px;
+        --badges-shadow: 0 2px 6px rgba(0,0,0,.18);
+        --bages-sale-color: #ffffff;
+        --bages-sale-bg-color: #353535;
+        --bages-new-color: #ffffff;
+        --bages-new-bg-color: #3456e6;
+        --bages-pre-order-color: #ffffff;
+        --bages-pre-order-bg-color: #6a33d8;
+        --bages-sold-out-color: #ffffff;
+        --bages-sold-out-bg-color: #666666;
+        --bages-custom-color: #ffffff;
+        --bages-custom-bg-color: #14854e;
+        --responsive-rate: ((100vw - 575px) / (1600 - 575));
+      }
+      @media (min-width: 768px) {
+        :root{
+          --section-spacing: var(--sl-live-space-desktop, 112px);
+          --grid-gap: var(--sl-live-grid-gap-desktop, 22px);
+        }
+      }
+      @media (max-width: 1024.5px) {
+        :root {
+          --transition-popup: transform .35s cubic-bezier(.7,0,.2,1);
+        }
+      }
+    

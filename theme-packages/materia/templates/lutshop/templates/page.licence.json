@@ -36,7 +36,7 @@
         "section_width": "container",
         "structured_data": true,
         "heading": "",
-        "subheading": "<p>About the apps, log footage, downloads and the licence.</p>",
+        "subheading": "",
         "first_item_open": true,
         "allow_multiple_open": false,
         "open_icon": "plus",
@@ -113,14 +113,14 @@
         "faq_item_6"
       ]
     },
-    "bundles": {
+    "popular": {
       "type": "products-listing",
       "settings": {
         "color_scheme": "default",
         "section_width": "container",
-        "collection": "bundles",
+        "collection": "all",
         "items_to_show": 4,
-        "heading": "Bundles",
+        "heading": "Popular packs",
         "show_view_all": true,
         "view_all_label": "View all",
         "header_alignment": "left",
@@ -145,7 +145,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Bundles",
+            "text": "Popular packs",
             "size_desktop": 40,
             "size_mobile": 30
           }
@@ -153,7 +153,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Every bundle comes with the same licence.</p>"
+            "text": "<p>Every file in the shop comes with this licence.</p>"
           }
         }
       },
@@ -166,6 +166,6 @@
   "order": [
     "heading",
     "faq",
-    "bundles"
+    "popular"
   ]
 }

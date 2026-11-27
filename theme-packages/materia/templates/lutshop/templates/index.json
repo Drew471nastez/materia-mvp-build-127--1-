@@ -692,39 +692,51 @@
       ]
     },
     "maker": {
-      "type": "Image-and-video-text",
+      "type": "dual-image-with-text",
       "settings": {
         "color_scheme": "scheme-3c9e1d42-6f1a-4b7e-9d20-5a8c0e7b1f31",
         "section_width": "container",
         "reset_spacing": true,
         "image_position": "left",
-        "text_column_width": 50,
+        "text_column_width": 46,
         "content_align": "left",
         "content_gap": 18,
-        "media_type": "image",
-        "image": "shopify://shop_images/lutshop-maker.webp",
-        "image_alt": "Jonas holding a cinema camera with a monitor on top",
-        "aspect_w": 4,
-        "aspect_h": 5,
-        "image_fit": "cover",
-        "image_radius": 8,
-        "enable_custom_style": false,
+        "aspect_ratio_w": 4,
+        "aspect_ratio_h": 5,
+        "show_dots": false,
         "gap_desktop": 72,
         "padding_top_desktop": 96,
         "padding_bottom_desktop": 96,
+        "side_padding_desktop": 0,
+        "content_align_mobile": "left",
+        "mobile_order": "media_first",
+        "gap_mobile": 28,
         "padding_top_mobile": 56,
         "padding_bottom_mobile": 56,
-        "side_padding_mobile": 16,
-        "mobile_order": "media_first"
+        "side_padding_mobile": 16
       },
       "blocks": {
-        "eyebrow": {
+        "main_image_1": {
+          "type": "main_image",
+          "settings": {
+            "image": "shopify://shop_images/lutshop-maker.webp",
+            "alt": "Jonas holding a cinema camera with a monitor on top",
+            "anchor": "top_left",
+            "size": 100,
+            "fit": "cover",
+            "position_x": 50,
+            "position_y": 40,
+            "radius": 8,
+            "shadow": false
+          }
+        },
+        "eyebrow_2": {
           "type": "eyebrow",
           "settings": {
             "text": "Made by Jonas Wahl"
           }
         },
-        "heading": {
+        "heading_3": {
           "type": "heading",
           "settings": {
             "text": "Graded on real jobs first",
@@ -733,13 +745,15 @@
             "size_mobile": 30
           }
         },
-        "text": {
+        "subheading_4": {
           "type": "subheading",
           "settings": {
-            "text": "<p>I colour music videos and adverts in Rotterdam. Every look here started as a grade for a client, then got tested on footage from six cameras and two phones before it went in a pack.</p><p>If a LUT does something odd to your footage, send me a frame and I will tell you why.</p>"
+            "text": "<p>I colour music videos and adverts in Rotterdam. Every look here started as a grade for a client, then got tested on footage from six cameras and two phones before it went in a pack.</p><p>If a LUT does something odd to your footage, send me a frame and I will tell you why.</p>",
+            "size_desktop": 17,
+            "size_mobile": 15
           }
         },
-        "button": {
+        "button_5": {
           "type": "button",
           "settings": {
             "label": "About Coldframe",
@@ -749,10 +763,11 @@
         }
       },
       "block_order": [
-        "eyebrow",
-        "heading",
-        "text",
-        "button"
+        "main_image_1",
+        "eyebrow_2",
+        "heading_3",
+        "subheading_4",
+        "button_5"
       ]
     },
     "reviews": {
