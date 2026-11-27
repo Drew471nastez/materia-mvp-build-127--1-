@@ -2675,16 +2675,33 @@ export const CANVAS_BRIDGE = `
       ran.add(key);
       var s = document.createElement("script");
       Array.prototype.slice.call(old.attributes).forEach(function (a) { s.setAttribute(a.name, a.value); });
+      var own = rerun ? window.__slOwn : null, mine = own ? own.get(key) : null;
       if (rerun) {
-        var own = window.__slOwn, mine = own && own.get(key);
-        if (mine) {
-          own.delete(key);
-          mine.forEach(function (r) { try { if (r[0] === null) clearInterval(r[1]); else r[0].removeEventListener(r[1], r[2], r[3]); } catch (e) {} });
-        }
+        if (mine) own.delete(key);
         s.__slKey = key;
         s.textContent = /^module$/i.test(type) ? key : "{try{" + key + "\\n}catch(e){}}";
       } else s.textContent = old.textContent;
       old.replaceWith(s);
+      /*
+        ROUND 69: WHAT THE RUN AGAIN DID NOT ADD AGAIN STAYS. The run again is
+        done first, then what its last run added is taken off, but only where
+        this run added the same again (a listener for the same event on the
+        same target, an interval). A script that runs once per page behind a
+        guard of its own (Materia's sticky header: if (!window.StorelibHeaderSticky))
+        adds nothing the second time; its scroll, resize and load listeners
+        were taken off all the same, and the header stayed in the mode it had
+        ("Show on scroll up" back from "Always sticky" never hid again).
+      */
+      if (mine) {
+        var now = own.get(key) || [];
+        var again2 = function (r) { return now.some(function (n) { return r[0] === null ? n[0] === null : n[0] === r[0] && n[1] === r[1]; }); };
+        var kept = [];
+        mine.forEach(function (r) {
+          if (!again2(r)) { kept.push(r); return; }
+          try { if (r[0] === null) clearInterval(r[1]); else r[0].removeEventListener(r[1], r[2], r[3]); } catch (e) {}
+        });
+        if (kept.length) own.set(key, kept.concat(now));
+      }
     });
   };
   /* A section new to the page goes in with its stylesheets applied (A SECTION ADDED ARRIVES): waited for here, the whole patch at once after. */
