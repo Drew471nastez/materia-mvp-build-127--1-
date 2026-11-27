@@ -1230,14 +1230,14 @@ export const CANVAS_BRIDGE = `
     try { if (el.matches("[data-animation-done]") || el.querySelector("[data-animation-done], [animation-end]")) return true; } catch (e) {}
     return el.getBoundingClientRect().top < innerHeight;
   };
-  var stillUntil = typeof WeakMap === "function" ? new WeakMap() : null;
+  var entranceUntil = typeof WeakMap === "function" ? new WeakMap() : null;
   var keepStill = function (root) {
-    if (!root || !root.getAnimations || !stillUntil) return;
-    var fresh = !stillUntil.has(root);
-    stillUntil.set(root, performance.now() + 1500);
+    if (!root || !root.getAnimations || !entranceUntil) return;
+    var fresh = !entranceUntil.has(root);
+    entranceUntil.set(root, performance.now() + 1500);
     if (!fresh) return;
-    var settle = function () {
-      if (!root.isConnected) { stillUntil.delete(root); return; }
+    var settleEntrances = function () {
+      if (!root.isConnected) { entranceUntil.delete(root); return; }
       try {
         root.getAnimations({ subtree: true }).forEach(function (x) {
           if (x.playState === "finished" || x.__slStill) return;
@@ -1251,10 +1251,10 @@ export const CANVAS_BRIDGE = `
           x.finish();
         });
       } catch (e) {}
-      if (performance.now() < stillUntil.get(root)) requestAnimationFrame(settle);
-      else stillUntil.delete(root);
+      if (performance.now() < entranceUntil.get(root)) requestAnimationFrame(settleEntrances);
+      else entranceUntil.delete(root);
     };
-    settle();
+    settleEntrances();
   };
   /*
     A SELECTED BLOCK IN A ROW THAT SCROLLS SIDEWAYS (a slideshow, a carousel
