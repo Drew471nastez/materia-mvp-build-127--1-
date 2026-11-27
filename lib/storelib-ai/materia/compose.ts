@@ -183,7 +183,7 @@ const ARCS: Record<Archetype, string[][]> = {
 }
 
 /** Sections the composer never chooses: plumbing, single-store gimmicks, or ones that need data a new site lacks. */
-const NEVER = new Set(["addtocartbutton", "try-the-look", "posters-wave-band", "countdown-timer2", "Social-icons-pro2", "brand-logo", "vsl-logos", "vsl-stats", "number-stats", "stat-counter"])
+const NEVER = new Set(["addtocartbutton", "try-the-look", "posters-wave-band", "countdown-timer2", "Social-icons-pro2", "brand-logo", "vsl-logos", "vsl-stats", "number-stats", "stat-counter", "progress-circles"])
 
 /** The fewest body sections and distinct types home needs (lib/ai-builder/agent/site-plan.ts MIN_HOME_*). */
 export const BLUEPRINT_MIN_SECTIONS = 10
