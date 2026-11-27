@@ -33,7 +33,7 @@ const ts = require("typescript")
 const root = process.cwd()
 const args = process.argv.slice(2).filter((a) => !a.startsWith("--"))
 const dry = process.argv.includes("--dry")
-const files = args.length ? args : execSync("git ls-files", { cwd: root }).toString().split("\n").filter((f) => inScope(f) || inLibScope(f))
+const files = args.length ? args : execSync("git ls-files", { cwd: root, maxBuffer: 64 * 1024 * 1024 }).toString().split("\n").filter((f) => inScope(f) || inLibScope(f))
 
 const manual = []
 let changedFiles = 0

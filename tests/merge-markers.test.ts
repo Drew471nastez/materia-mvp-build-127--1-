@@ -25,7 +25,7 @@ const MARKER = /^(<{7} |={7}$|>{7} )/m
 
 console.log("\nNo file is half merged")
 
-const files = execSync("git ls-files", { encoding: "utf8" })
+const files = execSync("git ls-files", { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }) /* The list passed 1 MB, execSync's default (round 68). */
   .split("\n")
   .filter((f) => /\.(tsx?|mjs|mts|cjs|js|css|json|sql|storelib)$/.test(f))
   /* The lockfile is machine-written and long; a conflict in it fails install. */

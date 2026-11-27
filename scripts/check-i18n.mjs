@@ -45,7 +45,7 @@ const ts = require("typescript")
 
 export const LANGUAGES = ["es", "fr", "de", "pt-BR", "it", "pl"]
 
-const files = execSync("git ls-files", { cwd: root })
+const files = execSync("git ls-files", { cwd: root, maxBuffer: 64 * 1024 * 1024 })
   .toString()
   .split("\n")
   .filter((f) => inScope(f) || (LIB_SCOPE ?? []).some((r) => r.test(f)))

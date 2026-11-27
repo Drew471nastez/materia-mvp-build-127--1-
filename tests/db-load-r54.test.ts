@@ -149,7 +149,8 @@ async function main() {
     check("an imported theme's pages: the drafts only for a preview", compat.includes('.select((draft ? "page_key, sections, draft_sections" : "page_key, sections") as "page_key, sections, draft_sections")'))
     const files = readCode("app/api/website-builder/themes/[installId]/files/route.ts")
     check("the editor's theme read leaves base64 files with no draft in the database", files.includes(`.or('content.not.like."base64:*",draft_content.not.is.null')`))
-    check("  which it still drops when one is there", /!text\.startsWith\("base64:"\)/.test(files))
+    /* Changed on purpose (r68): the loop now skips such a file with `continue` (scripts are kept by version, editor-open r68). */
+    check("  which it still drops when one is there", /!text\.startsWith\("base64:"\)|text\.startsWith\("base64:"\)\) continue/.test(files))
     for (const [file, key] of [
       ["lib/reviews/storefront-server.ts", "reviews:storefront-rows"],
       ["lib/reviews/storefront-server.ts", "reviews:storefront-ratings"],

@@ -155,7 +155,8 @@ function markParts(section, type) {
     const el = candidates[i];
     if (el.closest(SCROLL_ANIMATION_TRIGGER_CLASSNAME) !== section) continue;
     if (picked.some(p => p.contains(el))) continue;
-    if (el.style.transform || el.style.opacity || el.classList.contains('swiper-slide') || el.closest('.secondary-image, [aria-hidden="true"], [hidden]')) continue;
+    // A stage the section moves itself (Try the look's [data-stage], or any [data-reveal-skip]) is never a part (round 68).
+    if (el.style.transform || el.style.opacity || el.classList.contains('swiper-slide') || el.closest('.secondary-image, [aria-hidden="true"], [hidden], [data-stage], [data-reveal-skip]')) continue;
     const r = el.getBoundingClientRect();
     if (r.width < 1 || r.height < 1 || r.right <= 0 || r.left >= width) continue;
     if (backdropOf(section, el, box)) continue;
@@ -175,6 +176,12 @@ function markParts(section, type) {
   markZoom(section, img => img.closest(SCROLL_ANIMATION_TRIGGER_CLASSNAME) !== section || ((type === 'mask_reveal' || type === 'editorial') && !!img.closest('[data-reveal-part="media"]')));
   return true;
 }
+// A press inside a section still revealing finishes its reveal at once: what
+// is grabbed or tapped is where it is drawn, never held by the reveal (round 68).
+document.addEventListener('pointerdown', event => {
+  const section = event.target instanceof Element && event.target.closest('.scroll-trigger--armed');
+  if (section && !section.hasAttribute(SCROLL_ANIMATION_DONE_ATTR)) { revealObserver?.unobserve(section); markDone(section); }
+}, { capture: true, passive: true });
 function clearParts(el) {
   const parts = el.__mtParts;
   if (parts) {
