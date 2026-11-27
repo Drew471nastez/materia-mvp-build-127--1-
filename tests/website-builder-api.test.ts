@@ -180,7 +180,8 @@ async function main() {
       const where = src.indexOf(`bucket: "${bucket}"`)
       const counted = where > 0 && new RegExp(`bucket: "${bucket}",?\\s*(\\n\\s*)?subjects: \\[\`user:\\$\\{[\\w.]+\\}\`\\],?\\s*(\\n\\s*)?windows: (RATE_)?LIMITS\\.${allowance}`).test(src)
       /* The helper may be a small function of its own (the preview route's three methods share one). */
-      const called = /const limited = await (rateLimit\(|limit\()/.test(body) && /if \(limited\) return limited/.test(body)
+      /* Changed on purpose (r67): the sections read asks its limit beside the checks (limitAsked) and waits for it before reading the page. */
+      const called = /const limited = await (rateLimit\(|limit\(|\(limitAsked \?\? rateLimit\()/.test(body) && /if \(limited\) return limited/.test(body)
       /* Changed on purpose (round 42 team): a route that asks lib/team/website is known once websiteInstallCaller has answered. */
       const shared = body.indexOf("await websiteInstallCaller")
       const afterAuth = body.indexOf("const limited") > (shared > 0 ? shared : Math.max(body.indexOf("await getCreatorInstall("), body.indexOf("await ownInstall("), body.indexOf("await owned("), body.indexOf(".eq(\"creator_id\"")))

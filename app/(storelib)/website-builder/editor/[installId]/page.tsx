@@ -12183,7 +12183,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               PUBLISH FROM THE EDITOR, FOR A WEBSITE THAT IS NOT LIVE YET (round
               67, the owner: "I want to publish the website live from the editor,
               next to Save"). On a computer Save stays as it was and Publish sits
-              beside it, in the live Publish's purple, opening the same panel,
+              beside it, in the live Publish's colour, opening the same panel,
               which says what goes live and what it replaces before the press.
               A phone has room for one key: it is Publish, and autosave keeps
               the draft saved as it does on a computer.

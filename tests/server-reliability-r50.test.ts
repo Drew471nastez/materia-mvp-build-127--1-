@@ -467,7 +467,7 @@ async function main() {
     for (const f of ["app/api/website-builder/themes/[installId]/route.ts", "app/api/website-builder/themes/[installId]/sections/route.ts", "app/api/website-builder/themes/[installId]/files/route.ts", "app/api/website-builder/themes/[installId]/settings/route.ts"]) {
       const code = src(f)
       check(`${f.replace("app/api/website-builder/themes/", "")}: GET takes the read answer, changes stay strict`,
-        /getCreator(And)?Install\(installId, true\)/.test(code) && /websiteInstallCaller(<[^>]+>)?\(installId, "[^"]+", \{ read \}\)/.test(code))
+        /getCreator(And)?Install\(installId, true(\)|, \(who\) =>)/.test(code) && /* Changed on purpose (r67): the sections read hands its limit in as `beside` */ /websiteInstallCaller(<[^>]+>)?\(installId, "[^"]+", \{ read(, beside)? \}\)/.test(code))
     }
     check("the limiter's steps each have a ceiling", /within\(\s*admin\s*\.from\("rate_limit_hits"\)\s*\.select/.test(src("lib/api/rate-limit.ts")) && /LIMIT_SWEEP_MS\)/.test(src("lib/api/rate-limit.ts")))
     const mine = ["lib/net/retry-budget.ts", "lib/website-builder/load-problem.ts", "lib/website-builder/write-retry.ts"]

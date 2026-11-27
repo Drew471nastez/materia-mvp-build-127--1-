@@ -1338,8 +1338,10 @@ section("Autosave writes the draft, never the live site")
         // Live: the button reads Publish and OPENS THE PANEL, whatever is
         // pending, because the panel is where the answer to "what is pending"
         // lives. Draft: Save while dirty, Saved once written, no panel.
-        /live \? "Publish" : pending \? "Save" : "Saved"/.test(body) &&
-        /if \(!live\) \{ void handleSave\(\); return \}\s*setPublishOpen\(\(v\) => !v\)/.test(body)
+        /* Changed on purpose (r67): a website not live yet has Publish beside Save on a computer, and one Publish key on a phone; Save is as it was. */
+        /asPublish \? \(busyNow \? publishWords : "Publish"\) : saving \? "Saving" : pending \? "Save" : "Saved"/.test(body) &&
+        /if \(!live\) \{ void handleSave\(\); return \}\s*setPublishOpen\(\(v\) => !v\)/.test(body) &&
+        /\{!live && !isMobileView && \(/.test(body)
       )
     })(),
   )

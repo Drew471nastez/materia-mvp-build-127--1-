@@ -44,7 +44,7 @@ function refused(error: string, status: number): WebsiteCaller {
 /** The signed in person's store for the website builder. */
 export async function websiteCaller(opts: { read?: boolean; beside?: (userId: string) => void } = {}): Promise<WebsiteCaller> {
   const own = await createClient()
-  const { user, status, error } = await editorUser(own, { read: opts.read })
+  const { user, status, error } = await editorUser(own, opts)
   if (!user) return refused(error, status)
   /* Work for this signed in person that needs nothing of the store yet (websiteInstallCaller's `beside`). */
   opts.beside?.(user.id)

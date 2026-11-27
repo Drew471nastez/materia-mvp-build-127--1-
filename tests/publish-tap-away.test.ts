@@ -50,10 +50,12 @@ check("which is taken away again when it closes",
 
 console.log("\nClosing it does not stop a publish")
 check("the publish is the editor's: the panel only calls onPublish",
-  /onPublish=\{\(\) => \{ void handleSave\(\) \}\}/.test(editor) && !/abort|AbortController/.test(panel))
+  /* Changed on purpose (r67): a website not live yet publishes through publishChanges, the same route; a live one as before. */
+  /onPublish=\{\(\) => \{ if \(live\) void handleSave\(\); else void publishChanges\(\) \}\}/.test(editor) && !/abort|AbortController/.test(panel))
 check("and the bar's button says Publishing while it runs",
   /* Changed on purpose (r51): "Still publishing" once a press has gone on past PUBLISH_TIMES.slowMs. */
-  /busyNow \? \(live \? \(publishSlow \? "Still publishing" : "Publishing"\) : "Saving"\)/.test(editor))
+  /* Changed on purpose (r67): the words in one place (publishWords), for the live Publish and the not yet live one beside Save. */
+  /const publishWords = publishing \? \(publishSlow \? "Still publishing" : "Publishing"\) : "Publish"/.test(editor) && /asPublish \? \(busyNow \? publishWords : "Publish"\)/.test(editor))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) process.exit(1)

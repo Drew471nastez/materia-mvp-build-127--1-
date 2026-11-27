@@ -1099,6 +1099,10 @@ export function WebsiteBuilderClient({
     }
     clearPreviewAddress()
   }
+  /** The website being imported, added or copied: its row is drawn before it exists. See ./incoming. */
+  const [incoming, setIncoming] = React.useState<Incoming | null>(null)
+  /** How to make it again, for Try again. Kept beside the row rather than in it. */
+  const retryRef = React.useRef<(() => void) | null>(null)
   /*
     ADD FROM THE MARKETPLACE: ADDING, THEN THE PAGE (round 67, the owner:
     "Show Adding. Close the marketplace modal. Smooth scroll the website
@@ -1130,10 +1134,6 @@ export function WebsiteBuilderClient({
     if (steps > 0) backThen(clearAddress, undefined, steps)
     else clearAddress()
   }
-  /** The website being imported, added or copied: its row is drawn before it exists. See ./incoming. */
-  const [incoming, setIncoming] = React.useState<Incoming | null>(null)
-  /** How to make it again, for Try again. Kept beside the row rather than in it. */
-  const retryRef = React.useRef<(() => void) | null>(null)
   /** The website that has just landed: scrolled to and ringed once. */
   const [arrived, setArrived] = React.useState<string | null>(null)
   /**
