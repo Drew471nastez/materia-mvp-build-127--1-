@@ -188,14 +188,27 @@
   #shopify-section-{{ sid }} .brail__pic { position: absolute; left: 50%; top: 26px; width: var(--front-box); height: var(--g-h); translate: -50% 0; pointer-events: none; perspective: 900px; }
   #shopify-section-{{ sid }} .brail__pic img, #shopify-section-{{ sid }} .brail__pic svg {
     position: absolute; inset: 0; margin: auto; width: 100%; height: 100%; object-fit: contain; object-position: 50% 0;
-    backface-visibility: hidden; transition: transform var(--turn) var(--ease), opacity calc(var(--turn) * .4) ease;
+    backface-visibility: hidden; transition: transform var(--turn) var(--ease), opacity var(--fade, calc(var(--turn) * .4)) ease var(--fade-d, 0s), filter .32s ease;
     filter: drop-shadow(0 10px 12px rgb(0 0 0 / .14));
   }
+  /* Storelib (r68): the turn never shows the garment see-through for long. The view coming in is drawn whole first, under
+     or over the one going, and only then does the one going fade, quickly: turning to its side, the side view (underneath)
+     comes in at once and the front, already turned most of the way, fades after it; turning to face you, the front (on
+     top) comes in and the side goes after it, unseen beneath.
+     The rule that applies is the one for where the turn ends, so each pose carries the timing of the turn into it. */
+  #shopify-section-{{ sid }} .brail__side { --fade: calc(var(--turn) * .14); --fade-d: 0s; }
+  #shopify-section-{{ sid }} .brail__front { --fade: calc(var(--turn) * .16); --fade-d: calc(var(--turn) * .28); }
+  #shopify-section-{{ sid }} .brail__item.is-facing .brail__side { --fade: calc(var(--turn) * .14); --fade-d: calc(var(--turn) * .3); }
+  #shopify-section-{{ sid }} .brail__item.is-facing .brail__front { --fade: calc(var(--turn) * .16); --fade-d: 0s; }
+  /* Storelib (r68): the copy that flies back has no shadow, so the garment's shadow comes in softly as it lands, not at once. */
+  #shopify-section-{{ sid }} .brail__item.is-landing .brail__pic img { filter: drop-shadow(0 10px 12px rgb(0 0 0 / 0)); transition: none; }
   #shopify-section-{{ sid }} .brail__g--sample { cursor: default; }
   #shopify-section-{{ sid }} .brail__side { transform: rotateY(0deg); }
   /* Storelib (r67): a shorter turn (50 degrees each side, with the two views swapping quickly) instead of a full quarter turn,
      where both views showed half turned and see-through at once and the garment looked grey mid-turn. */
-  #shopify-section-{{ sid }} .brail__front { transform: rotateY(-50deg); opacity: 0; }
+  /* Storelib (r68): side on, the front view waits turned further (70 degrees), so it is narrow, about the side view's
+     width, when it fades: the turn reads as one garment turning, not as two pictures passing through each other. */
+  #shopify-section-{{ sid }} .brail__front { transform: rotateY(-70deg); opacity: 0; }
   /* Product photos with a background hang as tidy cards: a narrow crop on the rail, the whole picture when it turns. */
   #shopify-section-{{ sid }} .brail__pic--card img { inset: 4px 0 auto; margin: 0 auto; object-position: 50% 50%; border-radius: 6px; background: #fff; filter: none; box-shadow: 0 14px 26px -14px rgb(0 0 0 / .45), 0 0 0 1px rgb(0 0 0 / .04); }
   #shopify-section-{{ sid }} .brail__pic--card .brail__side { width: calc(var(--side-box) * .94); height: calc(var(--side-box) * 1.38); object-fit: cover; }
@@ -205,6 +218,8 @@
   @media (hover: hover) and (pointer: fine) {
     #shopify-section-{{ sid }} .brail__item.is-hot .brail__side { transform: rotateY(50deg); opacity: 0; }
     #shopify-section-{{ sid }} .brail__item.is-hot .brail__front { transform: rotateY(0deg); opacity: 1; }
+    #shopify-section-{{ sid }} .brail__item.is-hot .brail__side { --fade: calc(var(--turn) * .14); --fade-d: calc(var(--turn) * .3); }
+    #shopify-section-{{ sid }} .brail__item.is-hot .brail__front { --fade: calc(var(--turn) * .16); --fade-d: 0s; }
     #shopify-section-{{ sid }} .brail__item.is-hot { z-index: 2; position: relative; }
     #shopify-section-{{ sid }} .brail__track:has(.is-hot) .brail__item:has(~ .is-hot) { transform: translateX(calc(-1 * var(--shift))); }
     #shopify-section-{{ sid }} .brail__item.is-hot ~ .brail__item { transform: translateX(var(--shift)); }
@@ -284,7 +299,9 @@
   #shopify-section-{{ sid }} .brail__focus::backdrop { background: transparent; }
   #shopify-section-{{ sid }} .bf__bg { position: fixed; inset: 0; z-index: 0; background: var(--color-background); pointer-events: none; }
   #shopify-section-{{ sid }} .brail__focus[data-glass] .bf__bg { background: color-mix(in srgb, var(--color-background) var(--bf-glass, 82%), transparent); -webkit-backdrop-filter: blur(24px) saturate(1.1); backdrop-filter: blur(24px) saturate(1.1); }
-  #shopify-section-{{ sid }} .brail__focus.is-closing { pointer-events: none; }
+  /* Storelib (r68): the page takes clicks again two frames into the close, once the flight is running on its own: letting the
+     pointer through restyles whatever is under it, which held up the flight's first frame by up to 200 ms on a slow phone. */
+  #shopify-section-{{ sid }} .brail__focus.is-closing.is-through { pointer-events: none; }
   #shopify-section-{{ sid }} .bf__fly { position: fixed; left: 0; top: 0; z-index: 3; margin: 0; border: 0; pointer-events: none; transform-origin: 0 0; will-change: transform, opacity; object-fit: contain; }
   #shopify-section-{{ sid }} .bf__media.is-flying .bf__slide:first-child img { visibility: hidden; }
   #shopify-section-{{ sid }} .bf__ghost { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
@@ -978,7 +995,7 @@
         // The picture the rail already shows is decoded, so it flies at once. Only a picture still loading is waited for, briefly.
         const front = this.f('front');
         if (!(front.complete && front.naturalWidth) && front.decode) await Promise.race([front.decode().catch(() => {}), new Promise(r => setTimeout(r, 160))]);
-        this.dialog.classList.remove('is-closing');
+        this.dialog.classList.remove('is-closing', 'is-through');
         this.reveal();
         this.dialog.scrollTop = 0;
         this._opening = false;
@@ -1009,33 +1026,43 @@
       }
       close() {
         const d = this.dialog; if (!d || !d.open || d.classList.contains('is-closing')) return;
-        d.classList.add('is-closing');
         const li = this.items[this.index];
         // The garment goes back to its own hanger: bring it into the rail's view first (the page is still), and give it
         // its facing pose at once while it is hidden, so the copy that flies back lands on exactly what the rail shows.
+        // Storelib (r68): read before anything is written (nothing to restyle then), and the pose is usually already
+        // taken while the view was open (see motion()), so the flight's first frame is not held up.
         if (li && this.track) {
           const r = li.getBoundingClientRect(), t = this.track.getBoundingClientRect();
           if (r.left < t.left || r.right > t.right) this.track.scrollLeft += (r.left + r.width / 2) - (t.left + t.width / 2);
-          li.classList.add('is-snap', 'is-facing'); void li.offsetWidth; li.classList.remove('is-snap');
+          this.pose(li);
         }
+        this.items.forEach(x => { if (x !== li) x.classList.remove('is-facing', 'is-landing'); });
+        d.classList.add('is-closing');
+        requestAnimationFrame(() => requestAnimationFrame(() => { if (d.classList.contains('is-closing')) d.classList.add('is-through'); }));
         const end = this._endClose = () => {
           if (this._endClose !== end) return; this._endClose = null;
           // The copy and the garment it lands on are the same picture in the same place: swapped in one frame.
           // Focus goes back to the garment's button (closing a dialog may also put it there); that is not a hover, so it does not turn it.
           this._refocus = true;
           this.items.forEach(x => x.classList.remove('is-lifted'));
-          this.conceal(); d.classList.remove('is-closing');
+          this.conceal(); d.classList.remove('is-closing', 'is-through');
           this.clearMotion();
           if (this.from && this.from.isConnected) this.from.focus({ preventScroll: true });
           this._refocus = false;
           // Then it turns back to its side, and its neighbours slide home, together (the theme's turn speed, transform and opacity).
           requestAnimationFrame(() => {
-            if (li) li.classList.remove('is-facing');
+            if (li) li.classList.remove('is-facing', 'is-landing');
             this.hot(null);
             document.documentElement.classList.remove('brail-lock'); document.documentElement.style.removeProperty('padding-right');
           });
         };
         this.closeMotion(li).then(end);
+      }
+      // Storelib (r68): the garment, hidden off its hanger, takes its facing pose at once (no turn) and its shadow waits,
+      // so the copy that flies back lands on exactly what the rail then shows.
+      pose(li) {
+        if (li.classList.contains('is-facing') && li.classList.contains('is-landing')) return;
+        li.classList.add('is-snap', 'is-facing', 'is-landing'); void li.offsetWidth; li.classList.remove('is-snap');
       }
       clearMotion() {
         (this._anims || []).forEach(a => a.cancel()); this._anims = [];
@@ -1053,6 +1080,8 @@
         Close: starts at once from wherever things are, also mid-open. The words go (140 ms), the background fades
         (260 ms) and the garment flies back onto its hanger (300 ms), lands facing you exactly where the copy is, and
         then turns to its side at the theme's turn speed. Transform and opacity only.
+        Storelib (r68): the flight back starts at once (the old curve barely moved for its first 60 ms) and slows evenly onto the hanger (it arrives with no speed left,
+        so the hand-off is still); the garment's shadow comes in after it lands, and its turn never shows it see-through.
       */
       motion() {
         this.clearMotion(); this._run = null;
@@ -1082,7 +1111,7 @@
           if (this._run !== run) return;
           // The copy hands over to the picture in the view in one frame (same picture, same place), then goes.
           this.clearMotion();
-          if (li && this.items[this.index] === li) li.classList.add('is-lifted');
+          if (li && this.items[this.index] === li) { li.classList.add('is-lifted'); this.pose(li); }
           this.sharpen();
         });
       }
@@ -1101,7 +1130,7 @@
         const back = li && this.slideAt() === 0 ? this.flight(li, flying) : null;
         if (back) {
           if (li) { const pic = li.querySelector('.brail__pic'); if (pic) pic.style.removeProperty('opacity'); }
-          anims.push(back.el.animate(back.el === flying ? [{ transform: back.kf[0].transform, opacity: 1 }] : [{ transform: back.kf[1].transform, opacity: 1 }, { transform: back.kf[0].transform, opacity: 1 }], { duration: 300, easing: 'cubic-bezier(.4, 0, .2, 1)', fill: 'forwards' }));
+          anims.push(back.el.animate(back.el === flying ? [{ transform: back.kf[0].transform, opacity: 1 }] : [{ transform: back.kf[1].transform, opacity: 1 }, { transform: back.kf[0].transform, opacity: 1 }], { duration: 300, easing: 'cubic-bezier(.3, .6, .3, 1)', fill: 'forwards' }));
         } else { if (flying) flying.remove(); anims.push(this.f('media').animate([{ opacity: 0 }], out)); if (li) li.classList.remove('is-lifted'); }
         this._anims = anims;
         return Promise.all(anims.map(a => a.finished.catch(() => {})));

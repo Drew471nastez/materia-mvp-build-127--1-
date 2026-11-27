@@ -38,7 +38,9 @@
     --ease: cubic-bezier(.22, 1, .36, 1);
     --line: color-mix(in srgb, var(--color-text) 12%, transparent);
     --tint: color-mix(in srgb, var(--color-text) 4%, var(--color-background));
-    background: var(--color-background); color: var(--color-text); overflow: hidden;
+    background: var(--color-background); color: var(--color-text);
+    /* Storelib (r68): clip, not hidden: a hidden overflow is a scroll box, and the panel's sticky would stick inside it (never). */
+    overflow: hidden; overflow: clip;
     /* Storelib (round 28): a custom element is inline by default, and an inline box's top and bottom padding do not push its
        content down, so the Top and Bottom padding settings did nothing. As a block they apply. */
     display: block;
@@ -70,28 +72,36 @@
     --d: 0; --a: 0; position: absolute; left: 50%; bottom: 0; height: 100%; width: calc(var(--stage-h) * var(--mw, .42)); margin: 0;
     display: flex; justify-content: center; align-items: center;
     translate: -50% 0; transform: translateX(calc(var(--d) * var(--stage-h) * var(--mw, .42) * .55)) scale(calc(1 - min(1, var(--a)) * .14 - min(2, var(--a)) * .04));
-    transform-origin: 50% 100%; opacity: calc(1 - min(3, var(--a)) * .22); filter: blur(calc(min(2, var(--a)) * var(--blur)));
-    transition: transform var(--settle, .62s) var(--settle-ease, var(--ease)), opacity .45s ease, filter .3s ease; z-index: calc(10 - var(--a)); will-change: transform;
+    transform-origin: 50% 100%; filter: blur(calc(min(2, var(--a)) * var(--blur)));
+    /* Storelib (r68): the opacity follows the look's place continuously and reaches 0 at the stage's edge (--edge, set by
+       layout()), so a look leaving the lineup fades out as it slides instead of vanishing when it crosses a line. */
+    opacity: max(0, min(calc(1 - min(1, var(--a)) * .22 - max(0, min(2, var(--a)) - 1) * .22), calc((var(--edge, 2.01) - var(--a)) * 2.2)));
+    transition: transform .62s var(--ease), opacity .45s ease, filter .3s ease; z-index: calc(10 - var(--a)); will-change: transform;
     outline: none;
+    /* Storelib (r68): only the picture itself takes a press, so what the circle says (View over the picture in focus,
+       Drag elsewhere) is what a click does; the empty part of a look's box never opens it. */
+    pointer-events: none;
   }
+  #shopify-section-{{ sid }} .ttl__model .ttl__fit { pointer-events: auto; }
   #shopify-section-{{ sid }} [data-align='bottom'] .ttl__model { align-items: flex-end; }
   #shopify-section-{{ sid }} .ttl__model.is-on { cursor: pointer; }
   #shopify-section-{{ sid }} .ttl__model.is-on:focus-visible .ttl__fit { outline: 2px solid var(--color-heading); outline-offset: 6px; border-radius: 6px; }
   @media (hover: none) { #shopify-section-{{ sid }} .ttl__model.is-on { cursor: pointer; } }
-  #shopify-section-{{ sid }} .ttl__model[data-far] { opacity: 0; pointer-events: none; }
-  #shopify-section-{{ sid }} .ttl__model[data-jump] { transition: none; opacity: 0; }
+  #shopify-section-{{ sid }} .ttl__model[data-far] .ttl__fit { pointer-events: none; }
+  #shopify-section-{{ sid }} .ttl__model[data-jump] { transition: none; }
   /* The picture's own box, so pins sit on the garment whatever the model width */
   #shopify-section-{{ sid }} .ttl__fit { position: relative; display: block; height: 100%; max-width: 100%; aspect-ratio: var(--ar, .42); flex: none; }
   #shopify-section-{{ sid }} .ttl__fit img { width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%; display: block; -webkit-user-drag: none; }
   #shopify-section-{{ sid }} .ttl__fit--empty { background: var(--tint); border-radius: var(--card-radius, 12px); }
   #shopify-section-{{ sid }} .ttl__model .ttl__fit::after { content: ''; position: absolute; left: 12%; right: 12%; bottom: -8px; height: 20px; border-radius: 50%; background: radial-gradient(closest-side, rgb(0 0 0 / .2), transparent); z-index: -1; {% unless st.shadows %}display: none;{% endunless %} }
-  /* While dragging, the lineup follows the pointer with no lag; blur steps aside so every frame stays light. */
+  /* Storelib (r68): while a finger, the mouse or a trackpad moves it, and while it settles, the lineup is drawn every frame by a
+     spring in initDrag() (it follows the pointer closely and eases into place with the speed it was let go), so no CSS
+     transition runs on its transform then. The blur fades out (it is not redrawn every frame) and back in once it rests. */
   #shopify-section-{{ sid }} .ttl__stage.is-drag, #shopify-section-{{ sid }} .ttl__stage.is-drag .ttl__model { cursor: grabbing; }
   /* Storelib (round 28): the blur is dropped at once while the lineup moves (a blur that changes every frame is what
      costs frames on a phone) and fades back in once it has settled. The settle takes the speed of the release:
      a flick glides on at the speed it was let go, a slow drag eases in (see initDrag). */
-  #shopify-section-{{ sid }} .ttl__stage.is-drag .ttl__model { transition: opacity .3s ease; filter: none; }
-  #shopify-section-{{ sid }} .ttl__stage.is-settling .ttl__model { filter: none; transition: transform var(--settle, .62s) var(--settle-ease, var(--ease)), opacity .45s ease; }
+  #shopify-section-{{ sid }} .ttl__stage.is-drag .ttl__model { transition: filter .2s ease; filter: none; }
   #shopify-section-{{ sid }} .ttl__stage.is-drag .ttl__pin { opacity: 0; transition-delay: 0s; }
 
   /* Storelib: the glass circle sits exactly on the pointer (no trailing, no catching up) and stands in for it
@@ -148,7 +158,18 @@
 
   /* Panel */
   #shopify-section-{{ sid }} .ttl__panel { display: flex; flex-direction: column; min-width: 0; padding: 22px 20px 0; }
-  @media (min-width: 990px) { #shopify-section-{{ sid }} .ttl__panel { border-left: 1px solid var(--line); padding: 8px clamp(24px, 3vw, 44px) 0; max-height: calc(var(--stage-h) + 220px); } }
+  /* Storelib (r68): on a computer the panel is as tall as what it lists and stays in view while the runway scrolls past
+     (sticky, just under whatever sticky header shows: --sticky-top, written by theme.js). Taller than the window, it
+     sticks by its bottom edge instead (--ttl-ph, its height, measured by a ResizeObserver), so every piece and the
+     button are always reachable. It never scrolls on its own, so the page's scroll never stops in it. */
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .ttl__grid { align-items: start; }
+    #shopify-section-{{ sid }} .ttl__main { border-right: 1px solid var(--line); }
+    #shopify-section-{{ sid }} .ttl__panel { position: sticky; top: min(calc(var(--sticky-top, 0px) + 24px), calc(100vh - var(--ttl-ph, 0px) - 24px)); padding: 8px clamp(24px, 3vw, 44px) 0; transition: top .42s cubic-bezier(.22, .61, .36, 1); }
+    #shopify-section-{{ sid }} .ttl__panel .ttl__list { overflow: visible; flex: none; }
+    #shopify-section-{{ sid }} .ttl__panel .ttl__look { height: auto; }
+    #shopify-section-{{ sid }} .ttl__panel .ttl__bundle { margin-top: 0; border-top: 0; padding-top: 22px; }
+  }
   #shopify-section-{{ sid }} .ttl__ph { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
   #shopify-section-{{ sid }} .ttl__ph h3 { margin: 0; font-size: 18px; color: var(--color-heading); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #shopify-section-{{ sid }} .ttl__pieces { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; opacity: .6; white-space: nowrap; }
@@ -171,13 +192,24 @@
   #shopify-section-{{ sid }} .ttl__add.is-done { background: var(--color-heading); color: var(--color-background); border-color: var(--color-heading); }
   #shopify-section-{{ sid }} .ttl__add svg { transition: transform .3s var(--ease); }
   #shopify-section-{{ sid }} .ttl__item.is-open .ttl__add svg { transform: rotate(45deg); }
-  /* Size picker that opens under a piece */
-  #shopify-section-{{ sid }} .ttl__opts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; overflow: hidden; max-height: 0; opacity: 0; transition: max-height .45s var(--ease), opacity .3s ease, margin .3s ease; }
-  #shopify-section-{{ sid }} .ttl__item.is-open .ttl__opts { max-height: 220px; opacity: 1; margin-top: 12px; }
-  #shopify-section-{{ sid }} .ttl__opt { min-width: 40px; height: 36px; padding: 0 12px; border-radius: 99px; border: 1px solid var(--line); background: none; color: var(--color-heading); font: inherit; font-size: 13px; cursor: pointer; transition: background-color .2s ease, color .2s ease, border-color .2s ease; }
+  /* The options picker that opens under a piece (r68): one row per option (Size, Colour ...), named with the value
+     chosen; a value whose combination is sold out or missing is struck through but still takes a press (the closest
+     variant with it is chosen). The piece's price and picture follow the variant, and the button says its price. */
+  #shopify-section-{{ sid }} .ttl__opts { grid-column: 1 / -1; display: grid; gap: 14px; min-width: 0; overflow: hidden; max-height: 0; opacity: 0; transition: max-height .45s var(--ease), opacity .3s ease, margin .3s ease; }
+  #shopify-section-{{ sid }} .ttl__item.is-open .ttl__opts { max-height: 520px; opacity: 1; margin-top: 14px; }
+  #shopify-section-{{ sid }} .ttl__og { display: grid; gap: 8px; min-width: 0; }
+  #shopify-section-{{ sid }} .ttl__og-n { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; opacity: .6; }
+  #shopify-section-{{ sid }} .ttl__og-n b { font-weight: inherit; opacity: 1; margin-left: 6px; letter-spacing: .08em; }
+  #shopify-section-{{ sid }} .ttl__og-v { display: flex; flex-wrap: wrap; gap: 8px; }
+  #shopify-section-{{ sid }} .ttl__opt { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 44px; height: 40px; padding: 0 14px; border-radius: 99px; border: 1px solid var(--line); background: none; color: var(--color-heading); font: inherit; font-size: 13px; cursor: pointer; touch-action: manipulation; transition: background-color .2s ease, color .2s ease, border-color .2s ease, opacity .2s ease; }
+  @media (hover: hover) { #shopify-section-{{ sid }} .ttl__opt:hover { border-color: var(--color-heading); } }
   #shopify-section-{{ sid }} .ttl__opt[aria-pressed='true'] { background: var(--color-heading); color: var(--color-background); border-color: var(--color-heading); }
-  #shopify-section-{{ sid }} .ttl__opt:disabled { opacity: .35; text-decoration: line-through; cursor: not-allowed; }
-  #shopify-section-{{ sid }} .ttl__opt-add { flex: 1 0 100%; min-height: 44px; }
+  #shopify-section-{{ sid }} .ttl__opt.is-off { opacity: .45; text-decoration: line-through; }
+  #shopify-section-{{ sid }} .ttl__opt:focus-visible { outline: 2px solid color-mix(in srgb, var(--color-heading) 55%, transparent); outline-offset: 2px; }
+  #shopify-section-{{ sid }} .ttl__opt i { width: 12px; height: 12px; border-radius: 50%; background: var(--sw); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-text) 20%, transparent); }
+  #shopify-section-{{ sid }} .ttl__opt-add { width: 100%; min-height: 46px; }
+  #shopify-section-{{ sid }} .ttl__price s { opacity: .5; margin-right: 8px; font-size: .9em; }
+  #shopify-section-{{ sid }} .ttl__img img { transition: opacity .2s ease; }
   #shopify-section-{{ sid }} .ttl__bundle { padding: 18px 0 4px; border-top: 1px solid var(--line); margin-top: auto; }
   #shopify-section-{{ sid }} .ttl__bundle-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 14px; }
   #shopify-section-{{ sid }} .ttl__bundle-row p { margin: 0; color: var(--color-heading); }
@@ -216,7 +248,7 @@
   #shopify-section-{{ sid }} .ttl__lb::backdrop { background: transparent; }
   /* A plain dim, no blur: blurring the whole page behind costs frames while the card moves. */
   #shopify-section-{{ sid }} .ttl__lb-bg { position: fixed; inset: 0; background: rgb(0 0 0 / .46); }
-  #shopify-section-{{ sid }} .ttl__lb.is-closing { pointer-events: none; }
+  /* The closing card keeps the pointer: it hands a press to the look under it (the page is inert until it has closed). */
   html.ttl-lock { overflow: hidden; scrollbar-gutter: stable; }
   #shopify-section-{{ sid }} .ttl__card {
     position: relative; width: min(1120px, 100%); height: min(760px, 100%); display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr);
@@ -440,7 +472,7 @@
                 {%- if use_col -%}{%- assign qi = q | minus: 1 -%}{%- assign p = col_ps[qi] -%}{%- endif -%}
                 {%- if p != blank -%}
                   {%- assign n = n | plus: 1 -%}{%- assign v = p.selected_or_first_available_variant -%}
-                  <li class="ttl__item" data-item="{{ n }}">
+                  <li class="ttl__item" data-item="{{ n }}" data-vid="{{ v.id }}" data-cents="{{ v.price }}">
                     <a class="ttl__img" href="{{ p.url }}" tabindex="-1" aria-hidden="true">
                       {%- if p.featured_image -%}{{ p.featured_image | image_url: width: 240 | image_tag: widths: '120, 240', sizes: '88px', loading: 'lazy', alt: '' }}{%- endif -%}
                       <b>{{ n }}</b>
@@ -452,11 +484,11 @@
                     </div>
                     <button type="button" class="ttl__add" data-add="{{ v.id }}"{% if p.has_only_default_variant == false %} data-pick aria-expanded="false"{% endif %}{% unless p.available %} disabled{% endunless %} aria-label="{% if p.available %}{{ 'products.product.add_to_cart' | t }}{% else %}{{ 'products.product.sold_out' | t }}{% endif %}: {{ p.title | escape }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
                     {%- unless p.has_only_default_variant -%}
+                      {%- comment -%} Storelib (r68): the variants as data; the option rows are drawn from it when the picker first opens. {%- endcomment -%}
+                      <script type="application/json" data-vjson>{"options": {{ p.options_with_values | map: 'name' | json }}, "variants": [{%- for vv in p.variants -%}{"id": {{ vv.id | json }}, "available": {{ vv.available | json }}, "price": {{ vv.price | money | json }}, "cents": {{ vv.price | json }}, "compare": {% if vv.compare_at_price > vv.price %}{{ vv.compare_at_price | money | json }}{% else %}null{% endif %}, "options": {{ vv.options | json }}, "image": {% if vv.featured_image %}{{ vv.featured_image | image_url: width: 240 | json }}{% else %}null{% endif %}}{% unless forloop.last %},{% endunless %}{%- endfor -%}]}</script>
                       <div class="ttl__opts" data-opts>
-                        {%- for vv in p.variants -%}
-                          <button type="button" class="ttl__opt" data-v="{{ vv.id }}" aria-pressed="{% if vv.id == v.id %}true{% else %}false{% endif %}"{% unless vv.available %} disabled{% endunless %}>{{ vv.title | escape }}</button>
-                        {%- endfor -%}
-                        <button type="button" class="btn btn-primary ttl__opt-add" data-opt-add>{{ st.piece_button_label | escape }}</button>
+                        <div class="ttl__ogs" data-ogs style="display:contents"></div>
+                        <button type="button" class="btn btn-primary ttl__opt-add" data-opt-add data-label="{{ st.piece_button_label | escape }}" data-sold="{{ 'products.product.sold_out' | t | escape }}">{{ st.piece_button_label | escape }} · {{ v.price | money }}</button>
                       </div>
                     {%- endunless -%}
                   </li>
@@ -466,13 +498,13 @@
             {%- endif -%}
           </ul>
           {%- if count > 0 -%}
-            <div class="ttl__bundle">
+            <div class="ttl__bundle" data-total="{{ total }}" data-keep="{{ keep }}" data-currency="{{ cart.currency.iso_code | default: shop.currency | default: 'USD' }}">
               <div class="ttl__bundle-row">
                 <p>{{ st.bundle_heading | escape }}{%- if pct > 0 and st.bundle_note != blank -%}<small>{{ st.bundle_note | replace: '[count]', count | replace: '[percent]', pct | escape }}</small>{%- endif -%}</p>
-                <span class="ttl__total">{%- if pct > 0 -%}<s>{{ total | money }}</s>{%- endif -%}<span>{{ bundle_total | money }}</span></span>
+                <span class="ttl__total">{%- if pct > 0 -%}<s data-full>{{ total | money }}</s>{%- endif -%}<span data-sum>{{ bundle_total | money }}</span></span>
               </div>
               <button type="button" class="btn btn-primary ttl__all"{% if sample %} disabled{% else %} data-all="{{ ids }}"{% endif %}>
-                <span class="ttl__d-only">{{ st.button_label | escape }}</span><span class="ttl__m-only">{{ st.button_label | escape }} · {{ bundle_total | money }}</span>
+                <span class="ttl__d-only">{{ st.button_label | escape }}</span><span class="ttl__m-only">{{ st.button_label | escape }} · <span data-sum>{{ bundle_total | money }}</span></span>
                 <svg class="ttl__d-only" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15"/><path d="m13 6 6 6-6 6"/></svg>
               </button>
               <p class="ttl__msg" role="status" aria-live="polite" data-msg></p>
@@ -551,7 +583,18 @@
           if (m && m.classList.contains('is-on') && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); this.openView(m); }
           if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); this.go(this.i + (e.key === 'ArrowRight' ? 1 : -1), true); this.models[this.i].focus({ preventScroll: true }); }
         });
-        this.lb?.addEventListener('click', e => { if (e.target === this.lb || (e.target.matches && e.target.matches('[data-lb-bg]'))) this.closeView(); });
+        this.lb?.addEventListener('click', e => {
+          // Storelib (r68): while the card closes the page is still inert under it (a modal dialog), so a press on a look
+          // would be lost: the closing card takes it and hands it to the look under the pointer.
+          if (this.lb.classList.contains('is-closing')) {
+            e.stopPropagation(); e.preventDefault();
+            const inside = m => { const r = !m.hasAttribute('data-far') && m.querySelector('.ttl__fit')?.getBoundingClientRect(); return !!r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom; };
+            const hit = inside(this.models[this.i]) ? this.i : this.models.findIndex((m, k) => k !== this.i && inside(m));
+            if (hit > -1) { this._endClose?.(); if (hit === this.i) this.openView(this.models[hit]); else this.go(hit, true); }
+            return;
+          }
+          if (e.target === this.lb || (e.target.matches && e.target.matches('[data-lb-bg]'))) this.closeView();
+        });
         this.lb?.addEventListener('cancel', e => { e.preventDefault(); this.closeView(); });
         this.initCursor(); this.initDrag(); this.initSheetDrag();
         // Autoplay: only while on screen, never in the editor or with reduced motion
@@ -563,6 +606,9 @@
           new IntersectionObserver(es => es.forEach(e => this.setPlaying(e.isIntersecting && !this._paused))).observe(this);
         } else if (this.playBtn) { this.playBtn.querySelector('[data-i-pause]').hidden = true; this.playBtn.querySelector('[data-i-play]').hidden = false; }
         this.addEventListener('shopify:block:select', e => { const k = this.models.findIndex(m => m.contains(e.target) || m === e.target); if (k > -1) this.go(k, true); });
+        // Storelib (r68): the panel's height, for its sticky place when it is taller than the window (see .ttl__panel).
+        const panel = this.querySelector('.ttl__panel');
+        if (panel && 'ResizeObserver' in window) new ResizeObserver(() => panel.style.setProperty('--ttl-ph', Math.ceil(panel.offsetHeight) + 'px')).observe(panel);
         this.layout();
       }
       onClick(e) {
@@ -576,22 +622,24 @@
         }
         const model = t.closest('[data-model]');
         if (model && this.stage.contains(model)) {
-          if (this._swiped) return;
+          // A press that moved the lineup (or caught it while it was still moving) is not a click.
+          if (this._swiped) { this._swiped = false; return; }
           const k = this.models.indexOf(model);
           return k === this.i ? this.openView(model) : this.go(k, true);
         }
         const opt = t.closest('.ttl__opt');
-        if (opt) { opt.parentNode.querySelectorAll('.ttl__opt').forEach(x => x.setAttribute('aria-pressed', String(x === opt))); return; }
+        if (opt) { const it = opt.closest('.ttl__item'), g = this.vdata(it); if (g) this.choose(it, this.pick(g, this.chosen(it, g), +opt.dataset.k, opt.dataset.val)); return; }
         const optAdd = t.closest('[data-opt-add]');
         if (optAdd) {
-          const it = optAdd.closest('.ttl__item'); const on = it.querySelector('.ttl__opt[aria-pressed="true"]:not(:disabled)'); if (!on) return;
-          return this.add(optAdd, [{ id: ttlId(on.dataset.v), quantity: 1 }], () => { it.classList.remove('is-open'); it.querySelector('[data-pick]')?.setAttribute('aria-expanded', 'false'); });
+          const it = optAdd.closest('.ttl__item'), g = this.vdata(it), v = g && this.chosen(it, g); if (!v || !v.available) return;
+          return this.add(optAdd, [{ id: ttlId(v.id), quantity: 1 }], () => { it.classList.remove('is-open'); it.querySelector('[data-pick]')?.setAttribute('aria-expanded', 'false'); });
         }
         const add = t.closest('[data-add]');
         if (add) {
           if (add.hasAttribute('data-pick')) {
             const it = add.closest('.ttl__item'); const open = !it.classList.contains('is-open');
             it.parentNode.querySelectorAll('.ttl__item.is-open').forEach(x => { x.classList.remove('is-open'); x.querySelector('[data-pick]')?.setAttribute('aria-expanded', 'false'); });
+            if (open) this.picker(it);
             it.classList.toggle('is-open', open); add.setAttribute('aria-expanded', String(open));
             if (open) setTimeout(() => it.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' }), 120);
             return;
@@ -599,7 +647,90 @@
           return this.add(add, [{ id: ttlId(add.dataset.add), quantity: 1 }], () => { add.classList.add('is-done'); setTimeout(() => add.classList.remove('is-done'), 1600); });
         }
         const all = t.closest('[data-all]');
-        if (all) { const items = all.dataset.all.split(',').filter(Boolean).map(id => ({ id: ttlId(id), quantity: 1 })); if (items.length) this.add(all, items); }
+        if (all) {
+          // The variant chosen on each piece (r68); a piece with one variant adds its own.
+          const look = all.closest('[data-look]'), ids = [];
+          look.querySelectorAll('.ttl__item:not(.is-sample)').forEach(it => {
+            const g = this.vdata(it), v = g && this.chosen(it, g), b = it.querySelector('[data-add]');
+            if (v) { if (v.available) ids.push(v.id); } else if (b && !b.disabled) ids.push(b.dataset.add);
+          });
+          const items = (ids.length ? ids : all.dataset.all.split(',').filter(Boolean)).map(id => ({ id: ttlId(id), quantity: 1 }));
+          if (items.length) this.add(all, items);
+        }
+      }
+      // Storelib (r68): a piece's variants (its JSON, read once), the one chosen (data-vid), and the closest variant to a press.
+      vdata(it) {
+        if (!it) return null; if (it._g !== undefined) return it._g;
+        const j = it.querySelector('[data-vjson]'); let g = null;
+        try { g = j ? JSON.parse(j.textContent) : null; } catch (_) {}
+        return (it._g = g && g.variants && g.variants.length ? g : null);
+      }
+      chosen(it, g) { return g.variants.find(v => String(v.id) === it.dataset.vid) || g.variants.find(v => v.available) || g.variants[0]; }
+      pick(g, cur, k, val) {
+        const want = cur.options.slice(); want[k] = val;
+        const exact = g.variants.find(v => v.options.every((o, j) => o === want[j]));
+        if (exact) return exact;
+        const score = v => v.options.reduce((n, o, j) => n + (o === want[j] ? 1 : 0), 0) + (v.available ? 0.5 : 0);
+        return g.variants.filter(v => v.options[k] === val).sort((a, b) => score(b) - score(a))[0] || cur;
+      }
+      // The option rows, drawn once from the data: one per option, its values as pills (a colour gets its swatch).
+      picker(it) {
+        const g = this.vdata(it), box = it.querySelector('[data-ogs]'); if (!g || !box) return;
+        if (!box.childElementCount) {
+          const id = 'ttl' + Math.random().toString(36).slice(2, 8);
+          g.options.forEach((name, k) => {
+            const row = document.createElement('div'); row.className = 'ttl__og'; row.setAttribute('role', 'group'); row.setAttribute('aria-labelledby', id + k);
+            row.innerHTML = '<span class="ttl__og-n"><span></span><b data-og-v></b></span><div class="ttl__og-v"></div>';
+            row.querySelector('.ttl__og-n').id = id + k; row.querySelector('.ttl__og-n span').textContent = name;
+            const colour = /colou?r|farbe|couleur|kleur/i.test(name);
+            [...new Set(g.variants.map(v => v.options[k]))].forEach(val => {
+              const b = document.createElement('button'); b.type = 'button'; b.className = 'ttl__opt'; b.dataset.k = k; b.dataset.val = val;
+              if (colour && window.CSS && CSS.supports('color', val.toLowerCase().replace(/\s+/g, ''))) { const i = document.createElement('i'); i.style.setProperty('--sw', val.toLowerCase().replace(/\s+/g, '')); b.append(i); }
+              b.append(val); row.querySelector('.ttl__og-v').append(b);
+            });
+            box.append(row);
+          });
+        }
+        this.paintItem(it, this.chosen(it, g));
+      }
+      // A variant chosen: on this piece, and on its copy in the panel or the opened look, so both always agree.
+      choose(it, v) {
+        const look = it.closest('[data-look]'), inCard = !!it.closest('[data-lb]'), k = it.dataset.item;
+        const twin = inCard ? this.looks[this.i]?.querySelector('[data-item="' + k + '"]') : (this.lb?.open ? this.lb.querySelector('[data-lb-panel] [data-item="' + k + '"]') : null);
+        [it, twin].forEach(x => { if (!x) return; x.dataset.vid = v.id; x.dataset.cents = v.cents; if (x.querySelector('[data-ogs]')?.childElementCount) this.paintItem(x, v); else this.paintPrice(x, v); });
+        [look, twin && twin.closest('[data-look]')].forEach(l => l && this.total(l));
+      }
+      paintPrice(it, v) {
+        const pr = it.querySelector('.ttl__price'); if (pr) { pr.textContent = ''; if (v.compare) { const s = document.createElement('s'); s.textContent = v.compare; pr.append(s); } pr.append(v.price); }
+        const img = it.querySelector('.ttl__img img');
+        if (img && v.image && img.dataset.src !== v.image) {
+          // The variant's picture is swapped in once it is decoded, so the thumbnail never blanks.
+          img.dataset.orig = img.dataset.orig || img.currentSrc || img.src;
+          const want = v.image, pre = new Image(); pre.src = want; img.dataset.src = want;
+          (pre.decode ? pre.decode() : Promise.resolve()).then(() => { if (img.dataset.src !== want) return; img.removeAttribute('srcset'); img.src = want; }, () => {});
+        }
+      }
+      paintItem(it, v) {
+        const g = this.vdata(it); if (!g) return;
+        this.paintPrice(it, v);
+        it.querySelectorAll('.ttl__og').forEach((row, k) => { const b = row.querySelector('[data-og-v]'); if (b) b.textContent = v.options[k]; });
+        it.querySelectorAll('.ttl__opt').forEach(b => {
+          const k = +b.dataset.k, want = v.options.slice(); want[k] = b.dataset.val;
+          const m = g.variants.find(x => x.options.every((o, j) => o === want[j]));
+          b.setAttribute('aria-pressed', String(v.options[k] === b.dataset.val)); b.classList.toggle('is-off', !m || !m.available);
+        });
+        const add = it.querySelector('[data-opt-add]');
+        if (add) { add.disabled = !v.available; add.textContent = v.available ? (add.dataset.label || '') + ' · ' + v.price : (add.dataset.sold || ''); }
+      }
+      // The look's total, from the variants chosen. Shown again only when it changed, in the shop's currency.
+      total(look) {
+        const box = look.querySelector('.ttl__bundle'); if (!box || box.dataset.total == null) return;
+        const items = [...look.querySelectorAll('.ttl__item[data-cents]')]; if (!items.length) return;
+        const sum = items.reduce((n, x) => n + (+x.dataset.cents || 0), 0), keep = +box.dataset.keep || 100;
+        const orig = box._orig || (box._orig = [...box.querySelectorAll('[data-sum], [data-full]')].map(x => x.textContent));
+        const fmt = c => { try { return new Intl.NumberFormat(document.documentElement.lang || undefined, { style: 'currency', currency: box.dataset.currency || 'USD' }).format(c / 100); } catch (_) { return (c / 100).toFixed(2); } };
+        const same = sum === +box.dataset.total;
+        box.querySelectorAll('[data-sum], [data-full]').forEach((x, k) => { x.textContent = same ? orig[k] : fmt(x.hasAttribute('data-full') ? sum : Math.floor(sum * keep / 100)); });
       }
       async add(btn, items, done) {
         const m = btn.closest('[data-look]')?.querySelector('[data-msg]'); if (m) m.textContent = '';
@@ -649,63 +780,130 @@
         });
         st.addEventListener('pointerleave', () => { if (!this._drag) this._mode(''); });
       }
-      // Drag / swipe: the whole lineup follows 1:1, then a flick or a past-a-third drag settles on the next look.
+      /*
+        Storelib (r68): drag, swipe and a trackpad's sideways swipe move the lineup through one spring, drawn every frame:
+        while the pointer is down it follows closely (a stiff spring, so it is smooth and never lags far behind), and let
+        go it eases onto a look with the speed it was thrown (a softer, critically damped spring: no bounce). A press on a
+        lineup that is still moving catches it where it is drawn, also mid-way through an arrow's slide, so nothing
+        jumps. A press is a click until it moves 5 px (mouse) or 10 px (touch); a move that is more down than sideways is
+        the page's scroll and is left to it. A trackpad gesture is read once, at its start: only a clearly sideways one
+        moves the lineup, so scrolling the page over the runway never stops.
+      */
       initDrag() {
-        const st = this.stage; let x0 = null, y0 = 0, lastX = 0, lastT = 0, vel = 0, frame = 0, pending = 0, step = 1;
+        const st = this.stage; let x0 = null, y0 = 0, lastX = 0, lastT = 0, vel = 0, step = 1, base = 0, pid = null, kind = '';
+        this._pos = 0; this._v = 0; this._goal = null; this._grab = null; this._raf = 0;
+        const unit = () => { const m = this.models[this.i]; return Math.max(60, (m ? m.offsetWidth : 260) * 0.55); };
+        const startMove = () => { base = this.visual(); this._pos = base; if (!this._raf) this._v = 0; st.classList.add('is-drag'); clearTimeout(this._t); };
+        // Where the lineup should come to rest, from where it is (p, in looks) and how fast it was going (v, looks a second).
+        const settle = (p, v, cancel) => {
+          let n = Math.round(p + Math.max(-1.2, Math.min(1.2, v * 0.18)));
+          if (!cancel && Math.abs(v) > 1.2 && Math.sign(n - p) !== Math.sign(v)) n = v > 0 ? Math.ceil(p) : Math.floor(p);
+          if (!cancel && n === 0 && Math.abs(p) > 0.3) n = Math.sign(p);
+          n = Math.max(-2, Math.min(2, n));
+          if (this.calm()) { this.stopSpring(); this.go(this.i + n, true); return n; }
+          this._grab = null; this._goal = -n; this.spring(); return n;
+        };
         st.addEventListener('dragstart', e => e.preventDefault());
         st.addEventListener('pointerdown', e => {
-          if (e.button > 0 || this.models.length < 2 || e.target.closest('[data-pin], button, a')) return;
-          x0 = lastX = e.clientX; y0 = e.clientY; lastT = e.timeStamp; vel = 0; this._drag = 0;
-          const m = this.models[this.i]; step = Math.max(60, (m ? m.offsetWidth : 260) * 0.55);
-          // While the pointer is down nothing eases: the lineup is drawn where the pointer is, 1:1.
+          if (e.button > 0 || !e.isPrimary || this.models.length < 2 || e.target.closest('[data-pin], button, a')) return;
+          x0 = lastX = e.clientX; y0 = e.clientY; lastT = e.timeStamp; vel = 0; this._drag = 0; pid = e.pointerId; kind = e.pointerType;
+          step = unit();
+          // Still moving (more than a sixth of a look from where it will rest): this press catches it and is not a click.
+          this._swiped = Math.abs(this.visual() - (this._goal != null ? this._goal : 0)) > 0.16;
+          clearTimeout(this._sw);
         });
         st.addEventListener('pointermove', e => {
-          if (x0 == null) return; const dx = e.clientX - x0;
+          if (x0 == null || e.pointerId !== pid) return; const dx = e.clientX - x0, dy = e.clientY - y0;
           if (!this._drag) {
-            if (Math.abs(dx) < 6) return;
-            if (Math.abs(e.clientY - y0) > Math.abs(dx)) { x0 = null; return; }
-            st.classList.add('is-drag'); if (this.view && e.pointerType === 'mouse') { this._mode('drag'); this.view.classList.add('is-grabbing'); } clearTimeout(this._t);
+            const slop = kind === 'mouse' ? 5 : 10;
+            if (Math.abs(dx) < slop && Math.abs(dy) < slop) return;
+            if (Math.abs(dy) >= Math.abs(dx)) { x0 = null; return; }
+            startMove(); this._swiped = true;
+            if (this.view && kind === 'mouse') { this._mode('drag'); this.view.classList.add('is-grabbing'); }
             try { st.setPointerCapture(e.pointerId); } catch (_) {}
           }
           const dt = e.timeStamp - lastT; if (dt > 0) vel = 0.75 * ((e.clientX - lastX) / dt) + 0.25 * vel;
-          lastX = e.clientX; lastT = e.timeStamp; this._drag = dx || 0.01; pending = dx;
-          if (!frame) frame = requestAnimationFrame(() => { frame = 0; if (this._drag) this.layout(pending / step); });
+          lastX = e.clientX; lastT = e.timeStamp; this._drag = dx || 0.01;
+          this._grab = base + dx / step; this.spring();
         });
         const end = e => {
-          if (x0 == null) return; x0 = null;
-          const dx = this._drag; if (!dx) return;
-          cancelAnimationFrame(frame); frame = 0; this._drag = 0; st.classList.remove('is-drag'); this.view?.classList.remove('is-grabbing');
+          if (x0 == null || (e.pointerId != null && e.pointerId !== pid)) return; x0 = null;
+          // A tap that caught a moving lineup: it goes on to where it was going, and the click is not taken.
+          this._sw = setTimeout(() => { this._swiped = false; }, 400);
+          if (!this._drag) return;
+          this._drag = 0; this.view?.classList.remove('is-grabbing');
           if (e.timeStamp - lastT > 90) vel = 0;
-          const proj = -dx / step; let n = Math.round(proj);
-          if (Math.abs(vel) > 0.35 && (vel < 0) === (dx < 0)) n = vel < 0 ? Math.max(1, Math.ceil(proj - 0.25)) : Math.min(-1, Math.floor(proj + 0.25));
-          else if (!n && Math.abs(proj) > 0.3) n = proj > 0 ? 1 : -1;
-          if (e.type === 'pointercancel') n = 0;
-          n = Math.max(-2, Math.min(2, n));
-          this._swiped = true; setTimeout(() => { this._swiped = false; }, 80);
-          // Momentum: the lineup goes on at the speed it was let go and slows into place. The ease-out curve
-          // below starts at four times its average speed, so a settle of 4 x distance / speed keeps that speed.
-          const left = Math.abs(n * step + dx), v = Math.abs(vel), along = Math.sign(-(n * step + dx)) === Math.sign(vel);
-          const ms = v > 0.15 && along ? Math.max(240, Math.min(620, 4 * left / v)) : Math.max(320, Math.min(560, 260 + left * 0.9));
-          st.style.setProperty('--settle', Math.round(ms) + 'ms'); st.style.setProperty('--settle-ease', 'cubic-bezier(.2, .8, .2, 1)');
-          st.classList.add('is-settling'); clearTimeout(this._settle);
-          this._settle = setTimeout(() => { st.classList.remove('is-settling'); st.style.removeProperty('--settle'); st.style.removeProperty('--settle-ease'); }, ms + 40);
-          this.go(this.i + n, true);
+          settle(-this._grab, -vel * 1000 / step, e.type === 'pointercancel');
         };
         st.addEventListener('pointerup', end); st.addEventListener('pointercancel', end);
         // Only the stage's own capture ending counts: on a touch screen the look under the finger holds the pointer
         // first, and handing it to the stage fires lostpointercapture on that look, which bubbles here mid-drag.
         st.addEventListener('lostpointercapture', e => { if (e.target === st) end(e); });
-        // Trackpad: a sideways two-finger swipe moves one look at a time
-        let acc = 0, lock = 0;
+        // Trackpad (and Shift + wheel): the gesture's direction is read from its first few events.
+        let axis = '', ax = 0, ay = 0, wx = 0, wT = -1e9, wLast = 0, wVel = 0, wDone = false;
+        // Let go once the events pause; a gesture that has moved a look is done (its momentum tail is taken from the page
+        // and ignored), one that has not goes on from where it is if more comes.
+        const wRelease = () => { if (axis !== 'x' || wDone || this._grab == null) return; wDone = settle(-this._grab, -wVel * 1000 / step) !== 0; };
         st.addEventListener('wheel', e => {
-          if (Math.abs(e.deltaX) <= Math.abs(e.deltaY) || this.models.length < 2) return;
-          e.preventDefault(); if (e.timeStamp < lock) return;
-          acc += e.deltaX; clearTimeout(this._wt); this._wt = setTimeout(() => { acc = 0; }, 160);
-          if (Math.abs(acc) > 40) { this.go(this.i + (acc > 0 ? 1 : -1), true); acc = 0; lock = e.timeStamp + 650; }
+          if (this.models.length < 2 || e.ctrlKey) return;
+          const k = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1, dx = e.deltaX * k, dy = e.deltaY * k;
+          if (e.timeStamp - wT > 240) { axis = ''; ax = ay = wx = wVel = 0; wDone = false; }
+          const gap = e.timeStamp - wT; wT = e.timeStamp;
+          if (!axis) {
+            ax += dx; ay += dy;
+            if (Math.abs(ay) >= 4 && Math.abs(ay) >= Math.abs(ax)) axis = 'y';
+            else if (Math.abs(ax) >= 6 && Math.abs(ax) > Math.abs(ay) * 1.5) { axis = 'x'; step = unit(); startMove(); wx = 0; wLast = e.timeStamp; }
+            else return;
+          }
+          if (axis !== 'x') return;
+          e.preventDefault();
+          if (wDone) return;
+          if (this._grab == null) { startMove(); wx = 0; }
+          // The content follows the fingers: a swipe to the left brings the next look in.
+          wx += dx; const dtw = e.timeStamp - wLast; if (dtw > 0 && gap < 180) wVel = 0.7 * (-dx / dtw) + 0.3 * wVel; wLast = e.timeStamp;
+          this._grab = base - wx / step; this.spring();
+          clearTimeout(this._wt); this._wt = setTimeout(wRelease, 170);
+          if (Math.abs(wx) > step * 0.9) { clearTimeout(this._wt); wRelease(); }
         }, { passive: false });
       }
+      calm() { return matchMedia('(prefers-reduced-motion: reduce)').matches; }
+      // Where the lineup is drawn now, in looks from the one in focus: the spring's place, or mid-way through a CSS slide.
+      visual() {
+        if (this._raf || this._goal != null || this._grab != null) return this._pos;
+        const m = this.models[this.i]; if (!m || !m.getAnimations || !m.getAnimations().length) return 0;
+        const t = getComputedStyle(m).transform, w = Math.max(60, m.offsetWidth * 0.55);
+        const mt = /^matrix\(([^)]+)\)$/.exec(t); return mt ? (+mt[1].split(',')[4] || 0) / w : 0;
+      }
+      // One frame loop for both springs (semi-implicit Euler in steps of 8 ms or less, in looks and looks a second).
+      spring() {
+        if (this._raf) return; let t0 = performance.now();
+        const tick = now => {
+          // A slow frame (a busy phone) still moves the spring by the time that passed, up to a fifth of a second.
+          const dt = Math.min(0.2, Math.max(0, (now - t0) / 1000)); t0 = now;
+          const held = this._grab != null, goal = held ? this._grab : this._goal;
+          if (goal == null) { this._raf = 0; return; }
+          const k = held ? 900 : 200, c = 2 * Math.sqrt(k); let x = this._pos, v = this._v;
+          const steps = Math.max(4, Math.ceil(dt / 0.008));
+          for (let s = 0, h = dt / steps; s < steps; s++) { v += (-k * (x - goal) - c * v) * h; x += v * h; }
+          this._pos = x; this._v = v;
+          if (!held && Math.abs(x - goal) < 0.003 && Math.abs(v) < 0.05) { this._raf = 0; return this.land(); }
+          this.layout(x, true); this._raf = requestAnimationFrame(tick);
+        };
+        this._raf = requestAnimationFrame(tick);
+      }
+      stopSpring() {
+        cancelAnimationFrame(this._raf); this._raf = 0; this._grab = null; this._goal = null; this._pos = 0; this._v = 0;
+        this.stage.classList.remove('is-drag');
+      }
+      // At rest on its look: the look in focus changes; every look is already where the new layout draws it.
+      land() {
+        const n = -(this._goal || 0); this.stopSpring(); this.go(this.i + n, true);
+      }
       openView(m, pinNo) {
-        const lb = this.lb; if (!lb || lb.open) return;
+        const lb = this.lb; if (!lb) return;
+        // Storelib (r68): pressed again while the card is still closing: the close finishes at once and this opens (the press is not lost).
+        if (lb.open && lb.classList.contains('is-closing') && this._endClose) this._endClose();
+        if (lb.open) return;
         const k = this.models.indexOf(m), look = this.looks[k];
         lb.querySelector('[data-lb-num]').textContent = m.dataset.num && m.dataset.num !== m.dataset.title ? m.dataset.num : '';
         lb.querySelector('[data-lb-title]').textContent = m.dataset.title || '';
@@ -729,13 +927,15 @@
       closeView() {
         const lb = this.lb; if (!lb || !lb.open || lb.classList.contains('is-closing')) return;
         lb.classList.add('is-closing');
-        this.lbMotion(false).then(() => {
+        const end = this._endClose = () => {
+          if (this._endClose !== end) return; this._endClose = null;
           lb.close(); lb.classList.remove('is-closing');
           (this._lbAnims || []).forEach(a => a.cancel()); this._lbAnims = [];
           lb.querySelector('.ttl__card').style.transform = ''; lb.querySelector('[data-lb-bg]').style.opacity = '';
           document.documentElement.classList.remove('ttl-lock'); this._modal = false;
           if (this.hasAttribute('data-playing')) this.setPlaying(true);
-        });
+        };
+        this.lbMotion(false).then(end);
       }
       // Open: the dim fades in while the card rises (a sheet slides up on a phone), about a third of a second.
       // Close: shorter (about a fifth) and from wherever the card is, also mid-open or mid-drag. Transform and opacity only.
@@ -800,21 +1000,33 @@
         clearTimeout(this._t);
         this.toggleAttribute('data-playing', !!on && this.sec > 0);
         if (this.playBtn) { this.playBtn.querySelector('[data-i-pause]').hidden = !on; this.playBtn.querySelector('[data-i-play]').hidden = !!on; }
-        if (on && this.sec > 0) this._t = setTimeout(() => { if (this._modal || this._drag) return this.setPlaying(true); this.go(this.i + 1); }, this.sec * 1000);
+        if (on && this.sec > 0) this._t = setTimeout(() => { if (this._modal || this._drag || this._raf) return this.setPlaying(true); this.go(this.i + 1); }, this.sec * 1000);
       }
       go(k, byUser) {
         const n = this.models.length; if (!n) return;
+        // An arrow, a step or a key while the lineup is still moving: it slides on from where it is drawn.
+        if (this._raf || this._goal != null || this._grab != null) { const at = this._pos; this.stopSpring(); this.layout(at, true); }
         this.i = (k + n) % n; this.layout();
         if (this.hasAttribute('data-playing')) { const s = this.steps[this.i]; if (s) { s.classList.remove('is-on'); void s.offsetWidth; s.classList.add('is-on'); } this.setPlaying(true); }
       }
-      layout(off = 0) {
+      /*
+        Each look's place (--d, in looks from the one in focus) and distance (--a). live: a frame of the spring (no CSS
+        transition runs then). Storelib (r68): a look that wraps round from one end of the lineup to the other is never
+        made to vanish. Leaving, it slides on out the way it was going and fades with its place (its opacity reaches 0
+        at --edge); arriving, it is put one place further out, unseen, and slides in from there.
+      */
+      layout(off = 0, live = false) {
         const n = this.models.length, edge = Math.min(2, (n - 1) / 2) + 0.01;
+        this.stage.style.setProperty('--edge', edge);
         this.models.forEach((m, k) => {
           let d = k - this.i + off; while (d > n / 2) d -= n; while (d <= -n / 2) d += n;
-          const prev = m._d; m._d = d;
-          // A look that wraps round from one end to the other jumps there unseen and fades in, instead of sliding across the stage.
-          if (prev != null && Math.abs(d - prev) > n / 2) { m.setAttribute('data-jump', ''); m.style.setProperty('--d', d); m.style.setProperty('--a', Math.abs(d)); void m.offsetWidth; requestAnimationFrame(() => m.removeAttribute('data-jump')); }
-          else { m.style.setProperty('--d', d); m.style.setProperty('--a', Math.abs(d)); }
+          const prev = m._d;
+          const put = x => { m.style.setProperty('--d', x); m.style.setProperty('--a', Math.abs(x)); };
+          if (!live && prev != null && Math.abs(d - prev) > n / 2) {
+            if (Math.abs(d) > edge) { d = d + n * Math.round((prev - d) / n); put(d); }
+            else { const dir = Math.sign(d) || -Math.sign(prev) || 1; m.setAttribute('data-jump', ''); put(d + dir); void m.offsetWidth; m.removeAttribute('data-jump'); put(d); }
+          } else put(d);
+          m._d = d;
           m.toggleAttribute('data-far', Math.abs(d) > edge);
           if (!off) { m.classList.toggle('is-on', d === 0); m.tabIndex = d === 0 ? 0 : -1; m.setAttribute('aria-hidden', String(d !== 0)); }
         });

@@ -436,15 +436,22 @@ async function boutiqueAndLook() {
     const cx = () => p.evaluate((i) => { const r = document.querySelectorAll("try-the-look [data-model]")[i].getBoundingClientRect(); return r.x + r.width / 2 }, i0)
     const x0 = stg.x + stg.width * 0.82, y0 = stg.y + stg.height / 2, c0 = await cx()
     await p.mouse.move(x0, y0); await p.mouse.down()
+    /* Changed on purpose (r68): the owner asked for the drag to feel "more smooth and clean, not so direct": the looks follow
+       the pointer through a stiff spring (a few px behind while it moves, on it once it stops) instead of 1:1, and the
+       settle is the same spring, eased, run in script (tests/shop-look-r68.test.ts measures it frame by frame). */
     let worst = 0
     for (let dx = -12; dx >= -144; dx -= 12) { await p.mouse.move(x0 + dx, y0); await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))); worst = Math.max(worst, Math.abs((await cx()) - c0 - dx)) }
+    await sleep(250)
+    const held = Math.abs((await cx()) - c0 + 144)
     const circle = await p.evaluate(() => { const v = document.querySelector<HTMLElement>("try-the-look [data-view]")!; const st = v.parentElement!.getBoundingClientRect(); const mm = new DOMMatrix(getComputedStyle(v).transform); return { x: mm.m41 + st.x, y: mm.m42 + st.y, mode: v.dataset.mode } })
     await p.mouse.up()
-    const settle = await p.evaluate(() => { const st = document.querySelector<HTMLElement>("try-the-look [data-stage]")!; return { on: st.classList.contains("is-settling"), ms: parseFloat(st.style.getPropertyValue("--settle")), blur: getComputedStyle(document.querySelector("try-the-look .ttl__model:not(.is-on)")!).filter } })
-    /* Round 28: the release keeps the drag's speed (a settle as long as the distance left at that speed, eased out) and no blur is redrawn while it moves. */
-    check("  Try the look: let go, it glides into place at the speed it was let go (240 to 620 ms), with no blur while it moves", settle.on && settle.ms >= 240 && settle.ms <= 620 && settle.blur === "none", settle)
+    const t0 = Date.now()
+    const settle = await p.evaluate(() => { const st = document.querySelector<HTMLElement>("try-the-look [data-stage]")!; return { on: st.classList.contains("is-drag"), blur: getComputedStyle(document.querySelector("try-the-look .ttl__model:not(.is-on)")!).filter } })
+    await p.waitForFunction(() => !document.querySelector("try-the-look [data-stage]")!.classList.contains("is-drag"), { timeout: 3000 }).catch(() => undefined)
+    const ms = Date.now() - t0
+    check("  Try the look: let go, it eases into place (within 1 s), with no blur redrawn while it moves", settle.on && ms <= 1000 && /none|blur\(0px\)/.test(settle.blur), { ...settle, ms })
     await sleep(1200)
-    check("  Try the look: dragging moves the looks exactly with the pointer (within 1 px) and the Drag circle sits on it", worst <= 1 && Math.abs(circle.x - (x0 - 144)) <= 1 && Math.abs(circle.y - y0) <= 1 && circle.mode === "drag", { worst, circle, at: [x0 - 144, y0] })
+    check("  Try the look: dragging, the looks stay close behind the pointer (within 16 px), sit on it once it stops (1 px), and the Drag circle sits on it", worst <= 16 && held <= 1 && Math.abs(circle.x - (x0 - 144)) <= 1 && Math.abs(circle.y - y0) <= 1 && circle.mode === "drag", { worst, held, circle, at: [x0 - 144, y0] })
     const fit = (await (await p.$("try-the-look .ttl__model.is-on .ttl__fit"))!.boundingBox())!
     await p.mouse.click(fit.x + fit.width / 2, fit.y + fit.height * 0.4); await sleep(900)
     const pin = await p.$("try-the-look [data-lb] [data-pin='1']")
