@@ -1,0 +1,189 @@
+/* Templates round 68: Letterday's one time offer, shown after the order: the Issue Library on video with a yes button and a no thanks link to the thank you page, what is in it, and the same choice again. */
+{
+  "sections": {
+    "offer": {
+      "type": "vslfunnel-video",
+      "settings": {
+        "color_scheme": "default",
+        "eyebrow": "Step 2 of 2: one more thing before your order",
+        "heading": "Plan your next twelve issues tonight",
+        "heading_size": 56,
+        "heading_size_mobile": 34,
+        "text": "<p>The Issue Library is a year of issue outlines for small businesses, with twelve templates to write them in. It is shown here once, after you join, at $37.</p>",
+        "show_video": true,
+        "poster": "shopify://shop_images/challenge-host-wide.webp",
+        "poster_alt": "Elise at her desk, typing on a laptop beside an open notebook",
+        "shade": 8,
+        "length_label": "3:20",
+        "video_title": "What is inside the Issue Library",
+        "play_label": "Play the video",
+        "caption": "Fifty two outlines sorted by month, the twelve templates, and how to turn one outline into an issue in under an hour.",
+        "empty_text": "The video plays here once it is added in the editor.",
+        "video_width": 960,
+        "radius": 14,
+        "video_gap": 36,
+        "button_label": "Yes, add the Issue Library for $37",
+        "button_link": "/products/the-issue-library",
+        "button2_label": "No thanks, take me to my order",
+        "button2_link": "/pages/thank-you",
+        "note": "",
+        "padding_top": 48,
+        "padding_bottom": 56,
+        "padding_top_mobile": 28,
+        "padding_bottom_mobile": 48
+      }
+    },
+    "library": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "scheme-5e1b7c3a-2d84-4f60-9b17-c3a8e0d4f921",
+        "section_width": "container",
+        "reset_spacing": true,
+        "content_alignment": "left",
+        "columns_desktop": 4,
+        "columns_tablet": 2,
+        "column_gap": 32,
+        "header_gap": 40,
+        "show_dividers": true,
+        "enable_custom_style": false,
+        "item_heading_size": 20,
+        "item_heading_size_mobile": 19,
+        "padding_top": 88,
+        "padding_bottom": 88,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "mobile_layout": "stack"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "What you get with the Issue Library",
+            "size_enable": true,
+            "size_desktop": 36,
+            "size_mobile": 28
+          }
+        },
+        "c1": {
+          "type": "column",
+          "settings": {
+            "label": "52",
+            "heading": "Issue outlines",
+            "text": "<p>One for every week of the year, sorted by month, each with a story prompt.</p>"
+          }
+        },
+        "c2": {
+          "type": "column",
+          "settings": {
+            "label": "12",
+            "heading": "Issue templates",
+            "text": "<p>Shapes for a story issue, a list issue, a behind the scenes issue and nine more.</p>"
+          }
+        },
+        "c3": {
+          "type": "column",
+          "settings": {
+            "label": "1",
+            "heading": "Planning sheet",
+            "text": "<p>The year on one page, to print or copy into your own notes.</p>"
+          }
+        },
+        "c4": {
+          "type": "column",
+          "settings": {
+            "label": "Yours",
+            "heading": "To keep",
+            "text": "<p>Download it once and use it for as long as you send.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "c1",
+        "c2",
+        "c3",
+        "c4"
+      ]
+    },
+    "decide": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "text_align": "center",
+        "max_width": 720,
+        "heading_tag": "h2",
+        "use_custom_text": false,
+        "use_custom_bg": false,
+        "banner_surface": "section",
+        "use_theme_radius": true,
+        "reveal": false,
+        "section_padding_top": 72,
+        "section_padding_bottom": 96,
+        "pad_top_desktop": 24,
+        "pad_bottom_desktop": 24
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Only on this page"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Add it to your order?",
+            "size_d": 44,
+            "size_m": 32
+          }
+        },
+        "subheading": {
+          "type": "subheading",
+          "settings": {
+            "text": "One press adds it to the challenge you just joined. Skip it and nothing changes."
+          }
+        },
+        "button": {
+          "type": "button",
+          "settings": {
+            "label": "Yes, add the Issue Library for $37",
+            "link": "/products/the-issue-library",
+            "use_theme_button": true,
+            "radius": 8,
+            "pad_h": 28,
+            "pad_v": 15,
+            "size_d": 17,
+            "size_m": 16
+          }
+        },
+        "button_2": {
+          "type": "button",
+          "settings": {
+            "label": "No thanks, take me to my order",
+            "link": "/pages/thank-you",
+            "use_theme_button": true,
+            "radius": 8,
+            "pad_h": 28,
+            "pad_v": 15,
+            "size_d": 16,
+            "size_m": 15
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow",
+        "heading",
+        "subheading",
+        "button",
+        "button_2"
+      ]
+    }
+  },
+  "order": [
+    "offer",
+    "library",
+    "decide"
+  ]
+}

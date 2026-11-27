@@ -1,0 +1,891 @@
+/* Templates round 68: Letterday, a five day challenge funnel after the structure of the owner's reference (not its look): the sales page. A video with the offer, the problem, what you learn, the five days with a picture each, three bonuses, the host, past writers, everything in one price, the refund, questions and a last call, built from the theme's own sections on the theme's colour schemes. */
+{
+  "sections": {
+    "hero": {
+      "type": "vslfunnel-video",
+      "settings": {
+        "color_scheme": "default",
+        "eyebrow": "A five day challenge, fifteen minutes a day",
+        "heading": "Write and send your first newsletter in five days",
+        "heading_size": 56,
+        "heading_size_mobile": 34,
+        "text": "<p>For makers, coaches and small business owners who keep meaning to start one. Watch the video first: it is six minutes and shows what you will send on Friday.</p>",
+        "show_video": true,
+        "poster": "shopify://shop_images/challenge-video-poster.webp",
+        "poster_alt": "Elise at her desk by the bookshelves, smiling, a phone in her hands",
+        "shade": 8,
+        "length_label": "6:12",
+        "video_title": "Why your first issue should be short",
+        "play_label": "Play the video",
+        "caption": "In the video: the three parts of a first issue, how long it should be, and why a small list of people who know you beats a big one.",
+        "empty_text": "The video plays here once it is added in the editor.",
+        "video_width": 960,
+        "radius": 14,
+        "video_gap": 36,
+        "button_label": "Join the challenge for $29",
+        "button_link": "/products/the-first-issue-challenge",
+        "button2_label": "Get lesson one free",
+        "button2_link": "/pages/free-lesson",
+        "note": "Starts the first Monday, About fifteen minutes a day, 14 day refund",
+        "padding_top": 56,
+        "padding_bottom": 72,
+        "padding_top_mobile": 28,
+        "padding_bottom_mobile": 48
+      }
+    },
+    "problem": {
+      "type": "comparison-cards",
+      "settings": {
+        "color_scheme": "scheme-a7d03e5c-91b2-4c6e-8f45-0b2d6e9c1a73",
+        "section_width": "full_width",
+        "reset_spacing": true,
+        "check_label": "Yes",
+        "cross_label": "No",
+        "minus_label": "Partly",
+        "header_align": "center",
+        "section_max_width_desktop": 1040,
+        "cards_gap_desktop": 20,
+        "card_radius": 16,
+        "card_padding_desktop": 36,
+        "card_padding_x_desktop": 32,
+        "row_gap": 16,
+        "icon_size": 22,
+        "enable_custom_style": false,
+        "card_title_size_desktop": 26,
+        "row_text_size": 16,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "The newsletter you keep meaning to start",
+            "tag": "h2",
+            "size_desktop": 44,
+            "size_mobile": 30
+          }
+        },
+        "subheading": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Most first issues are not hard to write. They are hard to start, because every choice feels like it has to be right before you begin.</p>"
+          }
+        },
+        "us": {
+          "type": "card_us",
+          "settings": {
+            "title": "Five days with a plan"
+          }
+        },
+        "them": {
+          "type": "card_them",
+          "settings": {
+            "title": "On your own"
+          }
+        },
+        "r1": {
+          "type": "row",
+          "settings": {
+            "label_us": "One small task a day",
+            "icon_us": "check",
+            "label_them": "A list of ideas and a blank page",
+            "icon_them": "cross"
+          }
+        },
+        "r2": {
+          "type": "row",
+          "settings": {
+            "label_us": "Templates for the welcome email and issue one",
+            "icon_us": "check",
+            "label_them": "Rewriting the first line for a week",
+            "icon_them": "cross"
+          }
+        },
+        "r3": {
+          "type": "row",
+          "settings": {
+            "label_us": "A tool set up in an hour",
+            "icon_us": "check",
+            "label_them": "Comparing tools instead of writing",
+            "icon_them": "cross"
+          }
+        },
+        "r4": {
+          "type": "row",
+          "settings": {
+            "label_us": "Sent on Friday, to real people",
+            "icon_us": "check",
+            "label_them": "Saved in drafts, again",
+            "icon_them": "cross"
+          }
+        }
+      },
+      "block_order": [
+        "heading",
+        "subheading",
+        "us",
+        "them",
+        "r1",
+        "r2",
+        "r3",
+        "r4"
+      ]
+    },
+    "learn": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "image_position": "left",
+        "text_column_width": 50,
+        "content_align": "left",
+        "content_gap": 18,
+        "media_type": "image",
+        "image": "shopify://shop_images/challenge-host-wide.webp",
+        "image_alt": "Elise at her desk, typing on a laptop beside an open notebook",
+        "aspect_w": 4,
+        "aspect_h": 3,
+        "image_fit": "cover",
+        "image_radius": 12,
+        "enable_overlay": false,
+        "enable_custom_style": false,
+        "gap_desktop": 72,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "side_padding_desktop": 32,
+        "content_align_mobile": "left",
+        "mobile_order": "media_first",
+        "gap_mobile": 28,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "side_padding_mobile": 16
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "What you learn"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "A newsletter you can keep sending",
+            "tag": "h2",
+            "size_desktop": 42,
+            "size_mobile": 30
+          }
+        },
+        "text": {
+          "type": "subheading",
+          "settings": {
+            "text": "<ul><li>How to say what your newsletter is about in one sentence</li><li>Which free tool to use and how to set it up without the extras</li><li>A welcome email that new readers actually open</li><li>A shape for every issue, so the next one takes an hour, not a weekend</li><li>Who your first readers are, and what to send them</li></ul>"
+          }
+        },
+        "button": {
+          "type": "button",
+          "settings": {
+            "label": "Join for $29",
+            "link": "/products/the-first-issue-challenge",
+            "button_style": "primary"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow",
+        "heading",
+        "text",
+        "button"
+      ]
+    },
+    "days": {
+      "type": "feature-timeline",
+      "settings": {
+        "color_scheme": "scheme-5e1b7c3a-2d84-4f60-9b17-c3a8e0d4f921",
+        "section_width": "full_width",
+        "reset_spacing": true,
+        "layout": "alternate",
+        "text_align": "left",
+        "content_max_width": 1040,
+        "head_gap": 56,
+        "item_gap_desktop": 64,
+        "image_ratio": "landscape",
+        "marker_style": "number",
+        "marker_size": 30,
+        "line_thickness": 2,
+        "enable_custom_style": false,
+        "fill_on_scroll": true,
+        "padding_top_desktop": 104,
+        "padding_bottom_desktop": 96,
+        "item_gap_mobile": 40,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Day by day"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Five days, five small tasks",
+            "size_enable": true,
+            "size_desktop": 44,
+            "size_mobile": 32
+          }
+        },
+        "subheading": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Each day is a short video and one task you finish the same day. Monday to Friday, about fifteen minutes each.</p>"
+          }
+        },
+        "day_1": {
+          "type": "item",
+          "settings": {
+            "label": "Day 1",
+            "title": "Pick what it is about",
+            "text": "<p>One topic, one reader, one promise you can keep every issue. You leave with a sentence that explains your newsletter to a stranger.</p>",
+            "image": "shopify://shop_images/challenge-day-1.webp",
+            "image_alt": "An open notebook with a pencil on cream pages"
+          }
+        },
+        "day_2": {
+          "type": "item",
+          "settings": {
+            "label": "Day 2",
+            "title": "Set it up in an hour",
+            "text": "<p>A free account on the tool you choose, a sign up page with your sentence on it, and the sending address people will see.</p>",
+            "image": "shopify://shop_images/challenge-day-2.webp",
+            "image_alt": "A paper calendar for November beside a cup of coffee"
+          }
+        },
+        "day_3": {
+          "type": "item",
+          "settings": {
+            "label": "Day 3",
+            "title": "Write the welcome email",
+            "text": "<p>The first thing every new reader gets. A short template that says who you are, what comes next and when.</p>",
+            "image": "shopify://shop_images/challenge-day-3.webp",
+            "image_alt": "A notebook of handwritten notes on a wooden desk"
+          }
+        },
+        "day_4": {
+          "type": "item",
+          "settings": {
+            "label": "Day 4",
+            "title": "Write issue one",
+            "text": "<p>A simple shape for a first issue: one idea, one story, one thing to do. Draft it in the lesson, then cut it in half.</p>",
+            "image": "shopify://shop_images/challenge-day-4.webp",
+            "image_alt": "A blank notebook and a coffee on a dark table"
+          }
+        },
+        "day_5": {
+          "type": "item",
+          "settings": {
+            "label": "Day 5",
+            "title": "Send it, and ask",
+            "text": "<p>Press send, then ask your first readers to join with a message you can copy. Pick the day of the week you will send from now on.</p>",
+            "image": "shopify://shop_images/challenge-day-5.webp",
+            "image_alt": "A spiral notebook and a coffee cup on a wooden board"
+          }
+        },
+        "button": {
+          "type": "button",
+          "settings": {
+            "label": "Join the challenge for $29",
+            "link": "/products/the-first-issue-challenge",
+            "style": "primary",
+            "use_theme_button": true,
+            "radius": 8
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow",
+        "heading",
+        "subheading",
+        "day_1",
+        "day_2",
+        "day_3",
+        "day_4",
+        "day_5",
+        "button"
+      ]
+    },
+    "bonuses": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "content_alignment": "left",
+        "columns_desktop": 3,
+        "columns_tablet": 3,
+        "column_gap": 40,
+        "header_gap": 44,
+        "show_dividers": true,
+        "enable_custom_style": false,
+        "item_heading_size": 22,
+        "item_heading_size_mobile": 20,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "mobile_layout": "stack"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Three bonuses for the weeks after",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>They arrive with lesson one, so you have them when the round is over.</p>"
+          }
+        },
+        "c1": {
+          "type": "column",
+          "settings": {
+            "label": "Bonus 1",
+            "heading": "Sign up page checklist",
+            "text": "<p>Twelve things to check before you share the link, from the headline to the confirmation email.</p>"
+          }
+        },
+        "c2": {
+          "type": "column",
+          "settings": {
+            "label": "Bonus 2",
+            "heading": "Thirty subject lines",
+            "text": "<p>Subject lines from real first issues that got opened, with a note on why each one works.</p>"
+          }
+        },
+        "c3": {
+          "type": "column",
+          "settings": {
+            "label": "Bonus 3",
+            "heading": "A ninety day calendar",
+            "text": "<p>Twelve issues planned on one page: a topic and a story for each, so week two is not a blank page.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "c1",
+        "c2",
+        "c3"
+      ]
+    },
+    "host": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "scheme-a7d03e5c-91b2-4c6e-8f45-0b2d6e9c1a73",
+        "section_width": "container",
+        "reset_spacing": true,
+        "image_position": "right",
+        "text_column_width": 50,
+        "content_align": "left",
+        "content_gap": 18,
+        "media_type": "image",
+        "image": "shopify://shop_images/challenge-host.webp",
+        "image_alt": "Elise Mora at her desk, looking up from her laptop",
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "image_fit": "cover",
+        "image_radius": 12,
+        "enable_overlay": false,
+        "enable_custom_style": false,
+        "gap_desktop": 72,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "side_padding_desktop": 32,
+        "content_align_mobile": "left",
+        "mobile_order": "media_first",
+        "gap_mobile": 28,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "side_padding_mobile": 16
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Your host"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Hi, I am Elise",
+            "tag": "h2",
+            "size_desktop": 42,
+            "size_mobile": 30
+          }
+        },
+        "text": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>I write a weekly letter for people who run small shops, and I have sent it every Thursday for six years. Before that I wrote newsletters for other people's businesses, and most of them took far too long to start.</p><p>The First Issue is the five days I wish I had had. I run it every month and I am in the group every weekday to answer questions.</p>"
+          }
+        },
+        "button": {
+          "type": "button",
+          "settings": {
+            "label": "More about Elise",
+            "link": "/pages/about",
+            "button_style": "secondary"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow",
+        "heading",
+        "text",
+        "button"
+      ]
+    },
+    "readers": {
+      "type": "testimonials",
+      "settings": {
+        "color_scheme": "scheme-5e1b7c3a-2d84-4f60-9b17-c3a8e0d4f921",
+        "section_width": "container",
+        "reset_spacing": true,
+        "display_mode": "grid",
+        "show_quote_mark": false,
+        "show_rating": true,
+        "columns": 3,
+        "column_gap": 20,
+        "header_alignment": "center",
+        "card_style": "boxed",
+        "card_align": "left",
+        "card_padding": 28,
+        "card_content_gap": 16,
+        "card_radius": 12,
+        "avatar_shape": "circle",
+        "avatar_size": 48,
+        "carousel_pagination": "show_dots_on_mobile",
+        "enable_custom_colors": false,
+        "enable_custom_typography": false,
+        "reveal": true,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "columns_mobile": 1
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "enabled": true,
+            "text": "Past rounds"
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "enabled": true,
+            "text": "What past writers say"
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "enabled": true,
+            "text": "<p>Sample quotes in the layout this section shows. Replace them with your own readers' words.</p>"
+          }
+        },
+        "testimonial_1": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I had put off the newsletter for two years. Day four I sent issue one to 38 people, and three of them replied that afternoon.</p>",
+            "rating": 5,
+            "name": "Priya Nair",
+            "role": "Runs a pottery studio",
+            "avatar": "shopify://shop_images/challenge-reader-1.webp"
+          }
+        },
+        "testimonial_2": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>The welcome email template alone was worth it. I stopped trying to sound like a magazine and wrote like I talk at the shop.</p>",
+            "rating": 5,
+            "name": "Tom Becker",
+            "role": "Bike mechanic",
+            "avatar": "shopify://shop_images/challenge-reader-2.webp"
+          }
+        },
+        "testimonial_3": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Fifteen minutes a day was honest. I did every day on my lunch break and had a schedule I could keep by Friday.</p>",
+            "rating": 5,
+            "name": "Hannah Cole",
+            "role": "Illustrator",
+            "avatar": "shopify://shop_images/challenge-reader-3.webp"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I expected tips. It was a checklist with a deadline, which is what I needed. My list is small and it is mine.</p>",
+            "rating": 5,
+            "name": "Marcus Lee",
+            "role": "Personal trainer",
+            "avatar": "shopify://shop_images/challenge-reader-4.webp"
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Elise answered my day two question in the group within the hour. The subject line file is on my desk.</p>",
+            "rating": 5,
+            "name": "Sofia Ruiz",
+            "role": "Bakery owner",
+            "avatar": "shopify://shop_images/challenge-reader-5.webp"
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>The challenge made me pick one day of the week and stick to it. Twelve issues later I still send on Thursday.</p>",
+            "rating": 5,
+            "name": "Jonah Price",
+            "role": "Podcast host",
+            "avatar": "shopify://shop_images/challenge-reader-6.webp"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "testimonial_1",
+        "testimonial_2",
+        "testimonial_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6"
+      ]
+    },
+    "offer": {
+      "type": "featured-product",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "product": "the-first-issue-challenge",
+        "show_view_link": false,
+        "desktop_layout": "hidden_thumbnail",
+        "desktop_media_width": 50,
+        "desktop_main_image_position": "left",
+        "show_thumbnails": false,
+        "enable_dynamic_checkout": false,
+        "enable_image_square": false,
+        "enable_lightbox": false,
+        "enable_sticky_content_on_desktop": false,
+        "reveal": true,
+        "padding_top": 104,
+        "padding_bottom": 40
+      },
+      "blocks": {
+        "intro": {
+          "type": "text",
+          "settings": {
+            "heading": "Everything you get",
+            "content": "<p>Five lessons, the templates, the group and three bonuses, for one price. Yours to keep after the round ends.</p>"
+          }
+        },
+        "title": {
+          "type": "title",
+          "settings": {
+            "show_vendor": false,
+            "title_font_size_desktop": 40,
+            "title_font_size_mobile": 30
+          }
+        },
+        "price": {
+          "type": "price",
+          "settings": {
+            "price_font_size_desktop": 34,
+            "price_font_size_mobile": 28,
+            "price_font_weight": "700"
+          }
+        },
+        "included": {
+          "type": "whats_included",
+          "settings": {
+            "heading": "In the challenge",
+            "items": "Five video lessons, about fifteen minutes each\nThe welcome email and first issue templates\nThe group, with Elise answering every weekday\nBonus: the sign up page checklist\nBonus: thirty subject lines that get opened\nBonus: a ninety day sending calendar\nLessons and templates yours to keep",
+            "two_columns": false,
+            "boxed": true,
+            "spacing_top": 16,
+            "spacing_bottom": 12
+          }
+        },
+        "join": {
+          "type": "link_button",
+          "settings": {
+            "label": "Join the challenge for $29",
+            "link": "/products/the-first-issue-challenge",
+            "style": "primary",
+            "icon": "none",
+            "full_width": true,
+            "spacing_top": 8,
+            "spacing_bottom": 12
+          }
+        },
+        "promise": {
+          "type": "guarantee_row",
+          "settings": {
+            "style": "plain",
+            "columns_mobile": "3",
+            "icon_1": "download",
+            "title_1": "Lesson one today",
+            "text_1": "The moment you pay",
+            "icon_2": "return",
+            "title_2": "14 day refund",
+            "text_2": "If you do not send it",
+            "icon_3": "chat",
+            "title_3": "Elise in the group",
+            "text_3": "Every weekday",
+            "spacing_top": 12,
+            "spacing_bottom": 4
+          }
+        }
+      },
+      "block_order": [
+        "intro",
+        "title",
+        "price",
+        "included",
+        "join",
+        "promise"
+      ]
+    },
+    "guarantee": {
+      "type": "guarantee-banner",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "layout": "split",
+        "frame": "box",
+        "content_max_width": 1000,
+        "icon": "shield_check",
+        "icon_size": 52,
+        "point_style": "check",
+        "enable_custom_style": false,
+        "padding_top_desktop": 24,
+        "padding_bottom_desktop": 104,
+        "padding_top_mobile": 16,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Send it, or get your money back"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Do the five days. If you did not send your first issue, or it was not worth the money, email within 14 days and you get a full refund.</p>"
+          }
+        },
+        "point_3": {
+          "type": "point",
+          "settings": {
+            "text": "One email, no form"
+          }
+        },
+        "point_4": {
+          "type": "point",
+          "settings": {
+            "text": "Refund within two working days"
+          }
+        },
+        "point_5": {
+          "type": "point",
+          "settings": {
+            "text": "Keep the templates"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "point_3",
+        "point_4",
+        "point_5"
+      ]
+    },
+    "faq": {
+      "type": "faq",
+      "settings": {
+        "color_scheme": "scheme-5e1b7c3a-2d84-4f60-9b17-c3a8e0d4f921",
+        "section_width": "container",
+        "structured_data": true,
+        "heading": "Questions before you join",
+        "subheading": "",
+        "first_item_open": true,
+        "allow_multiple_open": false,
+        "open_icon": "plus",
+        "content_alignment": "center",
+        "max_content_width": 780,
+        "gap_header_to_items": 36,
+        "gap_between_items": 10,
+        "item_padding_y": 20,
+        "item_padding_x": 24,
+        "item_radius": 12,
+        "show_dividers": false,
+        "enable_custom_style": false,
+        "question_size_desktop": 18,
+        "question_size_mobile": 16,
+        "answer_size_desktop": 16,
+        "answer_size_mobile": 15,
+        "padding_top": 96,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "faq_item_1": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How much time does it take?",
+            "answer": "<p>About fifteen minutes a day for five days: a short video and one task. Day four, writing the first issue, takes most people forty minutes.</p>"
+          }
+        },
+        "faq_item_2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I need a newsletter tool already?",
+            "answer": "<p>No. Day two shows how to set up a free account on the tool you choose, and the lessons work with any of them.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if I have nobody to send it to yet?",
+            "answer": "<p>That is most people on day one. Day five is about your first readers: who to ask, and the message to send them.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "When does it start?",
+            "answer": "<p>Every month, on the first Monday. Join any time before then. If you join mid round, you start on the next Monday.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Is it live?",
+            "answer": "<p>The lessons are recorded, so you watch them when it suits you. Elise answers questions in the group every weekday during the round.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Do the five days. If you did not send your first issue, or it was not worth the money, email within 14 days and you get a full refund.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6"
+      ]
+    },
+    "final": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "scheme-2c8f4a61-7e3d-4b09-a5c2-6d1e9f0b3a84",
+        "section_width": "container",
+        "reset_spacing": true,
+        "text_align": "center",
+        "max_width": 720,
+        "heading_tag": "h2",
+        "use_custom_text": false,
+        "use_custom_bg": false,
+        "banner_surface": "section",
+        "use_theme_radius": true,
+        "reveal": false,
+        "section_padding_top": 88,
+        "section_padding_bottom": 88,
+        "pad_top_desktop": 24,
+        "pad_bottom_desktop": 24
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "The next round starts on the first Monday"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Send your first issue this Friday",
+            "size_d": 44,
+            "size_m": 32
+          }
+        },
+        "subheading": {
+          "type": "subheading",
+          "settings": {
+            "text": "Five days, fifteen minutes a day, and a refund if you do not send it."
+          }
+        },
+        "button": {
+          "type": "button",
+          "settings": {
+            "label": "Join the challenge for $29",
+            "link": "/products/the-first-issue-challenge",
+            "use_theme_button": true,
+            "radius": 8,
+            "pad_h": 28,
+            "pad_v": 15,
+            "size_d": 17,
+            "size_m": 16
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow",
+        "heading",
+        "subheading",
+        "button"
+      ]
+    }
+  },
+  "order": [
+    "hero",
+    "problem",
+    "learn",
+    "days",
+    "bonuses",
+    "host",
+    "readers",
+    "offer",
+    "guarantee",
+    "faq",
+    "final"
+  ]
+}

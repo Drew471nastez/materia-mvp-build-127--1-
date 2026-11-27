@@ -1,0 +1,89 @@
+/* Templates round 68: Letterday's footer on the sage scheme: the logo and a line about the challenge, two menus, the free lesson signup and payment badges. */
+{
+  "type": "footer",
+  "name": "t:sections.footer.name",
+  "sections": {
+    "footer": {
+      "type": "footer",
+      "settings": {
+        "color_scheme": "scheme-5e1b7c3a-2d84-4f60-9b17-c3a8e0d4f921",
+        "section_width": "container",
+        "padding_top": 64,
+        "padding_bottom": 32,
+        "reset_spacing": true,
+        "copyright_text": "© {{ 'now' | date: '%Y' }} Letterday",
+        "show_social": false,
+        "show_policy_links": true,
+        "separator_line": "unset",
+        "heading_weight": "700",
+        "footer_heading_size": 15
+      },
+      "blocks": {
+        "store_info_1": {
+          "type": "store_info",
+          "settings": {
+            "show_logo": true,
+            "store_heading": "",
+            "image_width": 140,
+            "store_email": true,
+            "store_phone": false,
+            "store_address": false,
+            "content_width": "33%",
+            "store_description": "<p>The First Issue is a five day challenge for writing and sending your first newsletter, run every month by Elise Mora.</p>"
+          }
+        },
+        "link_list_2": {
+          "type": "link_list",
+          "settings": {
+            "menu": "footer-challenge",
+            "heading": "The challenge",
+            "content_width": "17%"
+          }
+        },
+        "link_list_3": {
+          "type": "link_list",
+          "settings": {
+            "menu": "footer",
+            "heading": "Letterday",
+            "content_width": "17%"
+          }
+        },
+        "newsletter_1": {
+          "type": "newsletter",
+          "settings": {
+            "note": "",
+            "heading": "Lesson one, free",
+            "description": "The first lesson and its worksheet by email.",
+            "button_label": "Send it",
+            "content_width": "33%",
+            "email_placeholder": "Your email"
+          }
+        },
+        "payment_badges_1": {
+          "type": "payment_badges",
+          "settings": {
+            "alignment": "right",
+            "enable_amex": true,
+            "enable_visa": true,
+            "content_width": "100%",
+            "enable_klarna": false,
+            "enable_paypal": true,
+            "enable_apple_pay": true,
+            "enable_google_pay": true,
+            "enable_mastercard": true
+          }
+        }
+      },
+      "block_order": [
+        "store_info_1",
+        "link_list_2",
+        "link_list_3",
+        "newsletter_1",
+        "payment_badges_1"
+      ]
+    }
+  },
+  "order": [
+    "footer"
+  ]
+}

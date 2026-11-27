@@ -672,4 +672,18 @@ export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduc
       { handle: "bundles", title: "Bundles", description: "Several packs in one download, for less.", products: ["The Full Kit"] },
     ],
   },
+  /* Templates round 68: Letterday, a five day challenge funnel (The First Issue, write and send your first newsletter) run by Elise Mora, a made up host: the challenge, the order bump on its order step and the one time offer after it. */
+  challenge: {
+    name: "Letterday",
+    products: [
+      { title: "The First Issue Challenge", price: "$29.00", image: "challenge-first-issue.webp", kind: "digital", description: "A five day challenge for writing and sending your first newsletter: five video lessons of about fifteen minutes, the welcome email and first issue templates, the group with Elise every weekday, and three bonuses. The next round starts on the first Monday of the month.", rating: [4.9, 186] },
+      { title: "Subject Line Swipe File", price: "$9.00", image: "challenge-swipe-file.webp", kind: "digital", description: "Ninety subject lines from real first issues, sorted by kind, with a line on why each one gets opened. A PDF and a copy you can edit.", rating: [4.8, 74] },
+      { title: "The Issue Library", price: "$37.00", image: "challenge-issue-library.webp", kind: "digital", description: "Fifty two issue outlines for small businesses, one for every week of the year, and twelve issue templates to write them in. A PDF and a copy you can edit.", rating: [4.9, 52] },
+    ],
+    posts: [
+      { title: "Why your first issue should be short", tag: "Writing", image: "challenge-post-short.webp", excerpt: "A first issue has one job: to make the second one easy to open. Three hundred words is plenty.", html: `<p>Most first issues try to explain everything the newsletter will ever be. Readers do not need that yet.</p><h2 id="shape">A shape that works</h2><ul><li>One idea, said in the first line</li><li>One short story that shows it</li><li>One thing to do, or one question to reply to</li></ul><blockquote>If it takes more than two minutes to read, cut it in half and keep the rest for issue two.</blockquote>` },
+      { title: "Pick a day, then keep it", tag: "Habits", image: "challenge-post-day.webp", excerpt: "Readers forgive a short issue. They forget a newsletter that turns up whenever it likes.", html: `<p>The day you send matters less than sending on it every time. Pick the day you can protect.</p><h2 id="how">How to choose</h2><ul><li>The day you have an hour free, every week</li><li>Not the day you are busiest at work</li><li>Write the day before, send in the morning</li></ul><blockquote>Thursday is a fine day. So is any day you will still be keeping in a year.</blockquote>` },
+      { title: "Subject lines that get your first issue opened", tag: "Subject lines", image: "challenge-post-subject.webp", excerpt: "Your first readers know you. Write the subject line you would use in an email to one of them.", html: `<p>A first issue goes to people who already know your name. That changes what a good subject line is.</p><h2 id="rules">Three rules</h2><ul><li>Say what is inside, plainly</li><li>Use the words you would say out loud</li><li>Keep it under eight words</li></ul><blockquote>Clever loses to clear, nearly every time.</blockquote>` },
+    ],
+  },
 }

@@ -1,0 +1,57 @@
+{
+  "main-menu": {
+    "title": "Main menu",
+    "links": [
+      {
+        "title": "The five days",
+        "url": "/#days"
+      },
+      {
+        "title": "Your host",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Free lesson",
+        "url": "/pages/free-lesson"
+      },
+      {
+        "title": "Questions",
+        "url": "/pages/faqs"
+      }
+    ]
+  },
+  "footer-challenge": {
+    "title": "The challenge",
+    "links": [
+      {
+        "title": "Join the challenge",
+        "url": "/products/the-first-issue-challenge"
+      },
+      {
+        "title": "Free lesson",
+        "url": "/pages/free-lesson"
+      },
+      {
+        "title": "Questions",
+        "url": "/pages/faqs"
+      }
+    ]
+  },
+  "footer": {
+    "title": "Letterday",
+    "links": [
+      {
+        "title": "About Elise",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Blog",
+        "url": "/blogs/news"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
+      }
+    ]
+  }
+}

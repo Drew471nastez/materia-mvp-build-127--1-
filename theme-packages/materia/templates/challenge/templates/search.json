@@ -1,0 +1,83 @@
+/* Templates round 68: Letterday's search page, the funnel template's layout in Letterday's words and colour schemes. */
+{
+  "sections": {
+    "main": {
+      "type": "main-search",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "heading": "Search",
+        "sorting": true,
+        "empty_text": "Nothing matched. Try challenge, lesson or subject lines.",
+        "empty_link_label": "See everything",
+        "empty_link_url": "/collections/all",
+        "enable_filtering": false,
+        "filter_layout": "drawer",
+        "items_per_row": 3,
+        "items_per_row_mobile": 1,
+        "column_gap": 24,
+        "items_to_show": 12,
+        "pagination": "load_more_button",
+        "button_show_more": "Show more",
+        "padding_top": 56,
+        "padding_bottom": 96,
+        "number_products_per_page": true,
+        "show_filter_counts": false
+      }
+    },
+    "editions": {
+      "type": "products-grid",
+      "settings": {
+        "color_scheme": "default",
+        "heading": "The challenge and the extras",
+        "text": "<p>The challenge, the subject line file and the Issue Library.</p>",
+        "items_to_show": 4,
+        "items_per_row": 4,
+        "show_add_to_cart": true,
+        "button_label": "See all",
+        "button_link": "/collections/all",
+        "header_alignment": "left"
+      }
+    },
+    "chapter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-5e1b7c3a-2d84-4f60-9b17-c3a8e0d4f921",
+        "image": "shopify://shop_images/challenge-day-3.webp",
+        "image_alt": "A notebook of handwritten notes on a wooden desk",
+        "image_position": "left",
+        "image_ratio": "landscape",
+        "image_width": 50,
+        "form_layout": "horizontal",
+        "btn_text": "Send me lesson one",
+        "email_placeholder": "Your email",
+        "note": "One email a month at most. Leave whenever you like.",
+        "success_text": "Done. Lesson one is on its way to your inbox."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Get lesson one free"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>A twelve minute lesson on picking what your newsletter is about, with a one page worksheet.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "main",
+    "editions",
+    "chapter"
+  ]
+}

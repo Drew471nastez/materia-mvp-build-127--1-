@@ -1,0 +1,195 @@
+/* Templates round 68: Letterday's questions page and a last call. */
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "content_alignment": "center",
+        "padding_top": 64,
+        "padding_bottom": 8
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "Questions"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "description": "<p>About the five days, the tools, the group and refunds. Something else? Write from the contact page.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2"
+      ]
+    },
+    "faq": {
+      "type": "faq",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "structured_data": true,
+        "heading": "",
+        "subheading": "",
+        "first_item_open": true,
+        "allow_multiple_open": false,
+        "open_icon": "plus",
+        "content_alignment": "center",
+        "max_content_width": 780,
+        "gap_header_to_items": 36,
+        "gap_between_items": 10,
+        "item_padding_y": 20,
+        "item_padding_x": 24,
+        "item_radius": 12,
+        "show_dividers": false,
+        "enable_custom_style": false,
+        "question_size_desktop": 18,
+        "question_size_mobile": 16,
+        "answer_size_desktop": 16,
+        "answer_size_mobile": 15,
+        "padding_top": 16,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "faq_item_1": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How much time does it take?",
+            "answer": "<p>About fifteen minutes a day for five days: a short video and one task. Day four, writing the first issue, takes most people forty minutes.</p>"
+          }
+        },
+        "faq_item_2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I need a newsletter tool already?",
+            "answer": "<p>No. Day two shows how to set up a free account on the tool you choose, and the lessons work with any of them.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if I have nobody to send it to yet?",
+            "answer": "<p>That is most people on day one. Day five is about your first readers: who to ask, and the message to send them.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "When does it start?",
+            "answer": "<p>Every month, on the first Monday. Join any time before then. If you join mid round, you start on the next Monday.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Is it live?",
+            "answer": "<p>The lessons are recorded, so you watch them when it suits you. Elise answers questions in the group every weekday during the round.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Do the five days. If you did not send your first issue, or it was not worth the money, email within 14 days and you get a full refund.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I do it with a team?",
+            "answer": "<p>Yes. Each person who writes needs a place, and the second place is half price. Write from the contact page.</p>"
+          }
+        },
+        "faq_item_8": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I keep the lessons?",
+            "answer": "<p>Yes. The lessons, templates and bonuses are yours to keep after the round ends.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7",
+        "faq_item_8"
+      ]
+    },
+    "final": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "scheme-2c8f4a61-7e3d-4b09-a5c2-6d1e9f0b3a84",
+        "section_width": "container",
+        "reset_spacing": true,
+        "text_align": "center",
+        "max_width": 720,
+        "heading_tag": "h2",
+        "use_custom_text": false,
+        "use_custom_bg": false,
+        "banner_surface": "section",
+        "use_theme_radius": true,
+        "reveal": false,
+        "section_padding_top": 88,
+        "section_padding_bottom": 88,
+        "pad_top_desktop": 24,
+        "pad_bottom_desktop": 24
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "The next round starts on the first Monday"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Send your first issue this Friday",
+            "size_d": 44,
+            "size_m": 32
+          }
+        },
+        "subheading": {
+          "type": "subheading",
+          "settings": {
+            "text": "Five days, fifteen minutes a day, and a refund if you do not send it."
+          }
+        },
+        "button": {
+          "type": "button",
+          "settings": {
+            "label": "Join the challenge for $29",
+            "link": "/products/the-first-issue-challenge",
+            "use_theme_button": true,
+            "radius": 8,
+            "pad_h": 28,
+            "pad_v": 15,
+            "size_d": 17,
+            "size_m": 16
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow",
+        "heading",
+        "subheading",
+        "button"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "faq",
+    "final"
+  ]
+}

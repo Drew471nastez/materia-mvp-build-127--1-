@@ -1,0 +1,217 @@
+/* Templates round 68: Letterday's order step on the theme's own product page: step one of two, the challenge with its price and what you get, an order bump (the subject line file, ticked to add), buy now, the refund, a reader's quote and payment badges, then the questions people ask before paying. */
+{
+  "sections": {
+    "main": {
+      "type": "main-product",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "desktop_layout": "thumbnail_left",
+        "media_square": false,
+        "desktop_media_width": 52,
+        "content_gap_desktop": 56,
+        "padding_top": 40,
+        "padding_bottom": 88,
+        "image_zoom": "open_lightbox",
+        "mobile_options": "show_thumbnails",
+        "enable_sticky_content_on_desktop": true,
+        "enable_on_desktop": false,
+        "enable_on_mobile": false,
+        "section_width_mobile": "fluid_container",
+        "padding_left_mobile": 16,
+        "padding_right_mobile": 16
+      },
+      "blocks": {
+        "step": {
+          "type": "text",
+          "settings": {
+            "heading": "",
+            "content": "<p>Step 1 of 2: your order</p>"
+          }
+        },
+        "title": {
+          "type": "title",
+          "settings": {
+            "show_vendor": false,
+            "title_font_size_desktop": 40,
+            "title_font_size_mobile": 30
+          }
+        },
+        "price": {
+          "type": "price",
+          "settings": {
+            "price_font_size_desktop": 30,
+            "price_font_size_mobile": 26,
+            "price_font_weight": "700"
+          }
+        },
+        "short": {
+          "type": "text",
+          "settings": {
+            "heading": "",
+            "content": "<p>Five lessons, the templates, the group and three bonuses. The next round starts on the first Monday and lesson one arrives the moment you pay.</p>"
+          }
+        },
+        "included": {
+          "type": "whats_included",
+          "settings": {
+            "heading": "What you get",
+            "items": "Five video lessons, about fifteen minutes each\nThe welcome email and first issue templates\nThe group, with Elise answering every weekday\nThree bonuses: checklist, subject lines, calendar\nA refund within 14 days if it was not worth it",
+            "two_columns": false,
+            "boxed": true
+          }
+        },
+        "bump": {
+          "type": "product_addon",
+          "settings": {
+            "enable_variant_selector": false,
+            "addon_product": "subject-line-swipe-file",
+            "show_verified": false
+          }
+        },
+        "buy": {
+          "type": "buy_buttons",
+          "settings": {
+            "show_add_to_cart": false,
+            "show_dynamic_checkout": true,
+            "buy_now_style": "theme",
+            "show_quantity": false,
+            "buttons_full_width": true,
+            "show_wishlist_button": false,
+            "atc_appearance": "theme",
+            "buy_appearance": "theme"
+          }
+        },
+        "guarantee": {
+          "type": "guarantee_row",
+          "settings": {
+            "style": "plain",
+            "columns_mobile": "3",
+            "icon_1": "download",
+            "title_1": "Lesson one today",
+            "text_1": "The moment you pay",
+            "icon_2": "return",
+            "title_2": "14 day refund",
+            "text_2": "If you do not send it",
+            "icon_3": "chat",
+            "title_3": "Elise in the group",
+            "text_3": "Every weekday",
+            "spacing_top": 12,
+            "spacing_bottom": 4
+          }
+        },
+        "quote": {
+          "type": "quote_card",
+          "settings": {
+            "quote": "<p>Day four I sent issue one to 38 people, and three of them replied that afternoon.</p>",
+            "author": "Priya Nair",
+            "detail": "Runs a pottery studio",
+            "avatar": "shopify://shop_images/challenge-reader-1.webp",
+            "stars": 5
+          }
+        },
+        "pay": {
+          "type": "payment_badges",
+          "settings": {
+            "h_main": "",
+            "sec_bg": "rgba(0,0,0,0)",
+            "text_align": "left",
+            "toggle_icons": true,
+            "show_amex": true,
+            "show_visa": true,
+            "show_paypal": true
+          }
+        }
+      },
+      "block_order": [
+        "step",
+        "title",
+        "price",
+        "short",
+        "included",
+        "bump",
+        "buy",
+        "guarantee",
+        "quote",
+        "pay"
+      ]
+    },
+    "faq": {
+      "type": "faq",
+      "settings": {
+        "color_scheme": "scheme-5e1b7c3a-2d84-4f60-9b17-c3a8e0d4f921",
+        "section_width": "container",
+        "structured_data": true,
+        "heading": "Before you pay",
+        "subheading": "",
+        "first_item_open": true,
+        "allow_multiple_open": false,
+        "open_icon": "plus",
+        "content_alignment": "center",
+        "max_content_width": 780,
+        "gap_header_to_items": 36,
+        "gap_between_items": 10,
+        "item_padding_y": 20,
+        "item_padding_x": 24,
+        "item_radius": 12,
+        "show_dividers": false,
+        "enable_custom_style": false,
+        "question_size_desktop": 18,
+        "question_size_mobile": 16,
+        "answer_size_desktop": 16,
+        "answer_size_mobile": 15,
+        "padding_top": 88,
+        "padding_bottom": 88
+      },
+      "blocks": {
+        "faq_item_1": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How much time does it take?",
+            "answer": "<p>About fifteen minutes a day for five days: a short video and one task. Day four, writing the first issue, takes most people forty minutes.</p>"
+          }
+        },
+        "faq_item_2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I need a newsletter tool already?",
+            "answer": "<p>No. Day two shows how to set up a free account on the tool you choose, and the lessons work with any of them.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if I have nobody to send it to yet?",
+            "answer": "<p>That is most people on day one. Day five is about your first readers: who to ask, and the message to send them.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "When does it start?",
+            "answer": "<p>Every month, on the first Monday. Join any time before then. If you join mid round, you start on the next Monday.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Do the five days. If you did not send your first issue, or it was not worth the money, email within 14 days and you get a full refund.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5"
+      ]
+    }
+  },
+  "order": [
+    "main",
+    "faq"
+  ]
+}

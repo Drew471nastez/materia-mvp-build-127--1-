@@ -1,0 +1,107 @@
+/* Templates round 68: Letterday's 404 page, the funnel template's layout in Letterday's words and colour schemes. */
+{
+  "sections": {
+    "main": {
+      "type": "page-404",
+      "settings": {
+        "padding_top": 58,
+        "reset_spacing": false,
+        "section_width": "fluid_container",
+        "padding_bottom": 56
+      },
+      "blocks": {
+        "image_1": {
+          "type": "image",
+          "settings": {}
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "heading": "This page is not here",
+            "font_size": 36,
+            "uppercase": false,
+            "font_weight": "heading_weight",
+            "spacing_bottom": 20
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "font_size": 15,
+            "uppercase": false,
+            "subheading": "The link may be old. The challenge and the free lesson are still here.",
+            "font_weight": "body_weight",
+            "spacing_bottom": 40
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "open_link": false,
+            "spacing_bottom": 0,
+            "first_button_link": "/",
+            "first_button_type": "primary",
+            "first_button_label": "Back to the challenge"
+          }
+        }
+      },
+      "block_order": [
+        "image_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    },
+    "cta": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "scheme-5e1b7c3a-2d84-4f60-9b17-c3a8e0d4f921",
+        "banner_surface": "section",
+        "max_width": 720,
+        "pad_top_desktop": 88,
+        "pad_bottom_desktop": 88,
+        "reveal": false
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Letterday",
+            "transform": "uppercase"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Send your first issue this Friday",
+            "transform": "none",
+            "lineheight": "1.25"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "Five days, fifteen minutes a day, and a refund if you do not send it."
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Join the challenge for $29",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    }
+  },
+  "order": [
+    "main",
+    "cta"
+  ]
+}

@@ -1,0 +1,52 @@
+/* Templates round 68: Letterday's page page, the funnel template's layout in Letterday's words and colour schemes. */
+{
+  "sections": {
+    "main": {
+      "type": "page-default",
+      "settings": {
+        "padding_top": 48,
+        "reset_spacing": true,
+        "section_width": "container",
+        "padding_bottom": 72
+      }
+    },
+    "chapter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-5e1b7c3a-2d84-4f60-9b17-c3a8e0d4f921",
+        "image": "shopify://shop_images/challenge-day-3.webp",
+        "image_alt": "A notebook of handwritten notes on a wooden desk",
+        "image_position": "left",
+        "image_ratio": "landscape",
+        "image_width": 50,
+        "form_layout": "horizontal",
+        "btn_text": "Send me lesson one",
+        "email_placeholder": "Your email",
+        "note": "One email a month at most. Leave whenever you like.",
+        "success_text": "Done. Lesson one is on its way to your inbox."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Get lesson one free"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>A twelve minute lesson on picking what your newsletter is about, with a one page worksheet.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "main",
+    "chapter"
+  ]
+}
