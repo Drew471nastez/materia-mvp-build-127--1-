@@ -1342,6 +1342,8 @@ const SUITES = [
   "tests/publish-speed-r66.test.ts",
   /* Round 66: the builder's canvas stays the page being edited. A section drawn again runs its own inline scripts again (Night shop's sky covered the page), a frame going elsewhere is hidden and drawn again so "refused to connect" is never seen, window.open and detached link clicks open as links, own-host links stay in the canvas, the code pane recovers from a refused page, and no framing header was loosened. Browser halves: scripts/probe-sky-r66.ts, scripts/probe-nav-r66.ts, scripts/check-template-settings-r66.ts. */
   "tests/builder-canvas-stable-r66.test.ts",
+  /* Round 67: an edit in the canvas never replays an entrance, popups fade to their own opacity, the header menu is never held unseen for its font, Hero Image 1 blocks arrive with content. Browser halves: scripts/check-canvas-edit-motion-r67.ts, check-popup-flash-r67.ts, check-header-text-r67.ts, check-reveal-types-r67.ts, check-hero-image1-blocks-r67.ts. */
+  "tests/theme-motion-r67.test.ts",
   /* Round 27: the cover's browser traced into the folded /api/website-builder entry and Add (matched with Next's own picomatch), no browser remembered with the template's picture instead and the page backing off, and one press of Add one website (a press key: replayed, waited for, the older kept) */
   "tests/cover-and-add-r27.test.ts",
   /* Round 27: a website's unchanged theme files kept once in theme_file_blobs behind STORELIB_THEME_FILE_REFS and RUN_PENDING_ROUND_27.sql: an old full-copy website and a new referencing one read the same through the storefront, the builder and the asset reads, copy on write, and the list of readers still to convert before new websites use it */

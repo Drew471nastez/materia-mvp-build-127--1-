@@ -1819,8 +1819,8 @@ export const CANVAS_BRIDGE = `
       var seen = seenBefore(el);
       if (seen) next.setAttribute("data-mt-redrawn", "");
       el.replaceWith(next);
-      if (seen) keepStill(next);
       runScripts(next, true);
+      if (seen) keepStill(next);
       next.style.minHeight = held + "px";
       var pending = Array.prototype.filter.call(next.querySelectorAll("img"), function (i) { return !i.complete; });
       var release = function () { next.style.minHeight = ""; };
