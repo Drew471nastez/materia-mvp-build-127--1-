@@ -306,6 +306,20 @@ const revealObserver = makeObserver((entries) => {
     if (waiting) waiting.then(() => requestAnimationFrame(() => reveal([target])));
     else now.push(target);
   });
+  // A row that slides sideways (a carousel) comes in as one: a card peeking
+  // in at the screen's edge plays with the row, never left faint there, and
+  // the cards beyond the edge simply show (round 68).
+  const rows = new Set();
+  entering.forEach(({target}) => { const row = target.closest('.swiper-wrapper, [class*="slider"], [class*="carousel"]'); if (row) rows.add(row); });
+  rows.forEach(row => row.querySelectorAll('.scroll-trigger--armed').forEach(el => {
+    if (now.includes(el) || el.closest('.shopify-section') === el) return;
+    const r = el.getBoundingClientRect();
+    if (r.bottom <= 0 || r.top >= window.innerHeight) return;
+    revealObserver.unobserve(el);
+    if (r.left >= window.innerWidth || r.right <= 0) { markDone(el); return; }
+    el.style.setProperty('--reveal-order', String(REVEAL_MAX_STAGGER));
+    now.push(el);
+  }));
   if (now.length) reveal(now);
 // It starts once its top edge is 6% into the screen, so the movement is seen
 // rather than spent below the edge.
