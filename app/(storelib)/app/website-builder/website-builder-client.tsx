@@ -760,8 +760,8 @@ const ROW_THEME_CARDS = 12
  * as the third. A slug the page was not given is skipped, and the rest of
  * the marketplace's own order fills what is left.
  */
-/* Round 67, the owner: the Ebook in Clothing's place, and a fourth row of Notion creator, Digital studio and Fitness. */
-export const BROWSE_THEMES_FIRST = ["storelib-default", "author-book", "merch", "digital-products", "art-books", "templates-shop", "space-clothing", "posters", "print-on-demand", "notion-creator", "digital-studio", "fitness"] as const
+/* Round 67, the owner: the Ebook in Clothing's place, and a fourth row of Notion creator, Digital studio and Fitness. Round 68, the owner: Digital studio and Digital products swap places, so Digital products is eleventh. */
+export const BROWSE_THEMES_FIRST = ["storelib-default", "author-book", "merch", "digital-studio", "art-books", "templates-shop", "space-clothing", "posters", "print-on-demand", "notion-creator", "digital-products", "fitness"] as const
 
 /** Browse themes' cards: BROWSE_THEMES_FIRST that are there, then the others in the marketplace's order, `count` in all. */
 export function browseThemes<T extends { slug: string }>(listings: readonly T[], count: number = ROW_THEME_CARDS): T[] {
