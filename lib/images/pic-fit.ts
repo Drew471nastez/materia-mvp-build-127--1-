@@ -13,9 +13,12 @@
  *
  * Now every frame keeps the theme's shape (Theme settings > Product cards >
  * Image ratio, the gallery's own setting) and its picture covers it, centred
- * or on the picture's focal point (Materia's --point): what every theme's
- * own stylesheet draws, so this script no longer fits anything. Nothing is
- * measured to place a frame, so nothing moves after the first paint.
+ * or on the picture's focal point (Materia's --point): what Materia's and
+ * the native theme's own stylesheets draw. A template that contained its
+ * product pictures on its own (Octavo's product page, Space's cards) is
+ * covered too, here, so stores installed with those files change without a
+ * reinstall. Nothing is measured to place a frame, so nothing moves after
+ * the first paint.
  *
  * ONE EXCEPTION, A CUT OUT PRODUCT. A picture whose edges are see-through (a
  * product photographed on nothing, saved as a PNG or WebP) has no background
@@ -57,7 +60,10 @@ export function installPicFit(doc: Document, win: Window): void {
   try {
     var style = doc.createElement("style")
     style.setAttribute("data-sl-pic-fit", "")
-    style.textContent = "html.sl-pic-fit :is(" + FRAMES + ') img[data-pic-fit="cutout"]{object-fit:contain!important}'
+    style.textContent =
+      /* Materia's frames cover, over a template's own contain (Octavo's product page, Space's cards) and on stores installed with it. */
+      'html.sl-pic-fit :is(.product-item__media--ratio,.media-gallery__image) img:not([data-pic-fit]):not([data-cover-padded="keep"] *){object-fit:cover!important}' +
+      "html.sl-pic-fit :is(" + FRAMES + ') img[data-pic-fit="cutout"]{object-fit:contain!important}'
     ;(doc.head || doc.documentElement).appendChild(style)
     doc.documentElement.classList.add("sl-pic-fit")
   } catch {

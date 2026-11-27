@@ -239,9 +239,9 @@ for (const p of PAGES) {
     const found = await page.evaluate(MEASURE, [KINDS, FRAMES])
     const shift = await page.evaluate(() => ({ cls: Math.round(window.__cls * 10000) / 10000, shifts: window.__shifts.slice(0, 6) }))
     shift.load = Math.round(firstPaint * 10000) / 10000
-    cls.push({ page: p.name, width, ...shift })
     /* A shift is the pictures' when a card, a frame or a gallery moved; others (a header, a hero's own reveal) are reported, not counted here. */
-    shift.pics = Math.round(shift.shifts.filter((x) => x.src.some((c) => /product-item|media-gallery|product__media|card|pic/.test(c) && !/it-card|feature-product-form|mk-/.test(c))).reduce((a, x) => a + x.v, 0) * 10000) / 10000
+    shift.pics = Math.round(shift.shifts.filter((x) => x.src.some((c) => /product-item|media-gallery|product__media|card__media/.test(c))).reduce((a, x) => a + x.v, 0) * 10000) / 10000
+    cls.push({ page: p.name, width, ...shift })
     if (shift.pics > 0.001) bad.push({ page: p.name, width, cls: shift.cls, shifts: shift.shifts })
     for (const m of found) {
       rows.push({ page: p.name, width, ...m })
