@@ -19,6 +19,7 @@
  *   shell        the editor's bar is drawn (its Publish button)
  *   frame        the canvas's card is on screen ([data-compat-canvas])
  *   paint        the canvas's frame holds the theme's sections
+ *   shown        the editor's loader is off the canvas: the page is seen
  *   longest      the longest main thread task, and every task over 200 ms
  *   asked        the theme's file reads the editor made, and their sizes
  *
@@ -120,6 +121,16 @@ try {
   page.on("pageerror", (e) => console.log("    page error:", String(e.message ?? e).slice(0, 200)))
   t0.at = Date.now()
   await page.goto(base, { waitUntil: "domcontentloaded" })
+  /* SHOTS_AT=3000,6000,...: the editor as it opens, at these times from the navigation (OUT is where they go). */
+  const timedShots = process.env.OUT && process.env.SHOTS_AT
+    ? (async () => {
+      for (const at of process.env.SHOTS_AT.split(",").map(Number)) {
+        await sleep(Math.max(0, at - (Date.now() - t0.at)))
+        mkdirSync(process.env.OUT, { recursive: true })
+        await page.screenshot({ path: join(process.env.OUT, `opening-${width}-${String(at).padStart(5, "0")}ms.png`) }).catch(() => {})
+      }
+    })()
+    : Promise.resolve()
   /* PROFILE=1: where the main thread's time goes, by function, in the longest task. */
   if (process.env.PROFILE) { await cdp.send("Profiler.enable"); await cdp.send("Profiler.setSamplingInterval", { interval: 1000 }); await cdp.send("Profiler.start") }
   /* The canvas's frame is sandboxed (another origin to the page), so its sections are looked for from here. */
@@ -132,7 +143,15 @@ try {
       if (has) { paintAt = await page.evaluate(() => Math.round(performance.now())).catch(() => undefined); break }
     }
   }
-  await page.evaluate((at) => { window.__r68.marks.paint = at; window.__r68.done = true }, paintAt ?? null).catch(() => {})
+  /* And SHOWN: the editor's loader is off the canvas, so the person sees the page (it fades in over its own frame). */
+  let shownAt
+  for (let i = 0; i < 600 && shownAt === undefined && paintAt !== undefined; i++) {
+    const gone = await page.evaluate(() => !document.querySelector(".wb-loading-line") && !!document.querySelector("[data-compat-frame='front']")).catch(() => false)
+    if (gone) shownAt = await page.evaluate(() => Math.round(performance.now())).catch(() => undefined)
+    else await sleep(100)
+  }
+  await page.evaluate(([at, seen]) => { window.__r68.marks.paint = at; window.__r68.marks.shown = seen; window.__r68.done = true }, [paintAt ?? null, shownAt ?? null]).catch(() => {})
+  await timedShots
   /* What runs once the page is up (the library, the rest of the theme) belongs to the open too. */
   await sleep(Number(process.env.SETTLE_MS ?? 8000))
   const r = await page.evaluate(() => ({ ...window.__r68, calls: window.probeCalls.filter((c) => /files|sections|themes\/probe-install(\?|$)/.test(c)) }))
@@ -141,13 +160,13 @@ try {
   const over = tasks.filter((t) => t.ms > 200)
   const blocking = tasks.reduce((s, t) => s + Math.max(0, t.ms - 50), 0)
   console.log(`\nMateria ${TEMPLATE} at ${width}px, CPU slowed ${CPU}x, the server's reads at ${MBPS} MB/s`)
-  console.log(`  shell ${r.marks.shell ?? "never"} ms | canvas card ${r.marks.frame ?? "never"} ms | first canvas paint ${r.marks.paint ?? "never"} ms | "Still opening" ${r.marks.stillOpening ?? "never shown"}`)
+  console.log(`  shell ${r.marks.shell ?? "never"} ms | canvas card ${r.marks.frame ?? "never"} ms | first canvas paint ${r.marks.paint ?? "never"} ms | the page shown ${r.marks.shown ?? "never"} ms | "Still opening" ${r.marks.stillOpening ?? "never shown"}`)
   console.log(`  longest task ${longest} ms, ${over.length} over 200 ms (${over.map((t) => `${t.ms}@${t.at}`).join(", ")}), blocking ${blocking} ms in all`)
   console.log(`  theme reads: ${asked.map((a) => `${a.query} ${a.kb} KB at ${a.at} ms (${a.ms} ms)`).join(" | ")}`)
   const expect = (ok, what) => { console.log(`  ${ok ? "ok  " : "FAIL"}  ${what}`); if (!ok) broken++ }
   if (process.env.EXPECT) {
     const e = JSON.parse(process.env.EXPECT)
-    if (e.paint) expect((r.marks.paint ?? Infinity) <= e.paint, `the canvas paints within ${e.paint} ms`)
+    if (e.paint) expect((r.marks.shown ?? Infinity) <= e.paint, `the page is shown within ${e.paint} ms`)
     if (e.longest) expect(longest <= e.longest, `no main thread task over ${e.longest} ms`)
     if (e.read) expect(asked.reduce((s, a) => s + a.kb, 0) <= e.read, `the open reads at most ${e.read} KB of theme files`)
   }
