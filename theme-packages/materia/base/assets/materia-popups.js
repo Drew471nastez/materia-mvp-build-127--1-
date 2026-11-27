@@ -371,7 +371,9 @@
     // its own while that opening ran and showed the page light for a few
     // frames.
     var kept = opts.keepShade && shadeOf(entry);
-    var shadeAnim = p.shade && !kept ? p.shade.animate([{ opacity: shadeFrom, '--mp-fade': '0' }, { opacity: 0, '--mp-fade': '1' }], o) : null;
+    // The shade clears quickly as the card starts to leave (an ease out where
+    // the card eases in), so the page is never darker for a moment than both.
+    var shadeAnim = p.shade && !kept ? p.shade.animate([{ opacity: shadeFrom, '--mp-fade': '0' }, { opacity: 0, '--mp-fade': '1' }], { duration: CLOSE_MS, easing: 'cubic-bezier(.2,.6,.4,1)', fill: 'forwards' }) : null;
     if (shadeAnim) anims.push(shadeAnim);
     var m = entry.motion = { anims: anims, els: els, finish: null, shadeAnim: shadeAnim, after: [] };
     leaving = entry;

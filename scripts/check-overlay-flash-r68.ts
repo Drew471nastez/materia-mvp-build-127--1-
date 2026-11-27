@@ -91,8 +91,9 @@ export function flashIn(series: number[], tol = TOL): string | null {
 export function fromTurn(series: number[]): number[] {
   if (series.length < 3) return series
   const end = series[series.length - 1]
-  let at = 0
-  for (let i = 0; i < series.length; i++) if (Math.abs(series[i] - end) > Math.abs(series[at] - end)) at = i
+  /* The turn is where the series stops going one way: the frame after the start furthest from the end. */
+  let at = 1
+  for (let i = 1; i < series.length; i++) if (Math.abs(series[i] - end) > Math.abs(series[at] - end)) at = i
   return series.slice(at)
 }
 
