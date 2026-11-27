@@ -23,7 +23,7 @@
         "radius": 14,
         "video_gap": 36,
         "button_label": "Join the challenge for $29",
-        "button_link": "/products/the-first-issue-challenge",
+        "button_link": "/#shopify-section-offer",
         "button2_label": "Get lesson one free",
         "button2_link": "/pages/free-lesson",
         "note": "Starts the first Monday, About fifteen minutes a day, 14 day refund",
@@ -190,7 +190,7 @@
           "type": "button",
           "settings": {
             "label": "Join for $29",
-            "link": "/products/the-first-issue-challenge",
+            "link": "/#shopify-section-offer",
             "button_style": "primary"
           }
         }
@@ -301,7 +301,7 @@
           "type": "button",
           "settings": {
             "label": "Join the challenge for $29",
-            "link": "/products/the-first-issue-challenge",
+            "link": "/#shopify-section-offer",
             "style": "primary",
             "use_theme_button": true,
             "radius": 8
@@ -635,16 +635,39 @@
             "spacing_bottom": 12
           }
         },
-        "join": {
-          "type": "link_button",
+        "bump": {
+          "type": "product_addon",
           "settings": {
-            "label": "Join the challenge for $29",
-            "link": "/products/the-first-issue-challenge",
-            "style": "primary",
-            "icon": "none",
-            "full_width": true,
-            "spacing_top": 8,
-            "spacing_bottom": 12
+            "enable_variant_selector": false,
+            "addon_product": "subject-line-swipe-file",
+            "show_verified": false,
+            "section_width_d": 640,
+            "section_width_m": 680,
+            "image_size": 64,
+            "pad_top_d": 14,
+            "pad_bottom_d": 14,
+            "pad_left_d": 14,
+            "pad_right_d": 16,
+            "pad_top_m": 12,
+            "pad_bottom_m": 12,
+            "pad_left_m": 12,
+            "pad_right_m": 12,
+            "margin_top_d": 16,
+            "margin_bottom_d": 16,
+            "text_size": 16
+          }
+        },
+        "buy": {
+          "type": "buy_buttons",
+          "settings": {
+            "show_add_to_cart": true,
+            "show_dynamic_checkout": true,
+            "buy_now_style": "theme",
+            "show_quantity": false,
+            "buttons_full_width": true,
+            "show_wishlist_button": false,
+            "atc_appearance": "theme",
+            "buy_appearance": "theme"
           }
         },
         "promise": {
@@ -671,7 +694,8 @@
         "title",
         "price",
         "included",
-        "join",
+        "bump",
+        "buy",
         "promise"
       ]
     },
@@ -857,7 +881,7 @@
           "type": "button",
           "settings": {
             "label": "Join the challenge for $29",
-            "link": "/products/the-first-issue-challenge",
+            "link": "/#shopify-section-offer",
             "use_theme_button": true,
             "radius": 8,
             "pad_h": 28,

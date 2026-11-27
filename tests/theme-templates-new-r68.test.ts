@@ -145,10 +145,10 @@ function main() {
   const days = Object.values(sales.sections.days.blocks!).filter((b) => b.type === "item")
   check("  five days, Day 1 to Day 5, each with a photograph", days.length === 5 && days.every((d, i) => d.settings!.label === `Day ${i + 1}` && /^shopify:\/\/shop_images\/challenge-day-\d\.webp$/.test(d.settings!.image)))
   check("  three bonuses", Object.values(sales.sections.bonuses.blocks!).filter((b) => b.type === "column" && /^Bonus \d$/.test(b.settings!.label)).length === 3)
-  const PRODUCT = "/products/the-first-issue-challenge"
-  const ctas = (JSON.stringify(sales).match(/\/products\/[a-z0-9-]+/g) ?? [])
-  check("  every call to action goes to the order step, repeated down the page", ctas.length >= 5 && ctas.every((l) => l === PRODUCT), ctas)
-  check("  the price stack is the challenge itself (its picture and price are the product's)", sales.sections.offer.type === "featured-product" && sales.sections.offer.settings!.product === "the-first-issue-challenge")
+  const ctas = JSON.stringify(sales).match(/"(?:button_link|link)":"[^"]*"/g) ?? []
+  const toOffer = ctas.filter((l) => l.includes("/#shopify-section-offer"))
+  check("  the calls to action go to the offer, repeated down the page, and none to a product a store may not have", toOffer.length >= 4 && !/\/products\//.test(JSON.stringify(sales)), ctas)
+  check("  the price stack is the challenge itself (its picture and price are the product's), with the order bump and buy buttons", sales.sections.offer.type === "featured-product" && sales.sections.offer.settings!.product === "the-first-issue-challenge" && Object.values(sales.sections.offer.blocks!).some((b) => b.type === "product_addon" && b.settings!.addon_product === "subject-line-swipe-file") && Object.values(sales.sections.offer.blocks!).some((b) => b.type === "buy_buttons"))
   const cshop = SAMPLE_SHOPS.challenge
   const has = (h: string) => cshop.products.some((p) => slugOf(p.title) === h)
   check("  the products the funnel sells exist: the challenge, the bump, the one time offer", ["the-first-issue-challenge", "subject-line-swipe-file", "the-issue-library"].every(has))
@@ -162,7 +162,8 @@ function main() {
   const row = Object.values(order.blocks!).find((b) => b.type === "guarantee_row")!.settings!
   check("  its guarantee row is about a download, not delivery or returns", row.title_1 && !/delivery|returns/i.test(JSON.stringify(row)))
   const oto = JSON.stringify(ch("page.one-time-offer.json"))
-  check("the one time offer has a yes and a no thanks link to the thank you page", /Yes, add the Issue Library/.test(oto) && /\/products\/the-issue-library/.test(oto) && /No thanks, take me to my order/.test(oto) && /\/pages\/thank-you/.test(oto))
+  const otoPage = ch("page.one-time-offer.json")
+  check("the one time offer sells the Issue Library with its own buy buttons, and has a no thanks link to the thank you page", otoPage.order.some((k) => otoPage.sections[k].type === "featured-product" && otoPage.sections[k].settings!.product === "the-issue-library") && (oto.match(/No thanks, take me to my order/g) ?? []).length >= 2 && /\/pages\/thank-you/.test(oto))
   const ty = ch("page.thank-you.json")
   check("the thank you page lists next steps", Object.values(ty.sections.next.blocks!).filter((b) => b.type === "step").length === 3)
   const cs = settingsOf("challenge").color_schemes as Record<string, { settings: Record<string, string> }>
@@ -174,7 +175,7 @@ function main() {
   const credits = read(join(TEMPLATES, "CREDITS.md"))
   for (const { t } of NEW) {
     const assets = readdirSync(join(TEMPLATES, t, "assets"))
-    const uncredited = assets.filter((a) => !credits.includes(`assets/${a}`) && !credits.includes(`assets/${a.replace(/-after\.webp$/, "-before.webp")}`) && !(/reader-\d\.webp$/.test(a) && credits.includes(`assets/${t}-reader-1.webp to -6.webp`)))
+    const uncredited = assets.filter((a) => !credits.includes(`assets/${a}`))
     check(`${t}: every picture is credited in CREDITS.md (${assets.length})`, uncredited.length === 0, uncredited)
     check(`  and every product picture folder is too`, credits.includes(`scripts/theme-templates/products/${t}/`))
     const urgency = sectionsOf(t).filter(({ s }) => /countdown|timer|fake-order|stock-countdown|spin-wheel/i.test(s.type) && !s.disabled).map(({ file, key }) => `${file} ${key}`)

@@ -150,7 +150,7 @@
           "settings": {
             "new_tab": false,
             "button_gap": 20,
-            "button_link": "/products/the-first-issue-challenge",
+            "button_link": "/#shopify-section-offer",
             "button_text": "Join for $29",
             "custom_text": "#ffffff",
             "mobile_size": "small",

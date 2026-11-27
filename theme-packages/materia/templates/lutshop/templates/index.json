@@ -263,22 +263,12 @@
             "text": "<p>Faded film blacks and creamy highlights, for travel, weddings and anything shot near sunset. Twelve LUTs, from a light touch to a heavy print look.</p>",
             "max_width": 440
           }
-        },
-        "button": {
-          "type": "button",
-          "settings": {
-            "text": "See Warm Stock",
-            "link": "/products/warm-stock-luts",
-            "use_theme_button": true,
-            "radius": 6
-          }
         }
       },
       "block_order": [
         "slider",
         "heading",
-        "text",
-        "button"
+        "text"
       ]
     },
     "nordic": {
@@ -339,22 +329,12 @@
             "text": "<p>Cool and quiet, with lifted blacks and muted greens. Made for overcast days, interviews and slow documentary work.</p>",
             "max_width": 440
           }
-        },
-        "button": {
-          "type": "button",
-          "settings": {
-            "text": "See Nordic Matte",
-            "link": "/products/nordic-matte-luts",
-            "use_theme_button": true,
-            "radius": 6
-          }
         }
       },
       "block_order": [
         "slider",
         "heading",
-        "text",
-        "button"
+        "text"
       ]
     },
     "night": {
@@ -415,22 +395,12 @@
             "text": "<p>Deep blacks with cyan and magenta in the lights. For city nights, neon and music videos, and it holds skin tones under coloured light.</p>",
             "max_width": 440
           }
-        },
-        "button": {
-          "type": "button",
-          "settings": {
-            "text": "See Night Signal",
-            "link": "/products/night-signal-luts",
-            "use_theme_button": true,
-            "radius": 6
-          }
         }
       },
       "block_order": [
         "slider",
         "heading",
-        "text",
-        "button"
+        "text"
       ]
     },
     "kinds": {
@@ -580,8 +550,8 @@
         "button": {
           "type": "button",
           "settings": {
-            "label": "Get the free one first",
-            "url": "/products/log-to-709-starter-lut"
+            "label": "See the LUT packs",
+            "url": "/collections/lut-packs"
           }
         }
       },

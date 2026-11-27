@@ -22,8 +22,8 @@
         "video_width": 960,
         "radius": 14,
         "video_gap": 36,
-        "button_label": "Yes, add the Issue Library for $37",
-        "button_link": "/products/the-issue-library",
+        "button_label": "Yes, show me the Issue Library",
+        "button_link": "/pages/one-time-offer#shopify-section-library_offer",
         "button2_label": "No thanks, take me to my order",
         "button2_link": "/pages/thank-you",
         "note": "",
@@ -33,150 +33,94 @@
         "padding_bottom_mobile": 48
       }
     },
-    "library": {
-      "type": "text-columns",
+    "library_offer": {
+      "type": "featured-product",
       "settings": {
         "color_scheme": "scheme-5e1b7c3a-2d84-4f60-9b17-c3a8e0d4f921",
         "section_width": "container",
         "reset_spacing": true,
-        "content_alignment": "left",
-        "columns_desktop": 4,
-        "columns_tablet": 2,
-        "column_gap": 32,
-        "header_gap": 40,
-        "show_dividers": true,
-        "enable_custom_style": false,
-        "item_heading_size": 20,
-        "item_heading_size_mobile": 19,
+        "product": "the-issue-library",
+        "show_view_link": false,
+        "desktop_layout": "hidden_thumbnail",
+        "desktop_media_width": 50,
+        "desktop_main_image_position": "left",
+        "show_thumbnails": false,
+        "enable_dynamic_checkout": true,
+        "enable_image_square": false,
+        "enable_lightbox": false,
+        "enable_sticky_content_on_desktop": false,
+        "reveal": true,
         "padding_top": 88,
-        "padding_bottom": 88,
-        "padding_top_mobile": 56,
-        "padding_bottom_mobile": 56,
-        "mobile_layout": "stack"
+        "padding_bottom": 88
       },
       "blocks": {
-        "heading_1": {
-          "type": "heading",
+        "intro": {
+          "type": "text",
           "settings": {
-            "text": "What you get with the Issue Library",
-            "size_enable": true,
-            "size_desktop": 36,
-            "size_mobile": 28
+            "heading": "Only after you join",
+            "content": "<p>One press adds it to the challenge you just joined. Skip it and nothing changes.</p>"
           }
         },
-        "c1": {
-          "type": "column",
+        "title": {
+          "type": "title",
           "settings": {
-            "label": "52",
-            "heading": "Issue outlines",
-            "text": "<p>One for every week of the year, sorted by month, each with a story prompt.</p>"
+            "show_vendor": false,
+            "title_font_size_desktop": 40,
+            "title_font_size_mobile": 30
           }
         },
-        "c2": {
-          "type": "column",
+        "price": {
+          "type": "price",
           "settings": {
-            "label": "12",
-            "heading": "Issue templates",
-            "text": "<p>Shapes for a story issue, a list issue, a behind the scenes issue and nine more.</p>"
+            "price_font_size_desktop": 34,
+            "price_font_size_mobile": 28,
+            "price_font_weight": "700"
           }
         },
-        "c3": {
-          "type": "column",
+        "included": {
+          "type": "whats_included",
           "settings": {
-            "label": "1",
-            "heading": "Planning sheet",
-            "text": "<p>The year on one page, to print or copy into your own notes.</p>"
+            "heading": "In the Issue Library",
+            "items": "52 issue outlines, one for every week of the year\n12 issue templates: story, list, behind the scenes and nine more\nThe year on one planning sheet\nYours to keep",
+            "two_columns": false,
+            "boxed": true,
+            "spacing_top": 16,
+            "spacing_bottom": 12
           }
         },
-        "c4": {
-          "type": "column",
+        "buy": {
+          "type": "buy_buttons",
           "settings": {
-            "label": "Yours",
-            "heading": "To keep",
-            "text": "<p>Download it once and use it for as long as you send.</p>"
+            "show_add_to_cart": true,
+            "show_dynamic_checkout": true,
+            "buy_now_style": "theme",
+            "show_quantity": false,
+            "buttons_full_width": true,
+            "show_wishlist_button": false,
+            "atc_appearance": "theme",
+            "buy_appearance": "theme"
+          }
+        },
+        "no": {
+          "type": "text",
+          "settings": {
+            "heading": "",
+            "content": "<p><a href=\"/pages/thank-you\">No thanks, take me to my order</a></p>"
           }
         }
       },
       "block_order": [
-        "heading_1",
-        "c1",
-        "c2",
-        "c3",
-        "c4"
-      ]
-    },
-    "decide": {
-      "type": "Image-and-video-text",
-      "settings": {
-        "color_scheme": "default",
-        "section_width": "container",
-        "reset_spacing": true,
-        "image_position": "left",
-        "text_column_width": 50,
-        "content_align": "left",
-        "content_gap": 18,
-        "media_type": "image",
-        "image": "shopify://shop_images/challenge-day-5.webp",
-        "image_alt": "A spiral notebook and a coffee cup on a wooden board",
-        "aspect_w": 4,
-        "aspect_h": 3,
-        "image_fit": "cover",
-        "image_radius": 12,
-        "enable_overlay": false,
-        "enable_custom_style": false,
-        "gap_desktop": 72,
-        "padding_top_desktop": 88,
-        "padding_bottom_desktop": 104,
-        "side_padding_desktop": 32,
-        "content_align_mobile": "left",
-        "mobile_order": "media_first",
-        "gap_mobile": 28,
-        "padding_top_mobile": 56,
-        "padding_bottom_mobile": 56,
-        "side_padding_mobile": 16
-      },
-      "blocks": {
-        "eyebrow": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "Only after you join"
-          }
-        },
-        "heading": {
-          "type": "heading",
-          "settings": {
-            "text": "Add it to your order?",
-            "tag": "h2",
-            "size_desktop": 42,
-            "size_mobile": 30
-          }
-        },
-        "text": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>One press adds the Issue Library to the challenge you just joined, for $37. Skip it and nothing changes.</p><p><a href=\"/pages/thank-you\">No thanks, take me to my order</a></p>"
-          }
-        },
-        "button": {
-          "type": "button",
-          "settings": {
-            "label": "Yes, add the Issue Library for $37",
-            "link": "/products/the-issue-library",
-            "button_style": "primary"
-          }
-        }
-      },
-      "block_order": [
-        "eyebrow",
-        "heading",
-        "text",
-        "button"
+        "intro",
+        "title",
+        "price",
+        "included",
+        "buy",
+        "no"
       ]
     }
   },
   "order": [
     "offer",
-    "library",
-    "decide"
+    "library_offer"
   ]
 }

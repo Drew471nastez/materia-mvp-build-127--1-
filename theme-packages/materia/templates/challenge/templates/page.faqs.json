@@ -169,7 +169,7 @@
           "type": "button",
           "settings": {
             "label": "Join the challenge for $29",
-            "link": "/products/the-first-issue-challenge",
+            "link": "/#shopify-section-offer",
             "use_theme_button": true,
             "radius": 8,
             "pad_h": 28,
