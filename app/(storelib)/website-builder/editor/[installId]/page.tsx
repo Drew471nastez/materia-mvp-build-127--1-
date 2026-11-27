@@ -3154,13 +3154,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /** The page's part is in: the canvas may draw a page whose sections it covers (sourcesCover). */
   const [storelibPageRead, setStorelibPageRead] = useState(false)
   /*
-    The canvas draws once the page's part covers every section the page shows (sourcesCover), and from then on: it is
-    never taken back to waiting. A page opened before the rest is in draws once the rest arrives (sourcesCover again),
-    or with what it has after the rest's read has ended either way.
+    The canvas draws once the page's part covers every section the page shows (sourcesCover). A page opened, or a
+    section added, before the rest is in that needs a file the part does not have: the page on screen stays (the
+    canvas keeps what it drew while it waits) and the new one is drawn once the rest arrives, or once its read has
+    ended either way (storelibSourcesRead).
   */
-  const sourcesShownOnce = useRef(false)
-  const canvasSourcesReady = sourcesShownOnce.current || storelibSourcesRead || (storelibPageRead && sourcesCover(sections, storelibSources))
-  if (canvasSourcesReady) sourcesShownOnce.current = true
+  const canvasSourcesReady = storelibSourcesRead || (storelibPageRead && sourcesCover(sections, storelibSources))
   const loadSourcesInParts = useCallback(async (types: string[]) => {
     const page = await readSourcesPart(installId, `&types=${types.join(",")}`).catch(() => null)
     if (!page || !page.files) {
