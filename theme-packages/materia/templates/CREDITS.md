@@ -983,9 +983,9 @@ Sound packs (round 25, redrawn in rounds 26 and 28): Lowmoth, a sample label mad
 | soundpacks (sample products) | scripts/theme-templates/products/soundpacks/soundpacks-post-desk.webp | https://images.unsplash.com/photo-1477233534935-f5e6fe7c1159, two small maker names blurred | Unsplash License |
 | soundpacks (sample products) | scripts/theme-templates/products/soundpacks/soundpacks-post-mixer.webp | https://images.unsplash.com/photo-1518972559570-7cc1309f3229 | Unsplash License |
 
-## Digital studio (digistudio, Wren Studio)
+## Digital studio (digistudio, Halfmoon)
 
-<!-- digistudio (templates round 26, rebuilt in round 28): Wren Studio, its maker Hana Lee and every product are made up. Each product picture is a device mockup drawn as HTML for this template and rendered to an image on one ground and one light: Notion pages, Canva posts and a brand kit, a Lightroom style editor with before and after, ebook covers and pages, planners and printables, and a course player. The UI in them is drawn for the template and carries no app maker's logo. Photographs inside the mockups are Unsplash photographs, some colour graded for the preset products. The logo and mark (a small bird) were drawn for it. The maker photo and the buyer portraits are Unsplash photographs; the reviews beside the portraits are marked on the page as samples to replace. -->
+<!-- digistudio (templates round 26, rebuilt in round 28, its sample brand named Halfmoon in round 67): Halfmoon, its maker Hana Lee and every product are made up. Each product picture is a device mockup drawn as HTML for this template and rendered to an image on one ground and one light: Notion pages, Canva posts and a brand kit, a Lightroom style editor with before and after, ebook covers and pages, planners and printables, and a course player. The UI in them is drawn for the template and carries no app maker's logo. Photographs inside the mockups are Unsplash photographs, some colour graded for the preset products. The logo and mark (a small bird) were drawn for it. The maker photo and the buyer portraits are Unsplash photographs; the reviews beside the portraits are marked on the page as samples to replace. -->
 
 | Template | File | Source | Licence |
 | --- | --- | --- | --- |

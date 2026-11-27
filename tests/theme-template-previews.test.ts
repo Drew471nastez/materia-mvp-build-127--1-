@@ -49,7 +49,7 @@ const BUDGET_TOTAL = 320 * MB
 /* Changed on purpose (templates round 25): sample product pictures are 1600 px from their photographs now, each with a real second shot instead of a zoomed crop; the outerwear shop's 35 pages of HTML alone are 8 MB, so its pictures take it to about 10.7 MB. */
 /* Changed on purpose (round 26 upgrade): the quick view, recently viewed and account pages above, about 0.6 MB a template. */
 /* Changed on purpose (round 26 integration): the 1.3.2 upgrade adds quick view, recently viewed and account pages to every preview; Redline (rail, try the look) and Print on demand (four new collections) sit at about 12.1 to 12.6 MB. */
-/* round 28 integration: Wren Studio sits at 13.0 MB with two drawn mockups per product. */
+/* round 28 integration: Digital studio (Halfmoon) sits at 13.0 MB with two drawn mockups per product. */
 const BUDGET_TEMPLATE = 14 * MB
 
 function main() {

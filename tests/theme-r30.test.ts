@@ -8,7 +8,7 @@
  *              queries) drawn after the row, and the drawer's will-change
  *              made the row one too, so the lists opened under the cards.
  *   GLUE       Hero split media keeps 24px or more between its text and its
- *              picture when the two stack on a phone (Wren Studio's buttons
+ *              picture when the two stack on a phone (Digital studio's buttons
  *              sat on the picture with a 0px bottom padding).
  *   HOVER      a card's second picture is drawn on the card's own
  *              background; no template swaps to a see-through second

@@ -579,9 +579,9 @@ export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduc
       { handle: "bundles", title: "Bundles", description: "Several packs in one download, for less.", products: ["Drums and Low End", "The Full Shelf"] },
     ],
   },
-  /* Templates round 28: Digital studio rebuilt as Wren Studio, one creator's shop of the downloads people buy most: Notion and Canva templates, Lightroom presets, ebooks, planners and printables, a short Canva course, bundles and a free printable. Every product picture is a device mockup drawn for the template on one ground and one light. */
+  /* Templates round 28: Digital studio rebuilt as Halfmoon (its name since round 67), one creator's shop of the downloads people buy most: Notion and Canva templates, Lightroom presets, ebooks, planners and printables, a short Canva course, bundles and a free printable. Every product picture is a device mockup drawn for the template on one ground and one light. */
   digistudio: {
-    name: "Wren Studio",
+    name: "Halfmoon",
     products: [
       { title: "Life Planner for Notion", price: "$29.00", compare: "$39.00", image: "digistudio-notion-life.webp", images: ["digistudio-notion-life-2.webp"], kind: "digital", description: "One Notion dashboard for the week: tasks, habits, goals, a budget and a reading list, linked so today's page shows what matters today. Works on the free Notion plan, on desktop and phone.", options: [{ name: "Edition", values: ["Template", "Template and setup video"] }], add: { "Template and setup video": 10 }, rating: [4.9, 212] },
       { title: "Content Planner for Notion", price: "$24.00", image: "digistudio-notion-content.webp", images: ["digistudio-notion-content-2.webp"], kind: "digital", description: "Every post from idea to scheduled on one board, with a calendar view, a view per platform and a list of what you posted. Built for Instagram, TikTok, YouTube and a newsletter.", rating: [4.8, 164] },

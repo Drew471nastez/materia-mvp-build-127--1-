@@ -602,13 +602,13 @@ export const THEME_SEO: readonly ThemeSeo[] = [
       { q: "Can I give templates away for free?", a: "Yes. Price a template at $0 and buyers check out without paying and get the same duplicate link by email. The free templates section lists them on their own." },
     ],
   },
-  /* Templates round 26: Digital studio, a small design studio selling several kinds of downloads. Round 28: rebuilt as Wren Studio, one creator's shop of Notion and Canva templates, presets, ebooks, planners and a course. */
+  /* Templates round 26: Digital studio, a small design studio selling several kinds of downloads. Round 28: rebuilt as one creator's shop of Notion and Canva templates, presets, ebooks, planners and a course. */
   {
     slug: "digital-studio",
     title: "Digital Products Store Template for Creators | Storelib",
     description: "A store template for creators selling Notion and Canva templates, Lightroom presets, ebooks, planners and courses, with categories, bundles and instant download.",
     h1: "Store template for creators selling digital products",
-    intro: "Digital studio is a shop for one creator selling several kinds of downloads, shown as Wren Studio. It opens on device mockups of the products, then categories, best sellers, bundles, how instant download works, the maker, reviews and questions.",
+    intro: "Digital studio is a shop for one creator selling several kinds of downloads, shown as Halfmoon. It opens on device mockups of the products, then categories, best sellers, bundles, how instant download works, the maker, reviews and questions.",
     primaryCategory: "digital-products",
     primaryKeyword: "digital products store template for creators",
     secondaryKeywords: ["sell notion and canva templates website", "lightroom presets shop template", "ebook and planner store design"],
