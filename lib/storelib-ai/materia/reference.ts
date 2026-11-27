@@ -59,9 +59,15 @@ export const TEMPLATE_KEYWORDS: Record<string, string> = {
   soundpacks: "sound packs samples label producer beats audio presets synth",
 }
 
+/** Round 69: templates the AI never starts a website from: Storelib Default (the Sundry sample shop). */
+export const AI_NEVER_STARTS_FROM: readonly string[] = ["default"]
+/** Round 69: the frame when no template's words match: a general shop that suits most products. */
+export const AI_FALLBACK_TEMPLATE = "podshop"
+
 /** The example a person picked on Describe your website, and the templates built for that kind of business. */
 export const CATEGORY_TEMPLATES: Record<string, string[]> = {
-  candle_shop: ["default", "posters"],
+  /* Changed on purpose (r69): Storelib Default is never the AI's start; a candle shop's closest shop frames. */
+  candle_shop: ["podshop", "posters"],
   fitness_coach: ["trainer", "fitness", "coach"],
   photographer: ["creator", "posters", "artbooks"],
   online_course: ["courselanding", "course2", "landing", "vslfunnel"],
@@ -101,12 +107,13 @@ export function materiaTemplate(id: string): MateriaTemplateEntry | undefined {
 
 /**
  * The template closest to this business. Strong words (TEMPLATE_KEYWORDS) count 3, its name and category 2, its
- * brief, sample shop and products 1; the example the person picked adds 6 to the templates made for it. Nothing
- * matched: Storelib Default, the general shop.
+ * brief, sample shop and products 1; the example the person picked adds 6 to the templates made for it. Never
+ * Storelib Default (round 69); nothing matched: AI_FALLBACK_TEMPLATE.
  */
 export function chooseMateriaTemplate(input: { prompt: string; category?: string | null; extra?: string }): TemplateChoice {
   const asked = new Set(words(`${input.prompt} ${input.extra ?? ""}`.slice(0, 4_000)))
-  const scored = MATERIA_CATALOGUE.templates.map((t, order) => {
+  /* Round 69: Storelib Default is never the AI's starting point (the owner: "get rid of that"); its sections still are vocabulary. */
+  const scored = MATERIA_CATALOGUE.templates.filter((t) => !AI_NEVER_STARTS_FROM.includes(t.template)).map((t, order) => {
     const strong = new Set(words(TEMPLATE_KEYWORDS[t.template] ?? ""))
     const named = new Set(words(`${t.name} ${t.category}`))
     const weak = new Set(words(`${t.brief} ${t.shop ?? ""} ${(t.products ?? []).join(" ")}`))
@@ -126,7 +133,8 @@ export function chooseMateriaTemplate(input: { prompt: string; category?: string
   scored.sort((a, b) => b.score - a.score || a.order - b.order)
   const best = scored[0]
   if (!best || best.score === 0) {
-    const fallback = materiaTemplate("default") ?? MATERIA_CATALOGUE.templates[0]
+    /* Changed on purpose (r69): nothing matched is a general shop frame, never Storelib Default; compose.ts chooseBase does better by the kind of site. */
+    const fallback = materiaTemplate(AI_FALLBACK_TEMPLATE) ?? MATERIA_CATALOGUE.templates[1]
     return { template: fallback, score: 0, matched: [], runnerUp: null }
   }
   return { template: best.t, score: best.score, matched: best.matched, runnerUp: scored[1]?.score ? scored[1].t : null }

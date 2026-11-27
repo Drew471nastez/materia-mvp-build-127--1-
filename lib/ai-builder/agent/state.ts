@@ -30,6 +30,7 @@ export interface CriticState {
   open: string[]
 }
 import type { SiteFingerprint } from "../novelty"
+import type { BlueprintState } from "./blueprint"
 
 export interface LoopCheckpoint extends AgentCheckpoint {
   /** The accepted visual concept. Writes wait for it on a new website. */
@@ -75,6 +76,8 @@ export interface LoopCheckpoint extends AgentCheckpoint {
    * in the brief phase from the creator's words, with the words it matched. Null on an edit.
    */
   materia?: { template: string; score: number; matched: string[]; install: boolean }
+  /** Round 69: the site plan composed from every Materia template, written before the first turn (./blueprint.ts). */
+  blueprint?: BlueprintState
   /** Round P (P1): pictures this job made or found (`made`), tries that failed or were refused, and their cost. */
   images?: { made: number; failed: number; usd: number; urls: string[] }
   /** Set once the job ended: what to tell the creator. */

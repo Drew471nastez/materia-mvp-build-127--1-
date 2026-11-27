@@ -53,8 +53,14 @@ export { isMateriaInstall, materiaInstallTypes } from "@/lib/storelib-ai/materia
 
 const PLACE_ON_MATERIA = `THIS WEBSITE RUNS ON MATERIA: its sections are in the site's files (sections/<type>.storelib, Materia's own, read only). Build with them: set_page_sections with their types, then set_section_settings and blocks to make each one this business's. Write an ai_ component only for the edge, where no Materia section does the job, and keep its settings in the same style. The header and footer are Materia's (group header and footer): keep them and set them; the menus are the store's: add_page links a new page in the store's Main menu at /pages/<key>, and remove_page takes a page off with its links.`
 
-/** A new website made from a template (Start with AI, round 26): what is already there and what is left to do. */
-const FROM_TEMPLATE = (name: string) => `THIS NEW WEBSITE IS STORELIB'S "${name}" TEMPLATE, ALREADY IMPORTED (its pages, header, footer, sections and sample words and pictures are in place; list_pages shows them). It is the starting point, never the result: rewrite every section's words for this business, replace its pictures with this business's own, bind the store's real products, drop or swap sections that do not fit and add Materia sections the plan needs. Its sample names, products, quotes and numbers are not this creator's and must not stay.`
+/**
+ * A new website made from a template (Start with AI, round 26). Changed on purpose (r69): the template is the
+ * proven frame and the design vocabulary, never the output; home and the look come from the site plan.
+ */
+const FROM_TEMPLATE = (name: string) => `THIS NEW WEBSITE STARTS IN STORELIB'S "${name}" TEMPLATE AS ITS FRAME: its header, footer and other pages are imported (list_pages shows them, with sample words and pictures). The template is a proven structure and a vocabulary of sections, never the result. Home is already the site plan below, composed for this business from all of Storelib's templates, and the fonts, schemes and motion are the plan's. Write every word on every page for this business, give every picture slot its own picture, bind the store's real products, and change the other pages the same way. None of the template's sample names, products, quotes, numbers or sentences may stay; finish refuses a site that still says them or that is too like the template.`
+
+/** Round 69: from scratch on Materia: the theme's sections are there to place, nothing is placed, the frame is the AI's. */
+const SCRATCH_ON_MATERIA = `THIS NEW WEBSITE IS BUILT FROM SCRATCH ON MATERIA: every Materia section is in the site's files (sections/<type>.storelib, read only) and nothing is placed yet. Write the site's own header and footer as your components (group header and footer), then build every page from Materia sections, set through their settings and blocks for this business, and your own ai_ components where the design needs a moment no Materia section has. The site plan below is a strong starting composition from all of Storelib's templates; keep its spirit, improve it where this business asks.`
 
 const MODEL_ON_MATERIA = `THIS WEBSITE IS WRITTEN AS YOUR OWN COMPONENTS, ON THE MATERIA PATTERN: Materia's sections are not installed on this website, so each section is an ai_ component modelled on the Materia section for its slot: the same job, the same kind of controls (a color_scheme, section_width, alignment, heading, subheading and button settings, repeating items as blocks) and the reference template's running order and rhythm of colour schemes. In the site plan, name each section's model as materia:<type> ("ai_opening: materia:hero-image1, the promise and the first program"). A section with no Materia model says custom; that is the edge, two or three on a site at most.`
 
@@ -74,7 +80,7 @@ function siteSections(pages: readonly StoredPage[]): string {
  * The first turn's Materia block for this job, the template it follows (a new website or a full redesign), and
  * whether the install is a Materia site.
  */
-export function materiaBrief(input: { job: AgentJobInput; files: readonly StoredFile[]; pages: readonly StoredPage[]; caps?: RuntimeCapabilities | null; withRules?: boolean }): { text: string; choice: TemplateChoice | null; install: boolean } {
+export function materiaBrief(input: { job: AgentJobInput; files: readonly StoredFile[]; pages: readonly StoredPage[]; caps?: RuntimeCapabilities | null; withRules?: boolean; plan?: { text: string; focus: string[] } }): { text: string; choice: TemplateChoice | null; install: boolean } {
   const { job } = input
   /* The agent has MATERIA_RULES in its shared prefix (./prompts.ts AGENT_SYSTEM); another caller gets them here. */
   const rules = input.withRules === false ? "" : MATERIA_RULES
@@ -90,10 +96,12 @@ export function materiaBrief(input: { job: AgentJobInput; files: readonly Stored
   /* A website made from a template follows that template; otherwise the closest one is chosen here. */
   const imported = job.options?.template ? materiaTemplate(job.options.template) : undefined
   const choice: TemplateChoice = imported ? { template: imported, score: 0, matched: [], runnerUp: null } : chooseMateriaTemplate({ prompt: job.prompt, category: job.options?.category ?? null, extra: sells })
-  const reference = templateReferenceText(choice.template, { budget: 2_600, why: choice.matched })
-  const how = install ? [imported && !job.redesign ? FROM_TEMPLATE(imported.name) : "", PLACE_ON_MATERIA].filter(Boolean).join("\n") : MODEL_ON_MATERIA
+  /* Round 69: with a site plan (./blueprint.ts) the model reads the plan, not the template's own running order. */
+  const reference = input.plan ? input.plan.text : templateReferenceText(choice.template, { budget: 2_600, why: choice.matched })
+  const scratch = install && job.mode === "blank"
+  const how = scratch ? SCRATCH_ON_MATERIA : install ? [imported && !job.redesign ? FROM_TEMPLATE(imported.name) : "", PLACE_ON_MATERIA].filter(Boolean).join("\n") : MODEL_ON_MATERIA
   const used = rules.length + reference.length + how.length + 200
-  const catalogue = catalogueText({ focus: referenceFocus(choice.template), ...(install ? { only: new Set(own) } : {}), budget: Math.max(1_500, MATERIA_BRIEF_CHARS - used) })
+  const catalogue = catalogueText({ focus: input.plan ? input.plan.focus : referenceFocus(choice.template), ...(install ? { only: new Set(own) } : {}), budget: Math.max(1_500, MATERIA_BRIEF_CHARS - used) })
   const text = [rules, how, reference, catalogue].filter(Boolean).join("\n\n")
   return { text: text.slice(0, MATERIA_BRIEF_CHARS), choice, install }
 }

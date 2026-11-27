@@ -41,7 +41,7 @@
  */
 import { MATERIA_CATALOGUE } from "./catalogue.generated"
 import { materiaSection, selectOptionsOf } from "./catalogue"
-import { chooseMateriaTemplate, TEMPLATE_KEYWORDS, words } from "./reference"
+import { AI_NEVER_STARTS_FROM, CATEGORY_TEMPLATES, chooseMateriaTemplate, TEMPLATE_KEYWORDS, words } from "./reference"
 import type { MateriaSectionEntry, MateriaTemplateEntry } from "./build"
 import { isSlopDisplayFont } from "@/lib/storelib-ai/library/type-systems"
 
@@ -259,16 +259,16 @@ export interface Palette {
 const S = (background: string, text: string, heading: string, button: string, buttonText: string): SchemeColours => ({ background, text, heading, button, buttonText })
 
 export const PALETTES: readonly Palette[] = [
-  { id: "clay", moods: ["warm", "craft", "food", "calm"], schemes: [S("#fbf7f1", "#4a4038", "#1f1a16", "#1f1a16", "#fbf7f1"), S("#efe4d6", "#4a4038", "#1f1a16", "#1f1a16", "#fbf7f1"), S("#2a211b", "#d9cbbd", "#fbf7f1", "#f1e6d8", "#2a211b"), S("#b4532a", "#fbe9df", "#ffffff", "#ffffff", "#7a3417")] },
-  { id: "moss", moods: ["calm", "wellness", "craft", "warm"], schemes: [S("#f6f5ef", "#434a40", "#1b2219", "#1b2219", "#f6f5ef"), S("#e3e8dc", "#434a40", "#1b2219", "#1b2219", "#f6f5ef"), S("#1d2a22", "#c7d3c7", "#f6f5ef", "#e3e8dc", "#1d2a22"), S("#5d7a4f", "#eef3e8", "#ffffff", "#ffffff", "#3c5232")] },
+  { id: "clay", moods: ["warm", "craft", "food", "calm"], schemes: [S("#fbf7f1", "#4a4038", "#1f1a16", "#1f1a16", "#fbf7f1"), S("#efe4d6", "#4a4038", "#1f1a16", "#1f1a16", "#fbf7f1"), S("#2a211b", "#d9cbbd", "#fbf7f1", "#f1e6d8", "#2a211b"), S("#9a4421", "#fbe9df", "#ffffff", "#ffffff", "#6b2c12")] },
+  { id: "moss", moods: ["calm", "wellness", "craft", "warm"], schemes: [S("#f6f5ef", "#434a40", "#1b2219", "#1b2219", "#f6f5ef"), S("#e3e8dc", "#434a40", "#1b2219", "#1b2219", "#f6f5ef"), S("#1d2a22", "#c7d3c7", "#f6f5ef", "#e3e8dc", "#1d2a22"), S("#4a6440", "#eef3e8", "#ffffff", "#ffffff", "#334a2b")] },
   { id: "ink", moods: ["minimal", "editorial", "technical", "fashion"], schemes: [S("#ffffff", "#3f3f46", "#0b0b0d", "#0b0b0d", "#ffffff"), S("#f1f1ee", "#3f3f46", "#0b0b0d", "#0b0b0d", "#ffffff"), S("#0b0b0d", "#c4c4c8", "#ffffff", "#ffffff", "#0b0b0d"), S("#1f3cff", "#e4e8ff", "#ffffff", "#ffffff", "#1f3cff")] },
   { id: "signal", moods: ["bold", "sport", "loud", "street"], schemes: [S("#f2f1ed", "#3d3c38", "#0d0d0d", "#0d0d0d", "#f2f1ed"), S("#e6e4de", "#3d3c38", "#0d0d0d", "#0d0d0d", "#f2f1ed"), S("#0d0d0d", "#b6b4ad", "#ffffff", "#d7ff3e", "#0d0d0d"), S("#d7ff3e", "#1c2108", "#0d0d0d", "#0d0d0d", "#d7ff3e")] },
   { id: "night", moods: ["dark", "music", "technical", "art"], schemes: [S("#0b0b0e", "#b9b9c2", "#f5f5f7", "#f5f5f7", "#0b0b0e"), S("#15151a", "#b9b9c2", "#f5f5f7", "#f5f5f7", "#0b0b0e"), S("#f3f2ef", "#46454f", "#0b0b0e", "#0b0b0e", "#f3f2ef"), S("#ff5a36", "#2a0d05", "#160603", "#160603", "#ff5a36")] },
   { id: "rose", moods: ["warm", "wedding", "luxury", "calm"], schemes: [S("#fdf9f7", "#57474a", "#2a1d20", "#2a1d20", "#fdf9f7"), S("#f3e3e0", "#57474a", "#2a1d20", "#2a1d20", "#fdf9f7"), S("#2a1d20", "#dcc8c6", "#fdf9f7", "#f3e3e0", "#2a1d20"), S("#9c4a52", "#fbe9eb", "#ffffff", "#ffffff", "#6d2f36")] },
   { id: "harbour", moods: ["calm", "learning", "minimal", "technical"], schemes: [S("#f7f9fa", "#3e4a52", "#122029", "#122029", "#f7f9fa"), S("#e2ebef", "#3e4a52", "#122029", "#122029", "#f7f9fa"), S("#122029", "#c3d0d6", "#f7f9fa", "#e2ebef", "#122029"), S("#2f6f86", "#e3f1f6", "#ffffff", "#ffffff", "#1d4c5d")] },
-  { id: "citrus", moods: ["playful", "food", "loud", "warm"], schemes: [S("#fffdf6", "#4b463a", "#1c1a14", "#1c1a14", "#fffdf6"), S("#fbefc4", "#4b463a", "#1c1a14", "#1c1a14", "#fffdf6"), S("#1c1a14", "#d6d0bd", "#fffdf6", "#ffc83d", "#1c1a14"), S("#ef6a2b", "#fff0e6", "#ffffff", "#ffffff", "#9a3d11")] },
+  { id: "citrus", moods: ["playful", "food", "loud", "warm"], schemes: [S("#fffdf6", "#4b463a", "#1c1a14", "#1c1a14", "#fffdf6"), S("#fbefc4", "#4b463a", "#1c1a14", "#1c1a14", "#fffdf6"), S("#1c1a14", "#d6d0bd", "#fffdf6", "#ffc83d", "#1c1a14"), S("#ef6a2b", "#2a1205", "#1a0b03", "#1a0b03", "#ef6a2b")] },
   { id: "gallery", moods: ["art", "editorial", "minimal", "luxury"], schemes: [S("#fcfcfa", "#4a4a46", "#141412", "#141412", "#fcfcfa"), S("#ecebe6", "#4a4a46", "#141412", "#141412", "#fcfcfa"), S("#141412", "#c9c8c2", "#fcfcfa", "#fcfcfa", "#141412"), S("#7a1f1f", "#f6e4e4", "#ffffff", "#ffffff", "#4f1212")] },
-  { id: "lagoon", moods: ["wellness", "calm", "playful"], schemes: [S("#f5fbf9", "#3d4f4a", "#10241f", "#10241f", "#f5fbf9"), S("#d9efe8", "#3d4f4a", "#10241f", "#10241f", "#f5fbf9"), S("#10241f", "#bfd6cf", "#f5fbf9", "#d9efe8", "#10241f"), S("#e2725b", "#fff0ec", "#ffffff", "#ffffff", "#93402e")] },
+  { id: "lagoon", moods: ["wellness", "calm", "playful"], schemes: [S("#f5fbf9", "#3d4f4a", "#10241f", "#10241f", "#f5fbf9"), S("#d9efe8", "#3d4f4a", "#10241f", "#10241f", "#f5fbf9"), S("#10241f", "#bfd6cf", "#f5fbf9", "#d9efe8", "#10241f"), S("#e2725b", "#2a0f09", "#1a0905", "#1a0905", "#e2725b")] },
   { id: "studio", moods: ["technical", "minimal", "learning", "dark"], schemes: [S("#f4f3f0", "#44444a", "#0e0e10", "#0e0e10", "#f4f3f0"), S("#ffffff", "#44444a", "#0e0e10", "#0e0e10", "#ffffff"), S("#0e0e10", "#bdbdc3", "#f4f3f0", "#ff5f1f", "#0e0e10"), S("#ff5f1f", "#2b0f03", "#140700", "#140700", "#ff5f1f")] },
   { id: "plum", moods: ["luxury", "music", "art", "dark"], schemes: [S("#faf7fa", "#4d4450", "#1f1622", "#1f1622", "#faf7fa"), S("#eee4ee", "#4d4450", "#1f1622", "#1f1622", "#faf7fa"), S("#1f1622", "#d3c7d5", "#faf7fa", "#eee4ee", "#1f1622"), S("#c08a2e", "#2e1f06", "#1c1303", "#1c1303", "#c08a2e")] },
   { id: "field", moods: ["craft", "sport", "warm", "street"], schemes: [S("#f6f3ea", "#47443a", "#1a1912", "#1a1912", "#f6f3ea"), S("#e8e1cc", "#47443a", "#1a1912", "#1a1912", "#f6f3ea"), S("#263022", "#cdd3c4", "#f6f3ea", "#e8e1cc", "#263022"), S("#c9a227", "#2b2206", "#1a1503", "#1a1503", "#c9a227")] },
@@ -381,7 +381,7 @@ export interface ComposeInput {
 }
 
 /** Storelib Default (the Sundry sample shop): never the AI's starting frame (the owner, round 69). */
-export const NOT_A_START: readonly string[] = ["default"]
+export const NOT_A_START: readonly string[] = AI_NEVER_STARTS_FROM
 
 const homeOf = (t: MateriaTemplateEntry) => t.pages.find((p) => p.key === "home")?.sections ?? []
 
@@ -426,8 +426,8 @@ export function relatedTemplates(input: ComposeInput, n = 4, minScore = 1): stri
  */
 export function chooseBase(input: ComposeInput): string {
   const avoid = new Set([...(input.avoidBase ?? []), ...NOT_A_START])
-  const choice = chooseMateriaTemplate({ prompt: input.prompt, category: input.category ?? null, extra: (input.products ?? []).map((p) => p.title).join(" ") })
-  if (choice.score > 0 && !avoid.has(choice.template.template)) return choice.template.template
+  /* The example the person picked names the frames made for it. */
+  const forCategory = (input.category ? CATEGORY_TEMPLATES[input.category] ?? [] : []).filter((t) => !avoid.has(t))
   /* One of another template's own words (TEMPLATE_KEYWORDS), else the frame made for this kind of site. */
   const asked = new Set(words(`${input.prompt} ${(input.products ?? []).map((p) => p.title).join(" ")}`.slice(0, 4_000)))
   const strong = MATERIA_CATALOGUE.templates
@@ -435,7 +435,11 @@ export function chooseBase(input: ComposeInput): string {
     .map((t, order) => ({ t: t.template, order, n: words(TEMPLATE_KEYWORDS[t.template] ?? "").filter((w) => asked.has(w)).length }))
     .filter((x) => x.n > 0)
     .sort((a, b) => b.n - a.n || a.order - b.order)
-  if (strong.length) return strong[0].t
+  if (strong.length && (!forCategory.length || strong[0].n >= 2)) return strong[0].t
+  if (forCategory.length) return forCategory[0]
+  /* Its name or category in the words (chooseMateriaTemplate weighs those 2). */
+  const choice = chooseMateriaTemplate({ prompt: input.prompt, category: null, extra: (input.products ?? []).map((p) => p.title).join(" ") })
+  if (choice.score >= 4 && !avoid.has(choice.template.template)) return choice.template.template
   const byKind: Record<Archetype, string> = { shop: "podshop", label: "clothing", digital: "digistudio", course: "courselanding", coach: "coachpro", creator: "creator", music: "soundpacks", funnel: "vslfunnel" }
   return byKind[archetypeOf({ prompt: input.prompt, category: input.category, productKinds: (input.products ?? []).map((p) => p.kind ?? "") })]
 }
@@ -631,4 +635,45 @@ export function blueprintHome(bp: SiteBlueprint, keys: readonly string[]): { typ
   return bp.home
     .filter((s) => materiaSection(s.type))
     .map((s) => ({ type: s.type, settings: { ...s.style, ...(keys.length ? { color_scheme: keys[Math.min(s.scheme, keys.length - 1)] } : {}) } }))
+}
+
+/* ── the compact knowledge a from scratch build reads ─────────────────── */
+
+const ROLE_WORDS: Partial<Record<Role, string>> = {
+  opening: "openings",
+  products: "shelves",
+  collections: "collections",
+  split: "picture and words",
+  story: "story and text",
+  benefits: "benefits",
+  process: "how it works",
+  proof: "proof (real reviews only)",
+  pricing: "offers and prices",
+  gallery: "galleries",
+  faq: "questions",
+  cta: "calls to action",
+  signup: "sign up",
+}
+
+/**
+ * What Storelib's 37 templates do well, in a few lines: for each job the sections most of them use (and who), and
+ * the composition habits they share. About 1,600 characters; read with the site plan.
+ */
+export function materiaDesignKnowledge(): string {
+  const used = vocab()
+  const lines = [`WHAT STORELIB'S TEMPLATES DO WELL (Materia sections by job, most used first, with templates that use them):`]
+  for (const [role, label] of Object.entries(ROLE_WORDS) as [Role, string][]) {
+    const top = candidatesFor(role)
+      .filter((s) => !s.madeFor)
+      .map((s) => ({ s, n: (used.get(s.type) ?? []).length }))
+      .sort((a, b) => b.n - a.n)
+      .slice(0, 3)
+      .map(({ s }) => `${s.type} (${[...new Set((used.get(s.type) ?? []).map((u) => u.template))].slice(0, 3).join(", ")})`)
+    if (top.length) lines.push(`- ${label}: ${top.join("; ")}`)
+  }
+  lines.push(
+    "- Habits: the opening shows the real product or person, never a stock scene; one dark or accent band every three or four sections; a marquee only with real words (dates, places, what is in the box); a picture and words section alternates its side; questions near the end, then one clear call to action and a sign up.",
+    "- Type: one display face with character set large and tight (or in condensed capitals for sport and streetwear), one calm body face; a template's body face is never its display face.",
+  )
+  return lines.join("\n")
 }

@@ -188,3 +188,183 @@ export function noveltyIssues(fp: SiteFingerprint, recent: SiteFingerprint[], th
     message: `This site is ${Math.round(best * 100)}% alike a site this platform's agent made recently: ${same.join(", ")}. Keep what the business needs, and change the art direction: a different hero composition, palette surface or display treatment, and at least one section only this business would have.`,
   }]
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ROUND 69: A SITE ON MATERIA AGAINST ITS SOURCE TEMPLATE AND ITS SIBLINGS
+   ═══════════════════════════════════════════════════════════════════════
+   The owner: a site started "from a proven template" came out as that
+   template with new words. A Materia site's sections are the theme's, so
+   the fingerprint above (written for the agent's own components) reads them
+   all alike. This one reads what a Materia site is made of: home's section
+   types and their order, the layout settings each was given, the look
+   (display and body face, the scheme backgrounds, the scroll reveal) and the
+   words. `materiaLikeness` is 0 (nothing alike) to 1 (the same site); a new
+   site from a template must stay under TEMPLATE_LIKENESS_MAX against that
+   template, and two sites for two businesses under SIBLING_LIKENESS_MAX.
+   Pure. Browser safe. */
+
+/** What a Materia site is made of, in short strings (no file bodies, no pictures). */
+export interface MateriaSignature {
+  /** Home's body sections, in order. */
+  types: string[]
+  /** Each body section as "type|key=value,..." over its layout settings (never words or pictures). */
+  styles: string[]
+  /** Display and body faces, lowercase. */
+  fonts: { heading: string; body: string }
+  /** The first four scheme backgrounds, lowercase hex. */
+  schemes: string[]
+  /** The scroll reveal and hover effect. */
+  motion: string
+  /** Hashes of the words on the site (normalised; three words or more), for the copy overlap. */
+  copy: string[]
+}
+
+/** Setting ids that are layout, never words or pictures: what "the same style" compares. */
+const LAYOUT_SETTING = /^(section_width|content_align|text_align|vertical_align|image_position|image_ratio|image_aspect|layout|columns|columns_desktop|items_per_row|card_style|direction|heading_size|open_first|reverse|style|variant|desktop_layout|mobile_layout)$/
+
+/** FNV-1a of a normalised phrase, 8 hex. */
+export function phraseHash(text: string): string {
+  let h = 0x811c9dc5
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i)
+    h = Math.imul(h, 0x01000193) >>> 0
+  }
+  return (h >>> 0).toString(16).padStart(8, "0")
+}
+
+/** A setting's words as compared: tags out, lowercase, letters and digits only, single spaces. Empty under four words (a button label is not copy). */
+export function normalisePhrase(value: unknown): string {
+  if (typeof value !== "string") return ""
+  if (/^(https?:|\/|#|shopify:|data:|asset:)/i.test(value.trim())) return ""
+  /* Words a person reads: four or more, written with spaces (an id, a date, "Days,Hours" or a font stack is not copy). */
+  const plain = value.replace(/<[^>]*>/g, " ").trim()
+  if (plain.split(/\s+/).filter((w) => /[a-z]{2}/i.test(w)).length < 4) return ""
+  const t = plain.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()
+  return t.split(" ").length >= 4 ? t : ""
+}
+
+/** Setting ids that never hold copy. */
+const NOT_COPY = /(color|colour|scheme|font|animation|_url$|^url$|link$|icon|image|video|datetime|class|_id$|^id$|embed|code|css|html_tag|alignment|style)/i
+
+type PlacedLike = { id?: string; type: string; group?: string; hidden?: boolean; settings?: Record<string, unknown>; blocks?: { id?: string; type?: string; settings?: Record<string, unknown> }[] }
+
+/** Every phrase of three words or more a page set holds (sections and blocks), hashed, with where each is. */
+export function copyPhrases(pages: readonly { key: string; sections: readonly PlacedLike[] }[]): { hash: string; page: string; section: string; setting: string }[] {
+  const out: { hash: string; page: string; section: string; setting: string }[] = []
+  for (const p of pages)
+    for (const s of p.sections) {
+      const at = s.id ?? s.type
+      for (const [k, v] of Object.entries(s.settings ?? {})) {
+        if (NOT_COPY.test(k)) continue
+        const n = normalisePhrase(v)
+        if (n) out.push({ hash: phraseHash(n), page: p.key, section: at, setting: k })
+      }
+      for (const b of s.blocks ?? [])
+        for (const [k, v] of Object.entries(b.settings ?? {})) {
+          if (NOT_COPY.test(k)) continue
+          const n = normalisePhrase(v)
+          if (n) out.push({ hash: phraseHash(n), page: p.key, section: at, setting: `${b.type ?? "block"}.${k}` })
+        }
+    }
+  return out
+}
+
+const styleKey = (type: string, settings: Record<string, unknown> | undefined) =>
+  `${type}|${Object.entries(settings ?? {})
+    .filter(([k, v]) => LAYOUT_SETTING.test(k) && v !== undefined && v !== null && v !== "")
+    .map(([k, v]) => `${k}=${String(v)}`)
+    .sort()
+    .join(",")}`
+
+/** The signature of a placed Materia site: home's body, its theme values (settings.shopify) and every page's words. */
+export function materiaSignature(input: { home: PlacedLike[]; shopify?: Record<string, unknown> | null; pages?: { key: string; sections: PlacedLike[] }[] }): MateriaSignature {
+  const body = input.home.filter((s) => !s.group && !s.hidden)
+  const sh = input.shopify ?? {}
+  const str = (k: string) => (typeof sh[k] === "string" ? String(sh[k]).toLowerCase() : "")
+  const schemes = sh.color_schemes && typeof sh.color_schemes === "object" ? Object.values(sh.color_schemes as Record<string, { settings?: { background?: unknown } }>).slice(0, 4).map((c) => String(c?.settings?.background ?? "").toLowerCase()) : []
+  return {
+    types: body.map((s) => s.type),
+    styles: body.map((s) => styleKey(s.type, s.settings)),
+    fonts: { heading: str("font_heading_google_family") || str("font_heading_google"), body: str("font_body_google_family") || str("font_body_google") },
+    schemes,
+    motion: `${str("scroll_animation") || "none"}/${str("hover_effect") || "none"}`,
+    copy: [...new Set(copyPhrases(input.pages ?? [{ key: "home", sections: body }]).map((c) => c.hash))],
+  }
+}
+
+/** A template's signature from the catalogue's summary of it (no words there: its copy is read off the imported pages). */
+export function templateSignature(t: { pages: { key: string; sections: { type: string; style?: Record<string, unknown> }[] }[]; fonts: { heading?: string; body?: string }; schemes: { background?: string }[] }, copy: string[] = []): MateriaSignature {
+  const home = t.pages.find((p) => p.key === "home")?.sections ?? []
+  return {
+    types: home.map((s) => s.type),
+    styles: home.map((s) => styleKey(s.type, s.style)),
+    fonts: { heading: (t.fonts.heading ?? "").toLowerCase(), body: (t.fonts.body ?? "").toLowerCase() },
+    schemes: t.schemes.slice(0, 4).map((s) => (s.background ?? "").toLowerCase()),
+    motion: "",
+    copy,
+  }
+}
+
+function jaccard(a: string[], b: string[]): number {
+  const A = new Set(a)
+  const B = new Set(b)
+  if (!A.size && !B.size) return 1
+  let both = 0
+  for (const x of A) if (B.has(x)) both++
+  return both / (A.size + B.size - both)
+}
+
+export interface Likeness {
+  score: number
+  sections: number
+  order: number
+  style: number
+  look: number
+  /** Null when either side has no words to compare. */
+  copy: number | null
+}
+
+/** How alike two Materia sites are, 0 to 1, with each part. Copy is the share of `a`'s phrases that `b` also has. */
+export function materiaLikeness(a: MateriaSignature, b: MateriaSignature): Likeness {
+  const sections = jaccard(a.types, b.types)
+  const order = orderSimilarity(a.types, b.types)
+  const style = jaccard(a.styles, b.styles)
+  const fonts = (a.fonts.heading && a.fonts.heading === b.fonts.heading ? 0.5 : 0) + (a.fonts.body && a.fonts.body === b.fonts.body ? 0.2 : 0)
+  const look = fonts + 0.3 * jaccard(a.schemes.filter(Boolean), b.schemes.filter(Boolean))
+  const copy = a.copy.length && b.copy.length ? a.copy.filter((h) => b.copy.includes(h)).length / a.copy.length : null
+  const parts: [number, number][] = [[sections, 0.25], [order, 0.25], [style, 0.15], [look, 0.2], ...(copy === null ? [] : ([[copy, 0.15]] as [number, number][]))]
+  const total = parts.reduce((s, [, w]) => s + w, 0)
+  const score = parts.reduce((s, [v, w]) => s + v * w, 0) / total
+  const r = (n: number) => Math.round(n * 1000) / 1000
+  return { score: r(score), sections: r(sections), order: r(order), style: r(style), look: r(look), copy: copy === null ? null : r(copy) }
+}
+
+/** A new site from a template is its own above this: the template is its frame and vocabulary, never its output. */
+export const TEMPLATE_LIKENESS_MAX = 0.5
+/** Two sites for two businesses are alike above this. */
+export const SIBLING_LIKENESS_MAX = 0.55
+/** At most this share of the template's own words may be left on a site made from it (a menu label, a policy line). */
+export const SAMPLE_COPY_MAX = 0.1
+
+/**
+ * FINISH on a site made from a Materia template: errors while it is too like that template, or still carries its
+ * sample words (`samples`: the phrases the imported template held, recorded before the first turn).
+ */
+export function templateNoveltyIssues(input: { site: MateriaSignature; source: MateriaSignature; pages: { key: string; sections: PlacedLike[] }[]; samples: readonly string[]; templateName: string }): ValidationIssue[] {
+  const out: ValidationIssue[] = []
+  const like = materiaLikeness(input.site, input.source)
+  if (like.score > TEMPLATE_LIKENESS_MAX) {
+    const same = [like.order >= 0.6 && "its section order", like.sections >= 0.6 && "its sections", like.look >= 0.6 && "its fonts and colours", like.style >= 0.5 && "its section layouts"].filter(Boolean)
+    out.push({ severity: "error", code: "template.likeness", message: `The site is ${Math.round(like.score * 100)}% like the ${input.templateName} template it started from (${same.join(", ") || "overall"}). Compose home for this business with the site plan's sections and order, and give it its own type and schemes; the template is the frame, not the site.` })
+  }
+  const samples = new Set(input.samples)
+  if (samples.size) {
+    const left = copyPhrases(input.pages).filter((c) => samples.has(c.hash))
+    const share = left.length / Math.max(1, samples.size)
+    if (left.length && (share > SAMPLE_COPY_MAX || left.some((c) => c.page === "home"))) {
+      const where = [...new Set(left.map((c) => `${c.page} › ${c.section} › ${c.setting}`))]
+      out.push({ severity: "error", code: "template.sample_copy", message: `These still say the template's sample words: ${where.slice(0, 12).join("; ")}${where.length > 12 ? ` and ${where.length - 12} more` : ""}. Write each for this business, or clear it.` })
+    }
+  }
+  return out
+}

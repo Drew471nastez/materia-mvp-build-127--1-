@@ -182,7 +182,7 @@ const failed = (): StartResult => ({ ok: false, status: 500, error: FAILED })
  */
 export async function createStartWebsite(
   db: { supabase: SupabaseClient; admin: SupabaseClient },
-  input: { creatorId: string; mode: StartMode; name?: unknown; chrome?: StartChrome; template?: { id: string; userId: string }; userId?: string },
+  input: { creatorId: string; mode: StartMode; name?: unknown; chrome?: StartChrome; template?: { id: string; userId: string; bare?: boolean }; userId?: string },
   deps: { menus?: typeof ensureStoreMenus; installTemplate?: typeof installCodeTemplate } = {},
 ): Promise<StartResult> {
   const { supabase, admin } = db
@@ -211,7 +211,7 @@ export async function createStartWebsite(
     const takenNames = ((namedRows ?? []) as { name?: unknown }[]).map((r) => (typeof r.name === "string" ? r.name : "")).filter(Boolean)
     /* Injected by the route (server only): this file is read by the Website page too, and the import must never reach a browser bundle. */
     if (!deps.installTemplate) return failed()
-    const made = await deps.installTemplate(admin, { userId: template.userId, creatorId }, template.id, { name: pickStartName(input.name, mode, takenNames), ...(blank ? { blankHome: true } : {}) })
+    const made = await deps.installTemplate(admin, { userId: template.userId, creatorId }, template.id, { name: pickStartName(input.name, mode, takenNames), ...(blank ? { blankHome: true } : {}), ...(template.bare ? { bare: true } : {}) })
     if (made.ok === false) return made.code ? { ok: false, status: made.status, error: made.error, code: made.code } : { ok: false, status: made.status, error: made.error }
     return { ok: true, install: { id: made.installId, name: made.name, template: made.template } }
   }

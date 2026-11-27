@@ -45,6 +45,7 @@ import { drawsTheProduct } from "@/lib/website-builder/storelib-runtime"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import type { RuntimeCapabilities } from "../runtime-contract"
 import { isAiComponentType, type GenerationMode, type ValidationIssue } from "../types"
+import { isMateriaType } from "@/lib/storelib-ai/materia/catalogue"
 /* Round O (O5): the site story per business and the generic-skeleton check (lib/storelib-ai/layout). */
 import { layoutStoryFor, planSkeletonIssue, type StoryBrief } from "@/lib/storelib-ai/layout"
 
@@ -206,11 +207,15 @@ export interface CompletenessInput {
    * the store's real products); its pages are reached through the store's menus (/pages/<key>), not settings.menus.
    */
   materia?: boolean
+  /**
+   * Round 69: from scratch on Materia. The free bar (its own header and footer, every page reachable, its own
+   * templates) with Materia's sections counting as the site's own on its pages.
+   */
+  placesMateria?: boolean
 }
 
 const CHROME = new Set(["header", "footer", "overlay"])
 const body = (sections: SectionInstance[]) => sections.filter((s) => !s.hidden && !CHROME.has(String(s.group ?? "")) && s.type !== "header" && s.type !== "footer")
-const own = (sections: SectionInstance[]) => body(sections).filter((s) => isAiComponentType(s.type))
 
 function templateOf(type: string, sources: Record<string, string>): string {
   const text = sources[`sections/${type}.storelib`] ?? ""
@@ -273,6 +278,8 @@ export function chromeLinks(home: SectionInstance[], sources: Record<string, str
  */
 export function completenessIssues(input: CompletenessInput): ValidationIssue[] {
   if (input.materia) return materiaCompleteness(input)
+  /* Round 69: on a from scratch Materia site, a placed Materia section is the site's own as an ai_ component is. */
+  const own = (sections: SectionInstance[]) => body(sections).filter((s) => isAiComponentType(s.type) || (!!input.placesMateria && isMateriaType(s.type)))
   const issues: ValidationIssue[] = []
   const err = (code: string, message: string) => issues.push({ severity: "error", code, message })
   const byKey = new Map(input.pages.map((p) => [p.key, p.sections]))

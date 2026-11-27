@@ -46,6 +46,7 @@ import { describeSitePlan, isTemplateKey, readSitePlan, templatesFor } from "./s
 import { isMateriaInstall, repairPlanCitations } from "./materia"
 import { materiaMenusToStart, materiaPagePath, pageAddresses, withPageLink, withoutPageLinks, type Menus } from "./site-menus"
 import { closestTypes, resolveSectionType } from "@/lib/storelib-ai/materia/validate"
+import { isMateriaType } from "@/lib/storelib-ai/materia/catalogue"
 import { versionOf } from "./version"
 import { conceptDirectionIssues, contractMetaAfter, refineBrief, syncContractFile, writeContract } from "./direction"
 import { protectOverrides } from "../design-contract"
@@ -344,6 +345,7 @@ export function createToolSet(ctx: ToolContext): ToolSet {
     const current = all.get(input.page) ?? (newTemplate ? [...homeChrome.filter((s) => s.group === "header"), ...homeChrome.filter((s) => s.group === "footer")] : undefined)
     if (!current) return { ok: false, ids: [], issues: [{ severity: "error", code: "page.missing", message: `There is no page "${input.page}". Add it with add_page first (templates such as product or collection need no add_page).` }] }
     const [src, c, settings] = await Promise.all([sources(), caps(), store.readSettings()])
+    const materiaOn = isMateriaInstall(src)
     const pageKeys = [...all.keys()]
     const menus = Object.keys((settings.menus as Record<string, unknown>) ?? {})
     const issues: ValidationIssue[] = []
@@ -360,8 +362,10 @@ export function createToolSet(ctx: ToolContext): ToolSet {
         issues.push({ severity: "error", code: "page.section", message: `${where}: a section needs a type.` })
         continue
       }
-      if (job.mode === "blank" && !isAiComponentType(p.type)) {
-        issues.push({ severity: "error", code: "chrome.builtin", message: `${where}: "${p.type}" is a built-in theme section. A blank website is made of your own ai_ components.` })
+      /* Round 69: from scratch on Materia, the theme's sections are the site's to place on its pages; its frame is always the AI's own. */
+      const materiaBody = !p.group && isMateriaType(p.type) && materiaOn
+      if (job.mode === "blank" && !isAiComponentType(p.type) && !materiaBody) {
+        issues.push({ severity: "error", code: "chrome.builtin", message: `${where}: "${p.type}" is a built-in theme section. A blank website is made of your own ai_ components${materiaOn ? " and Materia's sections on its pages; its header and footer are yours" : ""}.` })
         continue
       }
       let info = schemaInfo(p.type, src)

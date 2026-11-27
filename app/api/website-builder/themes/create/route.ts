@@ -11,7 +11,7 @@ import { kickJob } from "@/lib/website-builder/ai-site/runner"
 import { startJobRow, isStartKey, MAX_RUNNING_JOBS } from "@/lib/website-builder/ai-site/start"
 import { agentEnabledFor } from "@/lib/website-builder/ai-site/agent-access"
 import { parseStartOptions } from "@/lib/website-builder/ai-site/start-options"
-import { chooseMateriaTemplate } from "@/lib/storelib-ai/materia/reference"
+import { chooseBase } from "@/lib/storelib-ai/materia/compose"
 import { installCodeTemplate } from "@/lib/themes/template-install"
 
 export const runtime = "nodejs"
@@ -136,11 +136,19 @@ export async function POST(req: Request) {
     (lib/themes/template-install.ts). From scratch stays a blank page; the classic engine and the in-request path
     (no jobs table) keep Storelib Default, which is what they build with.
   */
-  const fromTemplate = generating && engine === "agent" && options.generation === "theme" && !noJobsTable ? chooseMateriaTemplate({ prompt, category: options.category ?? null }).template.template : null
+  /*
+    ROUND 69: NEVER THE OLD DEFAULT. The frame is the closest template for this business by its words, the example
+    picked and the kind of site (lib/storelib-ai/materia/compose.ts chooseBase), never Storelib Default; the job then
+    composes home and the look from all of the templates. From scratch is the same theme with nothing of its site
+    (template-install.ts bareSite): every Materia section to place, no header, footer or pages, never the native theme.
+  */
+  const onMateria = generating && engine === "agent" && !noJobsTable
+  const fromTemplate = onMateria ? chooseBase({ prompt, category: options.category ?? null }) : null
+  const bare = onMateria && options.generation === "blank"
   const made = await createStartWebsite(
     { supabase, admin },
     /* r63: userId too, so Start from blank imports the current Storelib Default (create-website.ts) into the owner's media folder. */
-    { creatorId, mode, name: body?.name, chrome: generating && options.generation === "blank" ? "none" : "theme", ...(fromTemplate ? { template: { id: fromTemplate, userId: site.ownerUserId } } : {}), userId: site.ownerUserId },
+    { creatorId, mode, name: body?.name, chrome: generating && options.generation === "blank" ? "none" : "theme", ...(fromTemplate ? { template: { id: fromTemplate, userId: site.ownerUserId, ...(bare ? { bare: true } : {}) } } : {}), userId: site.ownerUserId },
     { installTemplate: installCodeTemplate },
   )
   if (!made.ok) {

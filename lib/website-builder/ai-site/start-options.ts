@@ -171,7 +171,7 @@ export function startContext(options: StartOptions | null | undefined): string {
   const lines: string[] = []
   if (options.category) lines.push(`Kind of website (the example they picked): ${presetFor(options.category).industry}.`)
   if (options.generation === "blank") lines.push("Start from a blank page: no theme header, footer or sections exist. Make the header and footer too, or none if the site is better without.")
-  else if (options.template) lines.push(`Made from Storelib's "${options.template}" template, on the Materia theme: its pages, header, footer and sections are in place. Keep the ones that fit, make every one of them this business's, and change the rest.`)
+  else if (options.template) lines.push(`Started in Storelib's "${options.template}" template on the Materia theme, as its frame: its header, footer and other pages are in place; home and the look are composed for this business. Make every page this business's.`)
   else lines.push("Build inside Storelib's own theme: keep its header and footer and fill the pages.")
   if (options.preset) lines.push(`Design preset they chose: ${options.preset}.`)
   const p = options.preferences
