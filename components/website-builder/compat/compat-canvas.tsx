@@ -72,7 +72,8 @@ import { reportLoadProblem, reportSealed } from "@/lib/website-builder/load-guar
 import { siteCommerce } from "@/lib/website-builder/site-commerce"
 import { withPageFacts, type PageFacts } from "@/lib/storelib-theme/compat/product-facts"
 import { CanvasProblem, PageOutline } from "@/components/website-builder/canvas-problem"
-import { draftAssetPassOf, draftAssetVersion, forgetCompatFiles, loadCompatFiles } from "./compat-files"
+import { draftAssetPassOf, draftAssetVersion, forgetCompatFiles, loadCompatFiles, scriptVersionOf } from "./compat-files"
+import { textVersion } from "@/lib/storelib-theme/compat/script-version"
 import { CANVAS_ORIGIN, canvasFrameUrl } from "@/lib/website-builder/canvas-origin"
 import { editorSpares } from "@/lib/nav/prefetch-policy"
 import { shopImageName } from "@/lib/website-builder/picture-address"
@@ -336,7 +337,7 @@ function themeOfFiles(installId: string, files: Record<string, string>, values: 
   return themeOfInstall(files, values, {
     /* By what the file holds (THEME CODE THAT CHANGED): a push that changes it is a new address in the page. */
     /* The draft with its pass (lib/storelib-theme/compat/draft-version.ts): the frame has no origin and sends no session, so the address carries it. */
-    assetUrl: (name) => media[name] ?? `/api/site-theme/assets/${installId}/${draftAssetVersion(installId)}/${encodeURIComponent(name)}?v=${assetVersionIn(files, name)}`,
+    assetUrl: (name) => media[name] ?? `/api/site-theme/assets/${installId}/${draftAssetVersion(installId)}/${encodeURIComponent(name)}?v=${assetVersionIn(files, name, installId)}`,
     assetText: (name) => files[`shopify/assets/${name}`] ?? null,
     /* "shopify://shop_images/logo.png": the theme's own picture of that name where it brought one, as the live site draws it (lib/website-builder/compat-site.ts). */
     imageUrl: (v) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : media[shopImageName(v) ?? ""] ?? ""),
@@ -365,15 +366,14 @@ function themeOfFiles(installId: string, files: Record<string, string>, values: 
   two of every slider, scroll listener and timer it starts.
 */
 const assetVersions = new WeakMap<object, Map<string, string>>()
-export function assetVersionIn(files: Record<string, string>, name: string): string {
+export function assetVersionIn(files: Record<string, string>, name: string, installId?: string): string {
   let byName = assetVersions.get(files)
   if (!byName) assetVersions.set(files, (byName = new Map()))
   let v = byName.get(name)
   if (v === undefined) {
-    const text = files[`shopify/assets/${name}`] ?? files[`shopify/assets/${name}.liquid`] ?? ""
-    let h = 0x811c9dc5
-    for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193)
-    v = `${(h >>> 0).toString(36)}${text.length.toString(36)}`
+    const text = files[`shopify/assets/${name}`] ?? files[`shopify/assets/${name}.liquid`]
+    /* A script the editor's read handed by its version alone (round 68, script-version.ts): the same value its text gives. */
+    v = text === undefined ? ((installId ? scriptVersionOf(installId, name) : undefined) ?? textVersion("")) : textVersion(text)
     byName.set(name, v)
   }
   return v
@@ -2779,12 +2779,38 @@ export function CompatCanvas(props: CompatCanvasProps) {
     setAttempt((n) => n + 1)
   }
 
+  /*
+    THE THEME'S FILES ASKED AGAIN BY THEMSELVES (round 68). A read that failed every try (compat-files.ts) waited for
+    Try again, under words about the connection, when most often the server had been slow a moment: right after a
+    Publish its database is busy for a while. It is asked again after FILES_AGAIN_MS, and at once when the browser is
+    back online, and said as a slow wait meanwhile. Only after the last is it said as a failure, with Try again.
+  */
+  const [filesAgain, setFilesAgain] = useState(0)
+  const retryRef = useRef(retry)
+  retryRef.current = retry
+  const againLeft = failure === "files" && filesAgain < FILES_AGAIN_MS.length
+  useEffect(() => {
+    if (!againLeft) return
+    const go = () => {
+      setFilesAgain((n) => n + 1)
+      retryRef.current()
+    }
+    const t = window.setTimeout(go, FILES_AGAIN_MS[filesAgain])
+    window.addEventListener("online", go)
+    return () => {
+      window.clearTimeout(t)
+      window.removeEventListener("online", go)
+    }
+  }, [againLeft, filesAgain])
+  useEffect(() => { if (shown) setFilesAgain(0) }, [shown])
+  const problem = themeUnreadable ? "draw" : failure === "files" && againLeft ? "slow" : failure
+
   const compat = compatOf(settings)
   return (
     <div ref={box} className="relative w-full" style={{ height }} data-compat-canvas={compat?.theme ?? ""}>
       {/* Until the theme's first page has painted: the shape of a page, still, never a blank sheet or a line of text. */}
       <CanvasPlaceholder hidden={shown} label={`Loading ${compat?.theme ?? "the theme"}`} />
-      {!shown && (failure || themeUnreadable) ? <CanvasProblem kind={themeUnreadable ? "draw" : failure!} {...PROBLEM_WORDS[themeUnreadable ? "draw" : failure!]} onRetry={retry} /> : null}
+      {!shown && problem ? <CanvasProblem kind={problem} {...PROBLEM_WORDS[problem]} onRetry={retry} /> : null}
       {slots.length === 0 ? null : (
         <div className="sticky top-0 h-full w-full" style={{ height }}>
           {/*
@@ -2896,6 +2922,9 @@ const MASSIVE_SWAP_MIN = 3
 /* Sections swapped into one page since it loaded before it is drawn fresh, once the edits stop for FRESH_SETTLE_MS. */
 const WORN_SWAPS = 40
 const FRESH_SETTLE_MS = 1_500
+
+/* The theme's files asked again by themselves after a failed read, after each of these (round 68). */
+const FILES_AGAIN_MS = [3_000, 10_000, 30_000]
 
 /* "slow" is not a failure yet: the page is still being asked for, and comes in under this if it arrives. */
 const PROBLEM_WORDS = {

@@ -596,6 +596,50 @@ let aiAtWork = false
  * steps aside for INPUT_QUIET_MS as it does for a key, so its batches are not
  * laid out in the frames that change is drawn in.
  */
+/*
+  ROUND 68: AN IMPORTED THEME'S LIBRARY IS DRAWN AHEAD ONLY ONCE THE CANVAS HAS ITS PAGE. Its sheet is one document of
+  every section (CompatPreviewSheet), built in one go: drawn ahead WARM_AFTER_MS after the editor mounted, it landed in
+  the same stretch as the canvas's first draw (scripts/check-editor-open-r68.mjs PROFILE=1: 528 of a 1,179 ms task at a
+  quarter speed), and the page waited for a library nobody had opened. The editor says when the canvas has painted
+  (noteCanvasPainted); never longer than PAINT_HOLD_CAP_MS.
+*/
+let canvasPainted = true
+const paintWaiters = new Set<() => void>()
+const PAINT_HOLD_CAP_MS = 15_000
+/** The editor is opening a page: drawing ahead waits for noteCanvasPainted. */
+export function holdLibraryForCanvas() {
+  canvasPainted = false
+}
+/** The canvas has its page: what waited for it may run. */
+export function noteCanvasPainted() {
+  canvasPainted = true
+  const waiting = [...paintWaiters]
+  paintWaiters.clear()
+  for (const f of waiting) f()
+}
+/** `run` once the canvas has painted (now, if it has), or after PAINT_HOLD_CAP_MS; the returned function cancels it. */
+function afterCanvasPainted(run: () => void): () => void {
+  if (canvasPainted) {
+    run()
+    return () => {}
+  }
+  let done = false
+  const once = () => {
+    if (done) return
+    done = true
+    window.clearTimeout(cap)
+    paintWaiters.delete(once)
+    run()
+  }
+  const cap = window.setTimeout(once, PAINT_HOLD_CAP_MS)
+  paintWaiters.add(once)
+  return () => {
+    done = true
+    window.clearTimeout(cap)
+    paintWaiters.delete(once)
+  }
+}
+
 export function deferPreviewsForChange() {
   if (typeof performance !== "undefined") lastInput = performance.now()
 }
@@ -1512,14 +1556,18 @@ export const SectionLibrary = memo(function SectionLibrary({
       const t = window.setTimeout(() => requestPreviews([...jobs.slice(0, SPARE_DEVICE_AHEAD), ...spareJobs]), WARM_AFTER_MS)
       return () => window.clearTimeout(t)
     }
-    const t = window.setTimeout(() => {
+    let t = 0
+    const cancelHold = afterCanvasPainted(() => { t = window.setTimeout(() => {
       const again = warmed.current
       warmed.current = true
       if (!compatInstallId) requestPreviews(again ? jobs.filter((j) => !MARKUP.has(j.key)).slice(0, REWARM_FIRST) : jobs)
       requestPreviews(again ? spareJobs.filter((j) => !MARKUP.has(j.key)) : spareJobs)
       idle(() => setBuilt(true))
-    }, warmed.current ? REWARM_AFTER_MS : WARM_AFTER_MS)
-    return () => window.clearTimeout(t)
+    }, warmed.current ? REWARM_AFTER_MS : WARM_AFTER_MS) })
+    return () => {
+      cancelHold()
+      window.clearTimeout(t)
+    }
   }, [open, jobs, spareJobs, compatInstallId])
 
   /**

@@ -17,6 +17,9 @@ import { REVALIDATED_CACHE } from "@/lib/website-builder/revalidated-json"
 import { filesRevision, revisionJson, unchangedSince } from "@/lib/website-builder/files-revision"
 import { createHash } from "node:crypto"
 import { fileCols, isRefRow, refsOn, resolveRef, resolveRefs, withRefColumn, type MaybeRef } from "@/lib/website-builder/theme-file-refs"
+import { partSectionPaths, partTypes, sectionTagNames } from "@/lib/website-builder/source-parts"
+import { PLAIN_SCRIPT, textVersion } from "@/lib/storelib-theme/compat/script-version"
+import { asEditorRead } from "@/lib/website-builder/editor-reads"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -156,10 +159,13 @@ async function handleGET(req: Request, { params }: Params) {
       files-revision.ts). Unchanged: a 304 before a file is read.
     */
     const pass = draftAssetPass(installId)
-    const revision = await filesRevision(supabase!, installId, ["shopify/%"], `compat:${createHash("sha1").update(pass).digest("base64url")}`)
+    /* Round 68: the editor's read names each plain script by its version, not its text (lib/storelib-theme/compat/script-version.ts). */
+    const leanScripts = searchParams.get("scripts") === "versions"
+    const revision = await filesRevision(supabase!, installId, ["shopify/%"], `compat:${createHash("sha1").update(pass).digest("base64url")}${leanScripts ? ":scripts" : ""}`)
     const unchanged = unchangedSince(req, revision)
     if (unchanged) return unchanged
     const files: Record<string, string> = {}
+    const scriptVersions: Record<string, string> = {}
     const refCols = withRefColumn("path, content, draft_content", await refsHere())
     for (let from = 0; from < 10_000; from += 1000) {
       const { data, error: readErr } = await supabase!
@@ -183,13 +189,16 @@ async function handleGET(req: Request, { params }: Params) {
       for (const r of rows) {
         if (/^shopify\/locales\/(?!.*\.default(\.schema)?\.json$)/.test(r.path)) continue
         const text = r.draft_content ?? r.content
-        if (typeof text === "string" && text !== "" && !text.startsWith("base64:")) files[r.path] = text
+        if (typeof text !== "string" || text === "" || text.startsWith("base64:")) continue
+        const script = leanScripts ? PLAIN_SCRIPT.exec(r.path) : null
+        if (script) scriptVersions[script[1]] = textVersion(text)
+        else files[r.path] = text
       }
       if (read.length < 1000) break
     }
     /* The pass the canvas's draft asset addresses carry (lib/storelib-theme/compat/draft-version.ts): only for whoever may read these files. */
     /* Round 27: megabytes on a Materia theme; asked again with what the browser has, unchanged files are a 304 and nothing is sent (revalidated-json.ts). */
-    return revisionJson(req, revision, { files, asset_pass: pass })
+    return revisionJson(req, revision, leanScripts ? { files, asset_pass: pass, script_versions: scriptVersions } : { files, asset_pass: pass })
   }
 
   if (searchParams.get("sources") === "1") {
@@ -199,6 +208,50 @@ async function handleGET(req: Request, { params }: Params) {
      * editing a section would be shown the version they have not saved over
      * yet. The storefront reads `content` and only `content`.
      */
+    /*
+      Round 68: AN IMPORTED THEME'S SOURCES IN TWO PARTS (lib/website-builder/source-parts.ts). `types=`: what the
+      page being opened draws from, so its canvas is drawn after 7.8 MB rather than 22.8 MB on Materia; `rest=`: the
+      other sections, asked once it is drawn. Without either, every source, as before.
+    */
+    const pageTypes = partTypes(searchParams.get("types"))
+    const restTypes = pageTypes ? null : partTypes(searchParams.get("rest"))
+    if (pageTypes || restTypes) {
+      const named = (pageTypes ?? restTypes)!
+      const revision = await filesRevision(supabase!, installId, ["%.storelib", THEME_SCHEMA_FILE], `sources:${pageTypes ? "types" : "rest"}=${named.join(",")}`)
+      const unchanged = unchangedSince(req, revision)
+      if (unchanged) return unchanged
+      const cols = withRefColumn("path, content, draft_content", await refsHere())
+      type SourceRow = { path: string; content: string; draft_content?: string | null }
+      const read = async (q: PromiseLike<{ data: unknown; error: unknown }>): Promise<SourceRow[] | null> => {
+        const r = await q
+        if (r.error) return null
+        return resolveHere((r.data ?? []) as SourceRow[])
+      }
+      const base = () => supabase!.from("store_theme_custom_files").select(cols).eq("install_id", installId)
+      if (restTypes) {
+        const quoted = partSectionPaths(restTypes).map((p) => `"${p}"`).join(",")
+        const rows = await read(base().like("path", "sections/%.storelib").not("path", "in", `(${quoted})`))
+        if (!rows) return NextResponse.json({ error: "Could not read theme sources. Try again." }, { status: 503 })
+        return revisionJson(req, revision, { files: sourceMap(rows), settings_schema: null, part: "rest" })
+      }
+      const sectionPaths = partSectionPaths(pageTypes!)
+      const [others, sections, schemaRows] = await Promise.all([
+        read(base().like("path", "%.storelib").not("path", "like", "sections/%")),
+        read(base().in("path", sectionPaths)),
+        read(base().eq("path", THEME_SCHEMA_FILE)),
+      ])
+      if (!others || !sections || !schemaRows) return NextResponse.json({ error: "Could not read theme sources. Try again." }, { status: 503 })
+      const files = sourceMap([...others, ...sections])
+      /* A section the layout or a snippet draws by name ({% section 'cart-drawer' %}) is drawn on every page: in this part too. */
+      const tagged = sectionTagNames(files).map((t) => `sections/${t}.storelib`).filter((p) => !(p in files))
+      if (tagged.length) {
+        const more = await read(base().in("path", tagged))
+        if (!more) return NextResponse.json({ error: "Could not read theme sources. Try again." }, { status: 503 })
+        Object.assign(files, sourceMap(more))
+      }
+      const settingsSchema = schemaRows.length ? (sourceMap(schemaRows)[THEME_SCHEMA_FILE] ?? null) : null
+      return revisionJson(req, revision, { files: withStorelibReviewsSection(files), settings_schema: settingsSchema, part: "page" })
+    }
     /* Round 66: the rows' paths and times first; unchanged since the browser's copy, a 304 before a file is read (lib/website-builder/files-revision.ts). */
     const revision = await filesRevision(supabase!, installId, ["%.storelib", THEME_SCHEMA_FILE], "sources")
     const unchanged = unchangedSince(req, revision)
@@ -517,7 +570,8 @@ export async function PATCH(req: Request, { params }: Params) {
 
 /* Timed on the server for /admin/performance (lib/perf/server-timing.ts). */
 export const GET = timed("builder", "/api/website-builder/themes/:id/files", async (req: Request, params: Params) => {
-  const res = await handleGET(req, params)
+  /* Counted while it is answered: the work after a Publish waits for the editor's open on this server (round 68, editor-reads.ts). */
+  const res = await asEditorRead((await params.params).installId, () => handleGET(req, params))
   /* A push just wrote these. A cached copy is the editor showing the old theme until a hard refresh. */
   /* Round 27: the two large reads may be kept by the browser only as "ask me first" (no-cache with their ETag, ./revalidated-json.ts), so it is never shown without the server saying it is still the theme. */
   if (res.headers.get("Cache-Control") !== REVALIDATED_CACHE) res.headers.set("Cache-Control", "no-store")

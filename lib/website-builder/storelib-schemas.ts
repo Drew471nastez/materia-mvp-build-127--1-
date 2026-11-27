@@ -135,6 +135,11 @@ export type StorelibSchemaResult = { ok: true; schema: SectionSchema } | { ok: f
 /* Room for a store theme's every section (push lag, round 2): at 200, a theme of more than 200 sections read every schema again on every change. */
 const cache = createLru<StorelibSchemaResult>(Math.max(COMPILE_CACHE_LIMIT, 1000))
 
+/** Whether this source's schema has been read already (round 68, warm-schemas.ts): reading it again is a lookup. */
+export function schemaHeld(source: string): boolean {
+  return cache.get(source) !== undefined
+}
+
 /** The `<schema>` of a `.storelib` source, as the editor's schema. Cached per source text. */
 export function schemaFromStorelib(source: string, file: string): StorelibSchemaResult {
   const hit = cache.get(source)

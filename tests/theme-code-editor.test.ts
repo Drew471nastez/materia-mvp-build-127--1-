@@ -525,7 +525,7 @@ section("Save compiles, errors carry lines, the canvas finds out")
   // creator's own together — see librarySchemas in the editor.
   /* And the shop's own facts since dynamic sources: the canvas draws a page the way the live site does. */
   check("and hands them to the canvas and the sidebar", /<StorelibLiveProvider sources=\{sources\} page=\{\{ template: pageTemplate \}\} inEditor products=\{shopCards\} data=\{canvasStorefrontData\}( headerLogo=\{canvasHeaderLogo\})?>/.test(editor) && (editor.match(/schemaFor\(section\.type, storelibSources, librarySchemas\)/g) ?? []).length >= 2)
-  check("a section this creator wrote is in the library too", /customSectionSchemas\(storelibSources\)/.test(editor) && /customAddableSections\(customSchemas\)/.test(editor) && /addable=\{libraryAddable\}/.test(editor))
+  check("a section this creator wrote is in the library too", /* Changed on purpose (r68): read a few at a time (lib/website-builder/warm-schemas.ts useCustomSchemas, which is customSectionSchemas once they are in) */ /useCustomSchemas\(storelibSources\)/.test(editor) && /customAddableSections\(customSchemas\)/.test(editor) && /addable=\{libraryAddable\}/.test(editor))
   // The call grew a products argument when sections learned to draw the
   // shop. What this guard is about is unchanged: the SAVED sources are what
   // the canvas renders from.

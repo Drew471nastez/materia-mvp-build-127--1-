@@ -222,8 +222,9 @@ async function main() {
   {
     const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("Still opening is still said after OPEN_SLOW_MS, with Try again that opens afresh", /const OPEN_SLOW_MS = 15_000/.test(editor) && /title=\{tt\("Still opening your website"\)\}/.test(editor) && /setLoadAutoTries\(0\)\s*void loadData\(\)/.test(editor))
-    check("an imported theme's canvas code is asked for at once, its files once the first read has answered", /function warmCompatCode\(\) \{\s*void loadCompatCanvas\(\)/.test(editor) && /if \(!openSettled\) return\s*if \(importedTheme\.current \|\| knownCompatInstall\(installId\)\) warmCompat\(installId\)/.test(editor))
-    check("its sources too; any other theme's sources at once, as before", /if \(knownCompatInstall\(installId\)\) \{\s*warmCompatCode\(\)\s*return\s*\}\s*sourcesAsked\.current = true\s*void loadStorelibSources\(\)/.test(editor))
+    /* Changed on purpose (r68): the same order, the imported test held in `imported`, and the open's own read asked through firstSources (asked again by itself after a failure; editor-open-r68.test.ts). */
+    check("an imported theme's canvas code is asked for at once, its files once the first read has answered", /function warmCompatCode\(\) \{\s*void loadCompatCanvas\(\)/.test(editor) && /if \(!openSettled\) return\s*const imported = importedTheme\.current \|\| knownCompatInstall\(installId\)\s*if \(imported\) warmCompat\(installId\)/.test(editor))
+    check("its sources too; any other theme's sources at once, as before", /if \(knownCompatInstall\(installId\)\) \{\s*warmCompatCode\(\)\s*return\s*\}\s*sourcesAsked\.current = true[\s\S]{0,300}void firstSources\(ctl\.signal\)/.test(editor))
     check("the first read is marked answered either way, failed included", /if \(!stale\(\)\) \{\s*setLoading\(false\)\s*if \(!quiet\) setOpenSettled\(true\)/.test(editor))
     check("the install read names its pages and reads no section file", /pages:store_theme_pages\(id, page_key\)/.test(read("app/api/website-builder/themes/[installId]/route.ts")) && !/customSchemaLookup/.test(read("app/api/website-builder/themes/[installId]/route.ts")))
 

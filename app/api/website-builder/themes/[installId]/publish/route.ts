@@ -350,7 +350,7 @@ async function handlePost(req: Request, { params }: Params, holder: JobHolder): 
      * written. The site's stored copies it asks for again wait for the
      * release below (round 66, lib/edge/snapshot-capture.ts refreshAfter).
      */
-    refreshAfter(creatorId, quietAfterPublish().then(() => follow.waitForRelease(WARM_WAITS_FOR_RELEASE_MS)))
+    refreshAfter(creatorId, quietAfterPublish(installId).then(() => follow.waitForRelease(WARM_WAITS_FOR_RELEASE_MS)))
     await revalidatePublishedSite(creator.id)
 
     /*
@@ -368,7 +368,7 @@ async function handlePost(req: Request, { params }: Params, holder: JobHolder): 
       let seen: { pointed: boolean; blobs: string[] } | null = null
       try {
         /* After the editor's first read (round 67, after-publish.ts quietAfterPublish); still first of the heavy work. */
-        await quietAfterPublish()
+        await quietAfterPublish(installId)
         const kept = await recordRelease(admin, { installId, creatorId }, follow.liveRows)
         if (kept.ok === false) {
           if (kept.reason === "failed") console.error("[publish] the release was not written:", kept.detail)
@@ -403,12 +403,12 @@ async function handlePost(req: Request, { params }: Params, holder: JobHolder): 
       bound draws from them instead of from what it had before the Publish.
     */
     after(async () => {
-      await quietAfterPublish()
+      await quietAfterPublish(installId)
       await (await import("@/lib/website-builder/compat-site")).primeLiveFiles(installId, creatorId)
     })
     after(async () => {
       /* Its wait for the release counts from the same moment the release starts (round 67). */
-      await quietAfterPublish()
+      await quietAfterPublish(installId)
       await follow.waitForRelease(WARM_WAITS_FOR_RELEASE_MS)
       await warmAfterPublish(creatorId, { countries: [publisherCountry] })
     })

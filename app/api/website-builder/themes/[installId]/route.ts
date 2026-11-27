@@ -1,4 +1,5 @@
 import { websiteHandleOf } from "@/lib/website-builder/site-address-data"
+import { asEditorRead } from "@/lib/website-builder/editor-reads"
 import { NextResponse } from "next/server"
 import { OWNER_KEEPS_SITE } from "@/lib/team/website-words"
 import { websiteInstallCaller } from "@/lib/team/website"
@@ -105,7 +106,12 @@ async function getCreatorAndInstall(installId: string, read = false) {
 
 // GET /api/website-builder/themes/[installId]
 // Returns full install data with settings, pages, and username
-export async function GET(_req: Request, { params }: Params) {
+/* Counted while it is answered: the work after a Publish waits for the editor's open on this server (round 68, lib/website-builder/editor-reads.ts). */
+export async function GET(req: Request, ctx: Params) {
+  return asEditorRead((await ctx.params).installId, () => readGET(req, ctx))
+}
+
+async function readGET(_req: Request, { params }: Params) {
   const { installId } = await params
   const { error, status, supabase, install, creator, ownerUserId, isOwner } = await getCreatorAndInstall(installId, true)
   if (error) return NextResponse.json({ error }, { status })

@@ -1,6 +1,7 @@
 import "server-only"
 
 import { fileCols, resolveRefs } from "@/lib/website-builder/theme-file-refs"
+import { afterEditorReads } from "@/lib/website-builder/editor-reads"
 
 /**
  * ===========================================================================
@@ -97,10 +98,12 @@ export function liveOf(rows: PublishRows): { settings: unknown; pages: { page_ke
  */
 export const QUIET_AFTER_PUBLISH_MS = 4_000
 /** The quiet window, then the work. Tests may shorten it (globalThis.__PUSH_TEST_QUIET_MS__). */
-export function quietAfterPublish(): Promise<void> {
+export function quietAfterPublish(installId?: string): Promise<void> {
   const forced = (globalThis as { __PUSH_TEST_QUIET_MS__?: number }).__PUSH_TEST_QUIET_MS__
   const ms = typeof forced === "number" ? forced : QUIET_AFTER_PUBLISH_MS
-  return ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve()
+  if (ms <= 0) return Promise.resolve()
+  /* Round 68: and while this server is answering this website's editor as it opens (editor-reads.ts), at most EDITOR_FIRST_CAP_MS more. */
+  return new Promise<void>((r) => setTimeout(r, ms)).then(() => (installId ? afterEditorReads(installId) : undefined))
 }
 
 /** How long the warm waits for the release before drawing the pages anyway (from the rows, as before round 66). */

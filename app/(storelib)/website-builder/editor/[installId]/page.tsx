@@ -52,7 +52,7 @@ import { BlockPickerHandle, BlockPickerProvider, type BlockPickerRequest } from 
 import { CanvasBlockInserter, canvasAnchorAt, type CanvasBlockPlace } from "@/components/website-builder/editor/canvas-block-insert"
 import { insertIndexFor } from "@/lib/website-builder/block-gaps"
 import { ARRIVAL_MS, ARRIVAL_SCROLL_MS, afterAddSettles, arrivalPlaying, measureSectionTops, playArrival, sheetCoverAbovePeek } from "@/lib/website-builder/section-arrival"
-import { SectionLibrary, deferPreviewsForChange, holdPreviewsForAi } from "@/components/website-builder/editor/section-library"
+import { SectionLibrary, deferPreviewsForChange, holdLibraryForCanvas, holdPreviewsForAi, noteCanvasPainted } from "@/components/website-builder/editor/section-library"
 import { SectionsList } from "@/components/website-builder/editor/sections-list"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { hapticTap } from "@/lib/native-bridge"
@@ -194,6 +194,8 @@ import { THEME_DATA_FILE, clampTo, themeSettingsGroupsFor, withThemeDefaults } f
 import { CollectionBoundField } from "@/components/website-builder/editor/controls/collection-bound-field"
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
 import { compatFilesChanged, forgetCompatFiles, loadCompatFiles, patchCompatFiles } from "@/components/website-builder/compat/compat-files"
+import { MAX_PART_TYPES, sectionTypesOf, sourcesCover, withRest } from "@/lib/website-builder/source-parts"
+import { useCustomSchemas } from "@/lib/website-builder/warm-schemas"
 import { sameFiles } from "@/lib/website-builder/source-revisions"
 import { noteCanvasScroll, shiftWithScroll, whenCanvasRests } from "@/lib/website-builder/scroll-rest"
 import { shareSettings, shareUnchanged } from "@/lib/website-builder/incoming-diff"
@@ -2839,6 +2841,38 @@ function warmCompatCode() {
   void loadCompatCanvas().catch(() => {})
 }
 
+/** What a read of the install's section sources answers. */
+type SourcesAnswer = { files?: Record<string, string>; settings_schema?: string | null }
+/** The longest one read of the sources is waited on as the editor opens: as long as the theme's files (compat-files.ts). */
+const SOURCES_OPEN_MS = 45_000
+/** The rest of an imported theme's sections are asked at least this long after the page's, and once the browser is idle (at most SOURCES_REST_IDLE_MS more). */
+const SOURCES_REST_AFTER_MS = 400
+const SOURCES_REST_IDLE_MS = 2_000
+/** The open's read of the sources, asked again by itself after a failure: at once, then after these waits. */
+const SOURCES_AGAIN_MS = [0, 4_000, 12_000, 30_000]
+/**
+ * One part of the sources as the editor opens (`&types=`, `&rest=`, or "" for all of them), headers and body
+ * together within SOURCES_OPEN_MS, asked again after a failure or a 5xx (round 68). Null for an answer that says
+ * there is nothing to read (4xx): the caller reads them whole.
+ */
+async function readSourcesPart(installId: string, part: string, signal?: AbortSignal): Promise<SourcesAnswer | null> {
+  return retrying(
+    () =>
+      deadline(
+        (async () => {
+          if (signal?.aborted) throw new Error("the sources read was let go")
+          const r = await fetchSignedIn(() => fetchWithin(`/api/website-builder/themes/${installId}/files?sources=1${part}`, { cache: "no-cache", signal }, SOURCES_OPEN_MS))
+          if (r.status >= 500 || r.status === 429) throw new Error(`the sources answered ${r.status}`)
+          if (!r.ok) return null
+          return (await r.json()) as SourcesAnswer
+        })(),
+        SOURCES_OPEN_MS,
+        "the theme's sources",
+      ),
+    [800, 2500],
+  )
+}
+
 /** The text of these theme files, for a push that changed a few of them. Null when none of them could be read. */
 /** The longest one read of the theme's files is waited on while a push lands. */
 const PUSH_READ_MS = 15_000
@@ -3060,12 +3094,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /** Raised when config/settings_data.json was saved in the code editor: the values are read again. */
   const [settingsFileVersion, setSettingsFileVersion] = useState(0)
   /** Also hands back what it loaded, for a caller that needs it this tick: see handleWriteDone. */
-  const loadStorelibSources = useCallback(async (opts?: { hold?: boolean }): Promise<Record<string, string> | null> => {
+  const loadStorelibSources = useCallback(async (opts?: { hold?: boolean; first?: boolean; signal?: AbortSignal; keepTrying?: boolean }): Promise<Record<string, string> | null> => {
+    /* keepTrying: a failure is not yet "read" (firstSources asks again). */
+    let readOk = false
     try {
       /* Round 27: asked every time, but what the browser already has comes back as a 304 with no body (the route's ETag, lib/website-builder/revalidated-json.ts): 21 MB on a Materia theme. */
-      const res = await fetch(`/api/website-builder/themes/${installId}/files?sources=1`, { cache: "no-cache", signal: AbortSignal.timeout(PUSH_READ_MS) })
-      if (!res.ok) return null
-      const d = (await res.json()) as { files?: Record<string, string>; settings_schema?: string | null }
+      /*
+        Round 68: the open's own read is waited on for as long as the theme's files are, and asked again when it
+        fails: given up on at 15s, the canvas drew the page without its sections' sources (right after a Publish,
+        tests/editor-open-r68.test.ts measured 19.7s for this read at 3 MB/s).
+      */
+      const d = opts?.first
+        ? await readSourcesPart(installId, "", opts.signal)
+        : await (async () => {
+          const res = await fetch(`/api/website-builder/themes/${installId}/files?sources=1`, { cache: "no-cache", signal: AbortSignal.timeout(PUSH_READ_MS) })
+          return res.ok ? ((await res.json()) as SourcesAnswer) : null
+        })()
+      if (!d) return null
+      readOk = true
       const files = d.files ?? {}
       const schema = typeof d.settings_schema === "string" ? d.settings_schema : null
       heldSchema.current = schema
@@ -3079,9 +3125,70 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       /* the bundled sources still render; the next save reloads */
       return null
     } finally {
-      setStorelibSourcesRead(true)
+      /* Let go for the page's part (loadSourcesInParts): that read says when the sources are in. */
+      if (!opts?.signal?.aborted && !(opts?.keepTrying && !readOk)) setStorelibSourcesRead(true)
     }
   }, [installId])
+  /*
+    THE OPEN'S READ OF THE SOURCES NEVER ENDS IN A CANVAS WITHOUT THEM (round 68). A read that failed every try was
+    taken as "no sources", and an imported theme's canvas drew its page without its sections' files until the
+    editor was reloaded. Now it is asked again by itself, later each time (SOURCES_AGAIN_MS), and only the last
+    failure is taken as it was before.
+  */
+  const firstSources = useCallback(async (signal?: AbortSignal): Promise<Record<string, string> | null> => {
+    for (const wait of SOURCES_AGAIN_MS) {
+      if (wait) await new Promise((r) => window.setTimeout(r, wait))
+      if (signal?.aborted) return null
+      const last = wait === SOURCES_AGAIN_MS[SOURCES_AGAIN_MS.length - 1]
+      const files = await loadStorelibSources({ first: true, signal, keepTrying: !last })
+      if (files) return files
+    }
+    return null
+  }, [loadStorelibSources])
+  /*
+    AN IMPORTED THEME'S SOURCES, THE PAGE'S FIRST (round 68, lib/website-builder/source-parts.ts). The first open
+    asks for what the page on screen draws from (7.8 MB of Materia's 22.8), and the canvas draws from that; the
+    other sections follow once the browser is idle, laid under what is held. A part that cannot be had is the whole
+    read, as before.
+  */
+  /** The page's part is in: the canvas may draw a page whose sections it covers (sourcesCover). */
+  const [storelibPageRead, setStorelibPageRead] = useState(false)
+  /*
+    The canvas draws once the page's part covers every section the page shows (sourcesCover). A page opened, or a
+    section added, before the rest is in that needs a file the part does not have: the page on screen stays (the
+    canvas keeps what it drew while it waits) and the new one is drawn once the rest arrives, or once its read has
+    ended either way (storelibSourcesRead).
+  */
+  const canvasSourcesReady = storelibSourcesRead || (storelibPageRead && sourcesCover(sections, storelibSources))
+  const loadSourcesInParts = useCallback(async (types: string[]) => {
+    const page = await readSourcesPart(installId, `&types=${types.join(",")}`).catch(() => null)
+    if (!page || !page.files) {
+      await firstSources()
+      return
+    }
+    const files = page.files
+    const schema = typeof page.settings_schema === "string" ? page.settings_schema : null
+    heldSchema.current = schema
+    setStorelibSources((prev) => withRest(files, prev))
+    setThemeSchemaText((prev) => (prev === schema ? prev : schema))
+    setStorelibPageRead(true)
+    /* The rest once the page is drawn and the browser has a moment: Add section's library and the other pages. */
+    await new Promise<void>((resolve) => {
+      const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }
+      window.setTimeout(() => (w.requestIdleCallback ? w.requestIdleCallback(() => resolve(), { timeout: SOURCES_REST_IDLE_MS }) : resolve()), SOURCES_REST_AFTER_MS)
+    })
+    const rest = await readSourcesPart(installId, `&rest=${types.join(",")}`).catch(() => null)
+    if (!rest || !rest.files) {
+      await firstSources()
+      return
+    }
+    const restFiles = rest.files
+    /* What the editor holds wins: the page's part, and anything saved since. */
+    startTransition(() => {
+      setStorelibSources((prev) => withRest(prev, restFiles))
+      setStorelibSourcesRead(true)
+    })
+  }, [installId, firstSources])
   /*
     AN IMPORTED THEME, KNOWN FROM THE FIRST FRAME. Which installs are imported
     is remembered in this browser, from the marketplace's add as well as from
@@ -3093,21 +3200,39 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     a few small files and are asked for at once, as before.
   */
   const sourcesAsked = useRef(false)
+  /** The whole read asked at once for a website not yet known to be imported: let go once it is known to be (round 68). */
+  const wholeRead = useRef<AbortController | null>(null)
   useEffect(() => {
     if (knownCompatInstall(installId)) {
       warmCompatCode()
       return
     }
     sourcesAsked.current = true
-    void loadStorelibSources()
-  }, [installId, loadStorelibSources])
+    /* Not known to be imported yet: read whole, and let go if the first read says it is (the effect below). */
+    const ctl = new AbortController()
+    wholeRead.current = ctl
+    void firstSources(ctl.signal).finally(() => {
+      if (wholeRead.current === ctl) wholeRead.current = null
+    })
+  }, [installId, firstSources])
   useEffect(() => {
     if (!openSettled) return
-    if (importedTheme.current || knownCompatInstall(installId)) warmCompat(installId)
+    const imported = importedTheme.current || knownCompatInstall(installId)
+    if (imported) warmCompat(installId)
+    /* Round 68: an imported theme found by the first read, with its whole read still on its way: the page's part instead. */
+    const whole = wholeRead.current
+    if (imported && whole && !whole.signal.aborted) {
+      whole.abort()
+      wholeRead.current = null
+      sourcesAsked.current = false
+    }
     if (sourcesAsked.current) return
     sourcesAsked.current = true
-    void loadStorelibSources()
-  }, [openSettled, installId, loadStorelibSources])
+    /* Round 68: an imported theme's page first, then the rest (loadSourcesInParts). */
+    const types = sectionTypesOf(sectionsRef.current)
+    if (imported && types.length > 0 && types.length <= MAX_PART_TYPES) void loadSourcesInParts(types)
+    else void firstSources()
+  }, [openSettled, installId, firstSources, loadSourcesInParts])
 
   /**
    * THE LIBRARY THIS INSTALL CAN ADD FROM: the theme's ten categories, plus
@@ -3122,7 +3247,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [builderForms, setBuilderForms] = useState<BuilderForms | null>(null)
   /* The creator's collections, for a collection_picker, a collection_list and the collections page (null while physical commerce is off). */
   const [builderCollections, setBuilderCollections] = useState<BuilderCollections | null>(null)
-  const customSchemas = useMemo(() => customSectionSchemas(storelibSources), [storelibSources])
+  /* Round 68: a theme's worth of new section files is read a few at a time between frames (warm-schemas.ts), not in the render that brings them. */
+  const { schemas: customSchemas, warm: schemasWarm } = useCustomSchemas(storelibSources)
   /** The theme's blocks (blocks/*.storelib), this install's own files over them: what Add block can offer. */
   const blockCatalog = useMemo(() => themeBlockCatalog(storelibSources, { builtIn: !isCompatSource(storelibSources["layout/theme.storelib"]) }), [storelibSources])
   /* Each built-in schema read the first time something asks for it: spread, every one of them was read as the editor opened (storelib-schemas.ts, READ WHEN ASKED FOR). */
@@ -3221,12 +3347,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /** Whether anything this site can add floats over the page: the Overlay group is shown when it does. */
   const overlayAddable = useMemo(() => {
     /* An imported theme always has the Overlay group: a phone tab bar, a popup or back to top can be added there. */
-    if (compatInstall) return ownSectionTypes.length > 0
+    /* While its schemas are being read (schemasWarm), it is taken to have one: the group does not appear a moment after the rest. */
+    if (compatInstall) return ownSectionTypes.length > 0 || !schemasWarm
     /* Known once the install's files are read (libraryAddable, above). */
     if (!storelibSourcesRead) return false
     const all = [...ADDABLE_SECTIONS, ...ownSectionTypes]
     return all.some((t) => sectionGroupsFor(librarySchemas[t] as never, { type: t, kind: kindOfType(t) }).includes("overlay"))
-  }, [compatInstall, ownSectionTypes, librarySchemas, kindOfType, storelibSourcesRead])
+  }, [compatInstall, ownSectionTypes, librarySchemas, kindOfType, storelibSourcesRead, schemasWarm])
   /** A header (or footer) chosen while another is drawn: it replaces that one once the creator says so. */
   const [pendingReplace, setPendingReplace] = useState<{ type: string; presetIndex: number; kind: SectionKind; current: string; next: string } | null>(null)
   /**
@@ -10615,6 +10742,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   */
   const [compatPainted, setCompatPainted] = useState(false)
   const onCompatPainted = useCallback(() => setCompatPainted(true), [])
+  /* Round 68: an imported theme's library is drawn ahead once the canvas has its page, not beside its first draw (section-library.tsx noteCanvasPainted). */
+  useLayoutEffect(() => {
+    holdLibraryForCanvas()
+    return () => noteCanvasPainted()
+  }, [])
   const compatFirstPaint = !compatPainted && !!compatOf(settingsDraft)
   useEffect(() => {
     if (!compatFirstPaint || canvasBusy) return
@@ -10622,6 +10754,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     return () => window.clearTimeout(id)
   }, [compatFirstPaint, canvasBusy])
   const canvasLoaderUp = canvasBusy || compatFirstPaint
+  /* The canvas shows its page (any theme): what was held for it may run. */
+  useEffect(() => {
+    if (!loading && !canvasLoaderUp) noteCanvasPainted()
+  }, [loading, canvasLoaderUp])
   /*
     THE EDITOR OPENING, TIMED for /admin/performance (lib/perf/mark): from
     the screen opening (the page load, or the tap that opened it) to the
@@ -13451,7 +13587,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   onIntent={intentInCompatCanvas}
                   onLiveOnly={liveOnlyInCompatCanvas}
                   onPainted={onCompatPainted}
-                  sourcesReady={storelibSourcesRead}
+                  sourcesReady={canvasSourcesReady}
                   dataReady={liveCardsRead}
                   siteUrl={websiteUrl}
                   warm={compatWarm}
