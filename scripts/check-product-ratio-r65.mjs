@@ -3,6 +3,9 @@
  * ===========================================================================
  *  A PRODUCT PICTURE IS NEVER CUT (r65), MEASURED IN CHROMIUM
  * ===========================================================================
+ * Superseded in round 68: the owner asked for cover, so "after" now reports
+ * pictures cut on purpose. scripts/check-product-pictures-r68.mjs measures
+ * the current rule (a picture covers its frame). Kept for its "before" runs.
  *   node scripts/check-product-ratio-r65.mjs <before|after> [out dir]
  *
  * Real markup: Materia's prerendered pages (public/theme-previews) for three
