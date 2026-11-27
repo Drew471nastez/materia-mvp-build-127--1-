@@ -569,7 +569,7 @@
       "type": "renaissance-curriculum",
       "settings": {
         "background": "#0e0e0f",
-        "accent": "#e3a63a",
+        "accent": "#b45309",
         "gold": "#e3a63a",
         "text_color": "#aeaaa2",
         "anchor": "curriculum",
@@ -581,7 +581,7 @@
         "button_link": "/#shopify-section-pricing",
         "note": "Start the day you join. One module a week works well.",
         "caps": true,
-        "button_text": "#15130f"
+        "button_text": "#ffffff"
       },
       "blocks": {
         "module_1": {

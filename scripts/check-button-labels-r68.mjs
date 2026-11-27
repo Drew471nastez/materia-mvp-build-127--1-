@@ -9,7 +9,8 @@
  * opaque background behind it (WCAG contrast), at rest and while the pointer
  * is on it.
  *
- *   LOW      a label under 4.5:1
+ *   LOW      a filled button's label under 4.5:1 (a gradient fill is
+ *            measured at each of its stops)
  *   ORANGE   a dark label on a saturated orange or red fill (hue under 45 or
  *            over 340, chroma 110 or more), the look the owner asked to be
  *            rid of ("button text black on that orange button")
@@ -40,14 +41,19 @@ const ROOT = join(PUBLIC, "theme-previews")
 const slugs = process.argv.slice(2).length ? process.argv.slice(2) : readdirSync(ROOT).filter((d) => !d.startsWith("_") && existsSync(join(ROOT, d, "index.html")))
 const browser = await chromium.launch()
 const failures = []
+/* Text buttons with no fill of their own (a link over a section, a quantity +): reported, not counted, since the colour behind them is the section's. */
+const unfilled = []
 let measured = 0
 
 const READ = `(hover) => {
-  const rgb = (s) => { const m = s.match(/[\\d.]+/g); return m ? m.map(Number) : [0, 0, 0, 0] }
+  /* rgb(), rgba() and color(srgb r g b / a), the last in 0 to 1 */
+  const rgb = (s) => { const m = s.match(/[\\d.]+/g); if (!m) return [0, 0, 0, 0]; const n = m.map(Number); return /^color\\(srgb/.test(s) ? [n[0] * 255, n[1] * 255, n[2] * 255, n[3] ?? 1] : n }
+  const stops = (img) => (img.match(/rgba?\\([^)]*\\)/g) ?? []).map(rgb).filter((c) => (c[3] ?? 1) > 0.9)
   const lum = ([r, g, b]) => { const f = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4 }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b) }
   const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05) }
   const hue = ([r, g, b]) => { const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; if (!d) return 0; let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; return h < 0 ? h + 360 : h }
-  const bgOf = (el) => { for (let e = el; e; e = e.parentElement) { const cs = getComputedStyle(e); if (cs.backgroundImage !== 'none' && e !== el) return null; const c = rgb(cs.backgroundColor); if ((c[3] ?? 1) > 0.9) return { c, own: e === el } } return { c: [255, 255, 255, 1], own: false } }
+  /* The fill behind the label: the button's own colour, or its own gradient's stops (each is measured), else the first opaque ancestor. Over a picture it is not known, and the button is left out. */
+  const bgsOf = (el) => { for (let e = el; e; e = e.parentElement) { const cs = getComputedStyle(e); if (cs.backgroundImage !== 'none') { const g = /gradient/.test(cs.backgroundImage) ? stops(cs.backgroundImage) : []; if (g.length) return { cs: g, own: e === el }; return null } const c = rgb(cs.backgroundColor); if ((c[3] ?? 1) > 0.9) return { cs: [c], own: e === el } } return { cs: [[255, 255, 255, 1]], own: false } }
   const out = []
   for (const el of document.querySelectorAll('button, a.button, .button, .btn, [class*="btn"]:is(a, button), input[type=submit]')) {
     const r = el.getBoundingClientRect(); const cs = getComputedStyle(el)
@@ -55,9 +61,10 @@ const READ = `(hover) => {
     if (r.bottom < 0 || r.top > document.documentElement.scrollHeight) continue
     if (el.closest('[hidden], dialog:not([open]), .drawer:not(.active), [aria-hidden=true], .visually-hidden, template')) continue
     const label = [...el.querySelectorAll('span, .button__label')].find((s) => s.textContent.trim() && getComputedStyle(s).display !== 'none') ?? el
-    const bg = bgOf(el); if (!bg) continue
+    const bgs = bgsOf(el); if (!bgs) continue
     const fg = rgb(getComputedStyle(label).color)
     if ((fg[3] ?? 1) < 0.5) continue
+    const bg = { c: bgs.cs.reduce((w, c) => (ratio(fg, c) < ratio(fg, w) ? c : w)), own: bgs.own }
     const b = bg.c, chroma = Math.max(b[0], b[1], b[2]) - Math.min(b[0], b[1], b[2]), h = hue(b)
     out.push({ text: el.textContent.trim().replace(/\\s+/g, ' ').slice(0, 30), ratio: Math.round(ratio(fg, b) * 100) / 100, filled: bg.own, orange: bg.own && chroma >= 110 && (h < 45 || h >= 340) && lum(fg) < lum(b), fg: fg.slice(0, 3).join(','), bg: b.slice(0, 3).join(','), hover })
   }
@@ -77,7 +84,8 @@ for (const slug of slugs) {
     const rest = await page.evaluate(`(${READ})(false)`)
     for (const b of rest) {
       count++; measured++; if (b.filled) lowest = Math.min(lowest, b.ratio)
-      if (b.ratio < 4.5) failures.push(`LOW ${slug}/${path} ${width} ${JSON.stringify(b)}`)
+      if (b.ratio < 4.5 && b.filled) failures.push(`LOW ${slug}/${path} ${width} ${JSON.stringify(b)}`)
+      else if (b.ratio < 4.5) unfilled.push(`${slug}/${path} ${width} ${JSON.stringify(b)}`)
       if (b.orange) failures.push(`ORANGE ${slug}/${path} ${width} ${JSON.stringify(b)}`)
     }
     await page.close()
@@ -86,6 +94,7 @@ for (const slug of slugs) {
 }
 await browser.close()
 server.close()
-console.log(`\n${measured} buttons measured, ${failures.length} problems`)
+console.log(`\n${measured} buttons measured, ${failures.length} problems on filled buttons; ${unfilled.length} text buttons without a fill of their own under 4.5:1 (not counted)`)
+for (const u of unfilled) console.log(`  text ${u}`)
 for (const f of failures) console.log(f)
 process.exit(failures.length ? 1 : 0)

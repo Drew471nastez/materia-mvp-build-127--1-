@@ -537,10 +537,10 @@
             "buy_button_text": "Get instant access",
             "buy_appearance": "solid",
             "enable_custom_colors": true,
-            "buy_bg_color": "#ff5f1f",
-            "buy_text_color": "#111113",
-            "buy_hover_bg": "#ff7a42",
-            "buy_hover_text": "#111113"
+            "buy_bg_color": "#c2410c",
+            "buy_text_color": "#ffffff",
+            "buy_hover_bg": "#9a3412",
+            "buy_hover_text": "#ffffff"
           }
         },
         "collapsible_row_1": {

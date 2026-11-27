@@ -74,7 +74,7 @@ function main() {
   const wsHome = json(join(TEMPLATES, "workspace", "templates", "index.json"))
   check("  its hero button is the same coral", wsHome.sections.hero.settings.accent === "#c4482b" && wsHome.sections.hero.settings.accent_hover === "#a93c23")
   const hero = read(join(ROOT, "theme-packages", "materia", "base", "sections", "workspace-hero.liquid"))
-  check("  and the hero's label is white on a deep accent, black on a light one", /\.wsh__btn--a \{ color: oklch\(from \{\{ st\.accent \}\} clamp\(0, \(0\.7 - l\) \* 1000, 1\) 0 0\); \}/.test(hero))
+  check("  and the hero's label is white on a deep accent, black on a light one", /\.wsh__btn--a \{ color: lch\(from \{\{ st\.accent \}\} clamp\(0, \(64 - l\) \* 1000, 100\) 0 0\); \}/.test(hero))
   const wsHeader = read(join(TEMPLATES, "workspace", "sections", "header-group.json"))
   check("  and its header button", /"custom_bg": "#c4482b"/.test(wsHeader) && /"custom_text": "#ffffff"/.test(wsHeader) && !/f07a5c/i.test(wsHeader))
 
