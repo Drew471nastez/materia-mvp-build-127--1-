@@ -32,7 +32,7 @@
       "settings": {
         "form": "",
         "heading": "",
-        "text": "<p>Tell Daniel what you sell and where new work comes from now, and he tells you whether the program fits. Pick a time and you get the video link by email.</p>",
+        "text": "<p>Tell Daniel how much Spanish you have and what you need it for, and he tells you whether the course fits. Pick a time and you get the video link by email.</p>",
         "text_align": "center",
         "color_scheme": "default",
         "max_width": 760,
@@ -53,7 +53,7 @@
         "gap_desktop": 72,
         "text_gap": 18,
         "image": "shopify://shop_images/vslfunnel-laptop.webp",
-        "image_alt": "Daniel working on his laptop in the studio",
+        "image_alt": "Daniel working on his laptop at home",
         "image_aspect_desktop": "1 / 1",
         "image_radius": 12,
         "step_style": "numbered",
@@ -81,7 +81,7 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Fifteen minutes, no pitch",
+            "text": "Fifteen minutes, partly in Spanish",
             "tag": "h2",
             "weight": "700",
             "size_desktop": 36,
@@ -91,22 +91,22 @@
         "step_3": {
           "type": "step",
           "settings": {
-            "title": "Share your site",
-            "description": "<p>Send the link to your site or portfolio before the call, or bring it up on screen.</p>"
+            "title": "Say hello in Spanish",
+            "description": "<p>Whatever you have. Daniel starts slowly and switches to English whenever you want.</p>"
           }
         },
         "step_4": {
           "type": "step",
           "settings": {
-            "title": "Talk about your work",
-            "description": "<p>What you sell, who buys it, and where your last five clients came from.</p>"
+            "title": "Talk about your plans",
+            "description": "<p>Where you want to use it, how much time you have and what you tried before.</p>"
           }
         },
         "step_5": {
           "type": "step",
           "settings": {
             "title": "Decide",
-            "description": "<p>If the program fits, Daniel says so. If it does not, he tells you what would help instead.</p>"
+            "description": "<p>If the course fits, Daniel says so. If it does not, he tells you what would help instead.</p>"
           }
         }
       },
@@ -140,7 +140,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "Questions about the program reach the same inbox, and we reply within two working days."
+            "text": "Questions about the course reach the same inbox, and we reply within two working days."
           }
         },
         "button_3": {

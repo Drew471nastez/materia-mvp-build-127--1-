@@ -88,22 +88,22 @@
         "image_ratio": "landscape",
         "image_width": 50,
         "form_layout": "horizontal",
-        "btn_text": "Send me the scripts",
+        "btn_text": "Send me the phrases",
         "email_placeholder": "Your email",
         "note": "One email a month at most. Leave whenever you like.",
-        "success_text": "Done. The outreach scripts are on their way to your inbox."
+        "success_text": "Done. The 100 phrase starter is on its way to your inbox."
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Get the outreach scripts free"
+            "text": "Get the 100 phrase starter free"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Twelve short messages from module four as a PDF: first messages, follow ups and asking past clients for an introduction, with notes on when to use each.</p>"
+            "text": "<p>The hundred phrases from week one as a printable PDF with an audio file for each, so you can say them before you read them.</p>"
           }
         }
       },

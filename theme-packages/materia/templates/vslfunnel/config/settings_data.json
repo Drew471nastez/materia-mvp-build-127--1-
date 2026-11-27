@@ -176,12 +176,12 @@
     "typography_preset": "none",
     "font_type_body": "google",
     "font_type_heading": "google",
-    "font_body_google_family": "IBM Plex Sans",
-    "font_heading_google_family": "Oswald",
-    "heading_font_weight": 600,
+    "font_body_google_family": "Figtree",
+    "font_heading_google_family": "Plus Jakarta Sans",
+    "heading_font_weight": 800,
     "heading_font_scale": 92,
-    "heading_letter_spacing": "0.005em",
-    "heading_text_transform": "uppercase",
+    "heading_letter_spacing": "negative",
+    "heading_text_transform": "unset",
     "body_font_size": 17,
     "body_font_weight": 400,
     "btn_shape": "rounded",
@@ -211,6 +211,6 @@
     "show_wishlist": false,
     "page_width": 1200,
     "logo": "shopify://shop_images/vslfunnel-logo.webp",
-    "desktop_logo_width": 150
+    "desktop_logo_width": 124
   }
 }

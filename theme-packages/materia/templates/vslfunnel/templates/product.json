@@ -71,7 +71,7 @@
           "type": "text",
           "settings": {
             "heading": "",
-            "content": "<p>An eight week client acquisition program for freelancers and small studios, run by Daniel Brandt.</p>"
+            "content": "<p>An eight week Spanish course for adults who gave up at school, taught by Daniel Brandt.</p>"
           }
         },
         "price_4": {
@@ -129,7 +129,7 @@
             "row3_custom_icon": true,
             "row3_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 12a8 8 0 1 0 2.4-5.7L4 8.5M4 4v4.5h4.5\"/></svg>",
             "row1_lead": "Start today:",
-            "row1_strong": "module one opens the moment you join.",
+            "row1_strong": "week one opens the moment you join.",
             "row2_lead": "",
             "row2_code": "",
             "row2_tail": "",
@@ -157,7 +157,7 @@
         "link_button_8": {
           "type": "link_button",
           "settings": {
-            "label": "Watch the free training first",
+            "label": "Watch the free lesson first",
             "link": "/",
             "style": "text",
             "icon": "none",
@@ -170,7 +170,7 @@
           "type": "whats_included",
           "settings": {
             "heading": "What you get",
-            "items": "44 video lessons in eight modules\nSix live group calls with Daniel\nScripts, sheets and a proposal template\nLessons yours to keep",
+            "items": "40 video lessons in eight weeks\nSix live conversation calls\nPhrase cards with audio\nLessons yours to keep",
             "two_columns": false,
             "boxed": true
           }
@@ -178,7 +178,7 @@
         "collapsible_row_10": {
           "type": "collapsible_row",
           "settings": {
-            "heading": "About the program",
+            "heading": "About the course",
             "content": "",
             "use_product_description": true,
             "open": true
@@ -188,7 +188,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "Options",
-            "content": "<p><strong>Program:</strong> the full eight weeks with the live calls. <strong>Program and an audit:</strong> adds a 60 minute video call with Daniel on your offer, site and proposal, with written notes after. Either can be paid in full or in three monthly parts.</p>",
+            "content": "<p><strong>Course:</strong> the full eight weeks with the live calls. <strong>Course and private lessons:</strong> adds four 45 minute video lessons with Daniel, booked when it suits you, with written notes after each. Either can be paid in full or in three monthly parts.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -200,11 +200,11 @@
             "use_product_faqs": false,
             "first_open": false,
             "q_1": "When does the group start?",
-            "a_1": "<p>12 January. Module one opens the day you join, so you can have your client sheet ready before the first live call.</p>",
+            "a_1": "<p>12 January. Week one opens the day you join, so you can have the first phrases ready before the first live call.</p>",
             "q_2": "Who is it for?",
-            "a_2": "<p>Freelancers and studios of up to about five people who already have paying clients.</p>",
+            "a_2": "<p>Adults who know a little Spanish from school, an app or a holiday and want to talk.</p>",
             "q_3": "What if I miss a live call?",
-            "a_3": "<p>Every call is recorded and added to the program the same day. Send your question beforehand and Daniel answers it on the recording.</p>",
+            "a_3": "<p>Every call is recorded and added the same day. Send your question beforehand and Daniel answers it on the recording.</p>",
             "q_4": "What if it is not for me?",
             "a_4": "<p>Email us within 30 days of joining and you get a full refund.</p>",
             "spacing_top": 12,
@@ -293,25 +293,25 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Inside the program"
+            "text": "Inside the course"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Short lessons, outreach on two mornings"
+            "text": "Short lessons, out loud every day"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Each module is five or six lessons of ten to twenty minutes and one piece of real outreach to do. About two hours a week.</p>"
+            "text": "<p>Each week is five lessons of ten to fifteen minutes and one conversation to practise. About two hours a week.</p>"
           }
         },
         "button_4": {
           "type": "button",
           "settings": {
-            "label": "See the eight modules",
+            "label": "See the eight weeks",
             "link": "/#curriculum",
             "button_style": "secondary"
           }
@@ -372,7 +372,7 @@
           "type": "heading",
           "settings": {
             "enabled": true,
-            "text": "What members say",
+            "text": "What students say",
             "enable_custom_typography": true,
             "font_size_desktop": 38,
             "font_size_mobile": 28,
@@ -383,56 +383,56 @@
           "type": "subheading",
           "settings": {
             "enabled": true,
-            "text": "<p>Sample reviews to show the layout. Replace them with your own members' words.</p>"
+            "text": "<p>Sample reviews to show the layout. Replace them with your own students' words.</p>"
           }
         },
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I had never sent a message to someone I did not know. By week three it was a habit, and the sheet showed me who to follow up with.</p>",
+            "quote": "<p>I had not said a word of Spanish since school. By week three I ordered dinner in Málaga without pointing at the menu.</p>",
             "rating": 0,
             "name": "Naomi B.",
-            "role": "Freelance copywriter",
+            "role": "Started at 41",
             "avatar": "shopify://shop_images/vslfunnel-student-1.webp"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The free training alone changed my Mondays. I stopped refreshing my inbox and started writing to people.</p>",
+            "quote": "<p>The ten minute lessons fit my commute. I said the phrases out loud on the platform and stopped caring who heard.</p>",
             "rating": 0,
             "name": "Rafael O.",
-            "role": "Web developer",
+            "role": "Nurse, night shifts",
             "avatar": "shopify://shop_images/vslfunnel-student-2.webp"
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Each week has one habit, so I never felt behind. In the live call Daniel rewrote my offer in two lines.</p>",
+            "quote": "<p>Each week has one thing to practise, so I never felt behind. On the live call Daniel fixed the one mistake I made every time.</p>",
             "rating": 0,
             "name": "Chloe L.",
-            "role": "Two person studio",
+            "role": "Learning with her partner",
             "avatar": "shopify://shop_images/vslfunnel-student-3.webp"
           }
         },
         "testimonial_7": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I used to send six page proposals and hear nothing. The one page version in module seven is all I use now.</p>",
+            "quote": "<p>I had three apps and a streak of 400 days and still froze on the phone. Six conversation calls did what the apps did not.</p>",
             "rating": 0,
             "name": "Tomas K.",
-            "role": "Brand designer",
+            "role": "Moving to Valencia",
             "avatar": "shopify://shop_images/vslfunnel-student-4.webp"
           }
         },
         "testimonial_8": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Short, clear lessons. I watched them on the train and sent the messages that afternoon.</p>",
+            "quote": "<p>Short, clear lessons. I watched them on the train and used the phrases with my neighbours that evening.</p>",
             "rating": 0,
             "name": "Elif M.",
-            "role": "Video editor",
+            "role": "Retired teacher",
             "avatar": "shopify://shop_images/vslfunnel-student-5.webp"
           }
         }
@@ -454,7 +454,7 @@
         "color_scheme": "default",
         "section_width": "container",
         "reset_spacing": true,
-        "heading": "Also from Fullbook",
+        "heading": "Also from Hablo",
         "description": "",
         "header_size": "small",
         "header_alignment": "left",

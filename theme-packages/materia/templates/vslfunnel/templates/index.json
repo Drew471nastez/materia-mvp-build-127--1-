@@ -1,28 +1,28 @@
-/* Templates round 25: Tempo, a VSL funnel for an eight week online course in chess for adult improvers taught by a sample teacher, in black, white and signal yellow on black: the free lesson in a large player on a dark band with a falling king on its cover and the buttons under it, what the course is made of, who it is for, how a week goes, the eight modules, what you get, the teacher, student quotes, the offer with a refund, questions, free puzzle sheets and a last call on a yellow band. Built from the theme's own sections around one custom video opening (vslfunnel-video). Round 26: the topic is now chess (Tempo), in black, white and signal yellow with Oswald headings. Round 28: the topic is now Fullbook, an eight week client acquisition program for freelancers and small studios run by Daniel Brandt (a sample coach), pictured with one Unsplash studio session of the coach. */
+/* Templates round 25: Tempo, a VSL funnel for an eight week online course in chess for adult improvers taught by a sample teacher, in black, white and signal yellow on black: the free lesson in a large player on a dark band with a falling king on its cover and the buttons under it, what the course is made of, who it is for, how a week goes, the eight modules, what you get, the teacher, student quotes, the offer with a refund, questions, free puzzle sheets and a last call on a yellow band. Built from the theme's own sections around one custom video opening (vslfunnel-video). Round 26: the topic is now chess (Tempo), in black, white and signal yellow with Oswald headings. Round 28: the topic is now Fullbook, an eight week client acquisition program for freelancers and small studios run by Daniel Brandt (a sample coach), pictured with one Unsplash studio session of the coach. Round 67, at the owner's request: the topic is now Hablo, an eight week Spanish course for adults who gave up at school, taught by Daniel Brandt (a sample teacher), with Plus Jakarta Sans headings in sentence case and Figtree text in place of Oswald and IBM Plex Sans. */
 {
   "sections": {
     "hero": {
       "type": "vslfunnel-video",
       "settings": {
         "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "eyebrow": "Watch the free training first. It is 18 minutes.",
-        "heading": "Find clients without waiting for referrals",
+        "eyebrow": "Watch the free lesson first. It is 16 minutes.",
+        "heading": "Speak Spanish with real people in eight weeks",
         "heading_size": 54,
         "heading_size_mobile": 32,
-        "text": "<p>An eight week program for freelancers and small studios who do good work and never know where the next project comes from. The free training shows the weekly routine the program is built on.</p>",
+        "text": "<p>An eight week course for adults who learned a little at school and never got to talking. The free lesson teaches the twenty phrases that carry most first conversations.</p>",
         "show_video": true,
         "poster": "shopify://shop_images/vslfunnel-poster.webp",
         "poster_alt": "Daniel Brandt talking to the camera at his desk",
         "shade": 6,
-        "length_label": "18:24",
-        "video_title": "Free training: a client routine in two hours a week",
-        "play_label": "Play the free training",
-        "caption": "In the training: who to talk to, what to send them, how to follow up without nagging, and the one sheet that keeps it all in view.",
-        "empty_text": "The training plays here once the video is added in the editor.",
+        "length_label": "16:40",
+        "video_title": "Free lesson: twenty phrases for your first conversation",
+        "play_label": "Play the free lesson",
+        "caption": "In the lesson: how to ask, how to ask again when you did not catch it, how to keep going when a word is missing, and the twenty phrases that do most of the work.",
+        "empty_text": "The lesson plays here once the video is added in the editor.",
         "video_width": 1040,
         "radius": 14,
         "video_gap": 40,
-        "button_label": "Join the January group for $1,450",
+        "button_label": "Join the January group for $690",
         "button_link": "/#shopify-section-offer",
         "button2_label": "Book a 15 minute call",
         "button2_link": "/pages/book-a-call",
@@ -57,7 +57,7 @@
         "headline_1": {
           "type": "headline",
           "settings": {
-            "content": "What the program is made of",
+            "content": "What the course is made of",
             "enable_custom_style": true,
             "color": "#0c0c0c",
             "size": 15,
@@ -75,7 +75,7 @@
         "count_box_3": {
           "type": "count_box",
           "settings": {
-            "number": 44,
+            "number": 40,
             "text": "short video lessons"
           }
         },
@@ -83,7 +83,7 @@
           "type": "count_box",
           "settings": {
             "number": 6,
-            "text": "live group calls"
+            "text": "live conversation calls"
           }
         }
       },
@@ -139,13 +139,13 @@
           "settings": {
             "media_type": "image",
             "image": "shopify://shop_images/vslfunnel-laptop.webp",
-            "alt": "Daniel working on his laptop in the studio"
+            "alt": "Daniel working on his laptop at home"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Made for freelancers who are good at the work and tired of the gaps",
+            "text": "Made for adults who understand a bit and freeze when it is their turn",
             "tag": "h2",
             "enable_custom_style": true,
             "uppercase": false,
@@ -156,7 +156,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>You need a laptop, a spreadsheet and two hours a week. The program is for you if you have:</p>",
+            "text": "<p>You need a laptop or a phone, headphones and twenty minutes a day. The course is for you if you have:</p>",
             "enable_custom_style": true,
             "size_desktop": 17,
             "size_mobile": 16
@@ -169,8 +169,8 @@
         "benefit_5": {
           "type": "benefit",
           "settings": {
-            "heading": "Run on referrals so far",
-            "text": "<p>Referrals are great until they stop. Module one starts with who you want more of.</p>",
+            "heading": "School Spanish, long ago",
+            "text": "<p>Verb tables and a test, then nothing. Week one starts with what people actually say.</p>",
             "icon_source": "svg",
             "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3.5 8.5h3l1.5-2.5h8l1.5 2.5h3v10h-17z\"/><circle cx=\"12\" cy=\"13\" r=\"3.5\"/></svg>"
           }
@@ -178,8 +178,8 @@
         "benefit_6": {
           "type": "benefit",
           "settings": {
-            "heading": "Months that go quiet",
-            "text": "<p>Busy for three months, then nothing. A weekly routine evens out the gaps.</p>",
+            "heading": "An app streak, no conversations",
+            "text": "<p>Hundreds of days of taps and you still go quiet on the phone. The live calls fix that part.</p>",
             "icon_source": "svg",
             "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3.5\" y=\"5\" width=\"17\" height=\"14\" rx=\"1\"/><path d=\"M3.5 16l5-5 4 4 3-3 5 5\"/><circle cx=\"15.5\" cy=\"9\" r=\"1.3\"/></svg>"
           }
@@ -187,8 +187,8 @@
         "benefit_7": {
           "type": "benefit",
           "settings": {
-            "heading": "Two hours a week",
-            "text": "<p>Lessons run ten to twenty minutes. The week's outreach takes an hour or two.</p>",
+            "heading": "Twenty minutes a day",
+            "text": "<p>Lessons run ten to fifteen minutes. Saying the week's phrases out loud takes five more.</p>",
             "icon_source": "svg",
             "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8.5\"/><path d=\"M12 7.5V12l3 2\"/></svg>"
           }
@@ -196,8 +196,8 @@
         "benefit_8": {
           "type": "benefit",
           "settings": {
-            "heading": "A price that has not moved",
-            "text": "<p>Same rate as two years ago because you take whatever comes in? Start here.</p>",
+            "heading": "A trip or a move coming up",
+            "text": "<p>A holiday in May, a partner's family, a job in Madrid. Eight weeks gets you talking before you go.</p>",
             "icon_source": "svg",
             "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8.5\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M12 3.5v3M20.5 12h-3M12 20.5v-3M3.5 12h3\"/></svg>"
           }
@@ -205,7 +205,7 @@
         "footnote_9": {
           "type": "footnote",
           "settings": {
-            "text": "<a href=\"/pages/book-a-call\">Not sure it fits your business? Book a free 15 minute call</a>",
+            "text": "<a href=\"/pages/book-a-call\">Not sure where to start? Book a free 15 minute call</a>",
             "enable_custom_style": true,
             "size": 16
           }
@@ -271,7 +271,7 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Short lessons, outreach on two mornings",
+            "text": "Short lessons, out loud every day",
             "tag": "h2",
             "weight": "700",
             "size_desktop": 38,
@@ -281,7 +281,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>About two hours a week. The group adds one habit at a time, so nothing piles up.</p>",
+            "text": "<p>About two hours a week. Each week adds one kind of conversation, so nothing piles up.</p>",
             "max_width": 520,
             "size": 17
           }
@@ -290,27 +290,27 @@
           "type": "step",
           "settings": {
             "title": "Watch on Monday",
-            "description": "<p>Five or six lessons of ten to twenty minutes, each with a template to copy.</p>"
+            "description": "<p>Five lessons of ten to fifteen minutes, each with the phrases on a card and in audio.</p>"
           }
         },
         "step_5": {
           "type": "step",
           "settings": {
-            "title": "Do the outreach",
-            "description": "<p>Two short sessions, using the week's one new habit. Log every message and reply in the sheet.</p>"
+            "title": "Say it every day",
+            "description": "<p>Five minutes out loud with the audio. Record one answer and listen back on Wednesday.</p>"
           }
         },
         "step_6": {
           "type": "step",
           "settings": {
-            "title": "Bring your sheet on Thursday",
-            "description": "<p>Every other Thursday Daniel goes through members' sheets, offers and proposals live, and says what to change.</p>"
+            "title": "Talk on Thursday",
+            "description": "<p>Every other Thursday you join a live call in groups of four and use the week's phrases with real people.</p>"
           }
         },
         "button_7": {
           "type": "button",
           "settings": {
-            "label": "See the eight modules",
+            "label": "See the eight weeks",
             "url": "/#curriculum"
           }
         }
@@ -329,10 +329,10 @@
       "type": "course2-curriculum",
       "settings": {
         "tag": "Curriculum",
-        "heading": "Eight modules, one a week",
+        "heading": "Eight weeks, one conversation at a time",
         "heading_accent": "",
-        "text": "<p>The group runs from 12 January to early March. After that the lessons stay open, and you can work through any module again.</p>",
-        "totals": "8 modules, 44 lessons, about 7 hours of video",
+        "text": "<p>The group runs from 12 January to early March. After that the lessons stay open, and you can go back to any week.</p>",
+        "totals": "8 modules, 40 lessons, about 6 hours of video",
         "first_open": true,
         "anchor": "curriculum",
         "heading_size": 40,
@@ -350,65 +350,65 @@
         "module_1": {
           "type": "module",
           "settings": {
-            "title": "Pick who you serve",
-            "meta": "5 lessons, 44 min",
-            "lessons": "Why \"anyone with a budget\" never works\nA client type you like working with\nThe problem they pay to fix\nYour offer in one line\nAssignment: your client sheet"
+            "title": "Hello, and again please",
+            "meta": "5 lessons, 48 min",
+            "lessons": "Greetings that are not from a textbook\nAsking someone to say it again\nSpelling your name and where you live\nNumbers you hear every day\nPractice: a two minute introduction"
           }
         },
         "module_2": {
           "type": "module",
           "settings": {
-            "title": "An offer people understand",
-            "meta": "6 lessons, 58 min",
-            "lessons": "One service, one price range\nPackaging a project\nThe scope in plain words\nPricing without hourly rates\nAnswering \"what does it cost?\"\nAssignment: your offer page"
+            "title": "Ordering and asking",
+            "meta": "5 lessons, 52 min",
+            "lessons": "Cafés, bars and the menu\nAsking for what is not on it\nPrices and paying\nWhen they answer too fast\nPractice: order for a table of four"
           }
         },
         "module_3": {
           "type": "module",
           "settings": {
-            "title": "A list of people to talk to",
-            "meta": "6 lessons, 50 min",
-            "lessons": "Past clients and colleagues first\nFifty companies that fit\nFinding the right person to write to\nKeeping it all in one sheet\nTen minutes a day, not a weekend\nAssignment: fifty names"
+            "title": "Getting around",
+            "meta": "5 lessons, 50 min",
+            "lessons": "Directions you can follow\nTickets, times and platforms\nTaxis and lifts\nWhen something goes wrong\nPractice: plan a day out"
           }
         },
         "module_4": {
           "type": "module",
           "settings": {
-            "title": "Outreach that is not spam",
-            "meta": "5 lessons, 52 min",
-            "lessons": "The short first message\nFollowing up without nagging\nAsking for an introduction\nWhat to do with no reply\nAssignment: twenty messages"
+            "title": "Talking about yourself",
+            "meta": "5 lessons, 46 min",
+            "lessons": "Work, family and home\nWhat you like and why\nThe past without the grammar book\nPlans for the weekend\nPractice: five minutes about you"
           }
         },
         "module_5": {
           "type": "module",
           "settings": {
-            "title": "Posts that bring people to you",
-            "meta": "6 lessons, 64 min",
-            "lessons": "One platform, not five\nPosts that show how you think\nCase studies without client names\nA simple email list\nOne project, five posts\nAssignment: a month of posts"
+            "title": "Listening to real Spanish",
+            "meta": "5 lessons, 44 min",
+            "lessons": "Why it sounds so fast\nCatching the words that matter\nTV and podcasts at your level\nAccents from Spain and Latin America\nPractice: one episode, three times"
           }
         },
         "module_6": {
           "type": "module",
           "settings": {
-            "title": "Discovery calls",
-            "meta": "5 lessons, 48 min",
-            "lessons": "Booking the call\nThe questions to ask\nWhen it is not a fit\nTalking about budget early\nAssignment: three practice calls"
+            "title": "Keeping a conversation going",
+            "meta": "5 lessons, 42 min",
+            "lessons": "Questions that keep people talking\nWhat to say when a word is missing\nAgreeing, disagreeing, changing the subject\nEnding politely\nPractice: ten minutes without English"
           }
         },
         "module_7": {
           "type": "module",
           "settings": {
-            "title": "Proposals and follow up",
-            "meta": "5 lessons, 52 min",
-            "lessons": "A one page proposal\nThree options, not one\nFollowing up after you send it\n\"We need to think about it\"\nAssignment: your proposal template"
+            "title": "Phone and video calls",
+            "meta": "5 lessons, 40 min",
+            "lessons": "Booking and changing a time\nWhen there are no faces to read\nLeaving a message\nCalls with family\nPractice: book a table by phone"
           }
         },
         "module_8": {
           "type": "module",
           "settings": {
-            "title": "A routine you keep running",
-            "meta": "6 lessons, 66 min",
-            "lessons": "The weekly pipeline review\nTracking it in one sheet\nReferrals from happy clients\nNew prices for new clients\nYour plan for the next quarter\nAssignment: your first month review"
+            "title": "A habit that lasts",
+            "meta": "5 lessons, 38 min",
+            "lessons": "Twenty minutes a day after the course\nFinding people to talk to\nReading your first short book\nWhat to learn next\nPractice: your plan for the next three months"
           }
         }
       },
@@ -456,8 +456,8 @@
           "type": "column",
           "settings": {
             "label": "Lessons",
-            "heading": "44 video lessons",
-            "text": "<p>Ten to twenty minutes each, with a template or sheet to copy for every one.</p>"
+            "heading": "40 video lessons",
+            "text": "<p>Ten to fifteen minutes each, with the phrases on a card and an audio file to repeat after.</p>"
           }
         },
         "column_3": {
@@ -465,15 +465,15 @@
           "settings": {
             "label": "Live",
             "heading": "Six live calls",
-            "text": "<p>Every other Thursday during the group. Send your sheet or proposal ahead. Each call is recorded.</p>"
+            "text": "<p>Every other Thursday during the group, in rooms of four with Daniel moving between them. Each call is recorded.</p>"
           }
         },
         "column_4": {
           "type": "column",
           "settings": {
             "label": "Templates",
-            "heading": "Scripts and sheets",
-            "text": "<p>Outreach scripts, a proposal template and the pipeline sheet, ready to copy.</p>"
+            "heading": "Phrase cards and audio",
+            "text": "<p>Three hundred phrases as printable cards, each read by a speaker from Spain and one from Mexico.</p>"
           }
         },
         "column_5": {
@@ -481,7 +481,7 @@
           "settings": {
             "label": "Access",
             "heading": "Yours to keep",
-            "text": "<p>The lessons and every recording stay in your account after the group ends.</p>"
+            "text": "<p>The lessons, the cards and every recording stay in your account after the group ends.</p>"
           }
         }
       },
@@ -504,7 +504,7 @@
         "content_gap": 18,
         "media_type": "image",
         "image": "shopify://shop_images/vslfunnel-teacher.webp",
-        "image_alt": "Daniel Brandt smiling at the camera in his studio",
+        "image_alt": "Daniel Brandt smiling at the camera at home",
         "aspect_w": 4,
         "aspect_h": 5,
         "image_fit": "cover",
@@ -525,7 +525,7 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Your coach"
+            "text": "Your teacher"
           }
         },
         "heading_2": {
@@ -541,7 +541,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Daniel ran a small design studio for nine years and spent the first three waiting for referrals. For the last five he has coached freelancers and studios on finding clients without cold calling or ads.</p><p>This program is the routine he teaches, with the questions people asked most answered on screen. He runs every live call himself. This is sample text; replace it with your own.</p>",
+            "text": "<p>Daniel learned Spanish at thirty four, after moving to Valencia with two years of school Spanish and an app. For six months he understood a lot and said almost nothing.</p><p>For the last seven years he has taught adults online. This course is the way he teaches, with the questions people ask most answered on screen. He runs every live call himself. This is sample text; replace it with your own.</p>",
             "enable_custom_style": true,
             "size_desktop": 17,
             "size_mobile": 16
@@ -612,7 +612,7 @@
           "type": "heading",
           "settings": {
             "enabled": true,
-            "text": "What members say",
+            "text": "What students say",
             "enable_custom_typography": true,
             "font_size_desktop": 38,
             "font_size_mobile": 28,
@@ -623,56 +623,56 @@
           "type": "subheading",
           "settings": {
             "enabled": true,
-            "text": "<p>Sample reviews to show the layout. Replace them with your own members' words.</p>"
+            "text": "<p>Sample reviews to show the layout. Replace them with your own students' words.</p>"
           }
         },
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I had never sent a message to someone I did not know. By week three it was a habit, and the sheet showed me who to follow up with.</p>",
+            "quote": "<p>I had not said a word of Spanish since school. By week three I ordered dinner in Málaga without pointing at the menu.</p>",
             "rating": 0,
             "name": "Naomi B.",
-            "role": "Freelance copywriter",
+            "role": "Started at 41",
             "avatar": "shopify://shop_images/vslfunnel-student-1.webp"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The free training alone changed my Mondays. I stopped refreshing my inbox and started writing to people.</p>",
+            "quote": "<p>The ten minute lessons fit my commute. I said the phrases out loud on the platform and stopped caring who heard.</p>",
             "rating": 0,
             "name": "Rafael O.",
-            "role": "Web developer",
+            "role": "Nurse, night shifts",
             "avatar": "shopify://shop_images/vslfunnel-student-2.webp"
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Each week has one habit, so I never felt behind. In the live call Daniel rewrote my offer in two lines.</p>",
+            "quote": "<p>Each week has one thing to practise, so I never felt behind. On the live call Daniel fixed the one mistake I made every time.</p>",
             "rating": 0,
             "name": "Chloe L.",
-            "role": "Two person studio",
+            "role": "Learning with her partner",
             "avatar": "shopify://shop_images/vslfunnel-student-3.webp"
           }
         },
         "testimonial_7": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I used to send six page proposals and hear nothing. The one page version in module seven is all I use now.</p>",
+            "quote": "<p>I had three apps and a streak of 400 days and still froze on the phone. Six conversation calls did what the apps did not.</p>",
             "rating": 0,
             "name": "Tomas K.",
-            "role": "Brand designer",
+            "role": "Moving to Valencia",
             "avatar": "shopify://shop_images/vslfunnel-student-4.webp"
           }
         },
         "testimonial_8": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Short, clear lessons. I watched them on the train and sent the messages that afternoon.</p>",
+            "quote": "<p>Short, clear lessons. I watched them on the train and used the phrases with my neighbours that evening.</p>",
             "rating": 0,
             "name": "Elif M.",
-            "role": "Video editor",
+            "role": "Retired teacher",
             "avatar": "shopify://shop_images/vslfunnel-student-5.webp"
           }
         }
@@ -694,7 +694,7 @@
         "color_scheme": "default",
         "eyebrow": "January group",
         "heading": "Join the group that starts 12 January",
-        "intro": "<p>Join any time before then and start module one the day you join. The group is kept to forty people so every call has time for questions.</p>",
+        "intro": "<p>Join any time before then and start week one the day you join. The group is kept to forty people so every call has time to talk.</p>",
         "heading_size": "h2",
         "heading_align": "center",
         "footnote": "<p>Prices include tax. Pay in full, or in three monthly parts at checkout.</p>",
@@ -715,14 +715,14 @@
         "plan_1": {
           "type": "plan",
           "settings": {
-            "name": "Program",
-            "description": "<p>The full program with the live calls.</p>",
+            "name": "Course",
+            "description": "<p>The full course with the live calls.</p>",
             "badge": "",
             "featured": false,
-            "price": "$1,450",
+            "price": "$690",
             "compare_price": "",
             "note": "One payment",
-            "features": "44 video lessons\nSix live group calls\nScripts, sheets and templates\nLessons yours to keep\n- A one to one audit",
+            "features": "40 video lessons\nSix live conversation calls\nPhrase cards and audio\nLessons yours to keep\n- Private lessons",
             "button_label": "Join the group",
             "button_link": "/collections/all",
             "button_style": "auto"
@@ -731,15 +731,15 @@
         "plan_2": {
           "type": "plan",
           "settings": {
-            "name": "Program and an audit",
-            "description": "<p>With a one to one look at your offer and pipeline.</p>",
-            "badge": "With a call",
+            "name": "Course and private lessons",
+            "description": "<p>With four lessons on your own with Daniel.</p>",
+            "badge": "Most practice",
             "featured": true,
-            "price": "$1,800",
+            "price": "$930",
             "compare_price": "",
             "note": "One payment",
-            "features": "Everything in the program\nA 60 minute video call with Daniel\nYour offer, site and proposal reviewed\nWritten notes after the call",
-            "button_label": "Join with an audit",
+            "features": "Everything in the course\nFour 45 minute video lessons with Daniel\nBooked when it suits you\nWritten notes after each one",
+            "button_label": "Join with private lessons",
             "button_link": "/collections/all",
             "button_style": "auto"
           }
@@ -781,7 +781,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Watch the first two modules and bring your sheet to a live call. If the program is not for you, email us within 30 days of joining and we refund you in full.</p>"
+            "text": "<p>Do the first two weeks and join a live call. If the course is not for you, email us within 30 days of joining and we refund you in full.</p>"
           }
         },
         "point_3": {
@@ -799,7 +799,7 @@
         "point_5": {
           "type": "point",
           "settings": {
-            "text": "Keep the scripts"
+            "text": "Keep the phrase cards"
           }
         }
       },
@@ -858,35 +858,35 @@
           "type": "faq_item",
           "settings": {
             "question": "Who is it for?",
-            "answer": "<p>Freelancers and studios of up to about five people who already have paying clients: designers, developers, writers, editors, marketers. A call can check whether it fits.</p>"
+            "answer": "<p>Adults who know a little Spanish from school, an app or a holiday and want to talk. If you have never learned any, start with the free lesson and see how it feels.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "Do I need a big audience?",
-            "answer": "<p>No. Most of the program works with the people you already know and fifty you find in module three.</p>"
+            "question": "Spain or Latin America?",
+            "answer": "<p>Both. Every phrase is recorded by a speaker from Spain and one from Mexico, and the lessons say where words differ.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "Do I have to cold call?",
-            "answer": "<p>No. Outreach in the program is short written messages, mostly to people who already know your work or someone who does.</p>"
+            "question": "Do I have to speak on the calls?",
+            "answer": "<p>That is what they are for, but gently. You talk in groups of four at your level, with the week's phrases in front of you.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
             "question": "What if I miss a live call?",
-            "answer": "<p>Every call is recorded and added to the program the same day. Send your question beforehand and Daniel answers it on the recording.</p>"
+            "answer": "<p>Every call is recorded and added the same day. Book a spare place on the next group's call and you can join that one instead.</p>"
           }
         },
         "faq_item_7": {
           "type": "faq_item",
           "settings": {
             "question": "How long do I keep the lessons?",
-            "answer": "<p>For as long as the program exists. Lessons, recordings and the templates stay in your account, and updates are free.</p>"
+            "answer": "<p>For as long as the course exists. Lessons, recordings and the phrase cards stay in your account, and updates are free.</p>"
           }
         },
         "faq_item_8": {
@@ -922,13 +922,13 @@
         "color_scheme": "default",
         "section_width": "container",
         "heading": "Not ready this month?",
-        "description": "<p>Get the outreach scripts from module four by email, free, and a short note when the next group opens.</p>",
+        "description": "<p>Get the 100 phrase starter by email, free, and a short note when the next group opens.</p>",
         "email_label": "Email address",
         "email_placeholder": "Your email",
-        "btn_text": "Send me the scripts",
+        "btn_text": "Send me the phrases",
         "note": "One email a month at most. Leave whenever you like.",
         "subscribed_button_text": "Sent",
-        "success_text": "Done. The outreach scripts are on their way to your inbox.",
+        "success_text": "Done. The 100 phrase starter is on its way to your inbox.",
         "header_alignment": "left",
         "form_layout": "horizontal",
         "show_icon": false,
@@ -968,7 +968,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Have a client plan by March",
+            "text": "Hold a conversation by March",
             "tag": "h2",
             "enable_custom_style": true,
             "size_desktop": 44,
@@ -978,7 +978,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>The January group starts 12 January. Eight modules, six live group calls and a 30 day refund if it is not for you.</p>",
+            "text": "<p>The January group starts 12 January. Eight weeks, six live conversation calls and a 30 day refund if it is not for you.</p>",
             "enable_custom_style": true,
             "size_desktop": 18,
             "size_mobile": 16

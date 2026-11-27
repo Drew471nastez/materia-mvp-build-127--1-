@@ -32,7 +32,7 @@
       "settings": {
         "color_scheme": "default",
         "btn_text": "Send message",
-        "ph_website": "A question about the program, your business or a team place",
+        "ph_website": "A question about the course, your level or a place for two",
         "label_website": "Subject",
         "success_text": "Thank you. Daniel or Sam reads every message and replies within two working days."
       },
@@ -46,7 +46,7 @@
         "description_2": {
           "type": "description",
           "settings": {
-            "text": "<p>Questions about the program, whether it fits, a refund or places for your studio. Every message is read by a person.</p>"
+            "text": "<p>Questions about the course, your level, a refund or places for two. Every message is read by a person.</p>"
           }
         },
         "info_3": {
@@ -98,21 +98,21 @@
           "type": "faq_item",
           "settings": {
             "question": "Who is it for?",
-            "answer": "<p>Freelancers and studios of up to about five people who already have paying clients.</p>"
+            "answer": "<p>Adults who know a little Spanish from school, an app or a holiday and want to talk.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
             "question": "When does the next group start?",
-            "answer": "<p>The January group starts 12 January. You can join before then and start with module one straight away.</p>"
+            "answer": "<p>The January group starts 12 January. You can join before then and start week one straight away.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
             "question": "What if I miss a live call?",
-            "answer": "<p>Every call is recorded and added to the program the same day.</p>"
+            "answer": "<p>Every call is recorded and added the same day.</p>"
           }
         },
         "faq_item_6": {

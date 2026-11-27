@@ -680,9 +680,9 @@ Running coach (coach folder, round 22): the coach, Amara Wells, is three photogr
 | coach (cover only) | scripts/theme-templates/products/coach/coach-monthly.webp | https://images.unsplash.com/photo-1726195221342-8676de2c5b86, black and white, logo painted out | Unsplash License |
 | coach (cover only) | scripts/theme-templates/products/coach/coach-form-review.webp | https://images.unsplash.com/photo-1695918425283-eb385c012b7a, black and white | Unsplash License |
 
-## VSL funnel (vslfunnel, Fullbook)
+## VSL funnel (vslfunnel, Hablo)
 
-VSL funnel (round 23, remade in round 25, round 26 and round 28): Fullbook, an eight week client acquisition program for freelancers and small studios, run by Daniel Brandt, a sample coach. Every photograph of the coach, on the pages and on the products, is one Unsplash session of the same man at his desk in a brick walled studio (Vitaly Gariev); the notebook and desk pictures are separate Unsplash photographs. The logo and the member initials are drawn for the template; the reviews are marked as samples on the page.
+VSL funnel (round 23, remade in round 25, round 26, round 28 and round 67): Hablo, an eight week Spanish course for adults who gave up at school, taught by Daniel Brandt, a sample teacher. Every photograph of the teacher, on the pages and on the products, is one Unsplash session of the same man at his desk in a brick walled studio (Vitaly Gariev); the notebook and desk pictures are separate Unsplash photographs. The logo and the member initials are drawn for the template; the reviews are marked as samples on the page.
 
 | vslfunnel | assets/vslfunnel-poster.webp | https://images.unsplash.com/photo-1713946598377-891884fa90de | Unsplash License |
 | vslfunnel | assets/vslfunnel-teacher.webp | https://images.unsplash.com/photo-1713947507130-227586ab3024 | Unsplash License |
@@ -692,7 +692,7 @@ VSL funnel (round 23, remade in round 25, round 26 and round 28): Fullbook, an e
 | vslfunnel | assets/vslfunnel-desk-wide.webp | https://images.unsplash.com/photo-1713946598432-9bb1f09acf9b | Unsplash License |
 | vslfunnel | assets/vslfunnel-call.webp | https://images.unsplash.com/photo-1713946598424-815b1dc09901 | Unsplash License |
 | vslfunnel | assets/vslfunnel-notebook.webp | https://images.unsplash.com/photo-1772588627479-06ac7a264916 | Unsplash License |
-| vslfunnel | assets/vslfunnel-logo.webp | Drawn for this template | Storelib |
+| vslfunnel | assets/vslfunnel-logo.webp | Drawn for this template (round 67: Hablo) | Storelib |
 | vslfunnel | assets/vslfunnel-student-1.webp | Drawn for this template | Storelib |
 | vslfunnel | assets/vslfunnel-student-2.webp | Drawn for this template | Storelib |
 | vslfunnel | assets/vslfunnel-student-3.webp | Drawn for this template | Storelib |
