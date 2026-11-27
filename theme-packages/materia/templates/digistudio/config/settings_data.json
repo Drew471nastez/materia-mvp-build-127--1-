@@ -94,7 +94,7 @@
     "typography_preset": "none",
     "font_type_body": "google",
     "font_type_heading": "google",
-    "font_body_google_family": "Onest",
+    "font_body_google_family": "Inter",
     "font_heading_google_family": "Onest",
     "heading_font_weight": 600,
     "heading_font_scale": 100,
