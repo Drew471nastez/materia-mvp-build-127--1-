@@ -789,8 +789,8 @@
           if (!cancel && Math.abs(v) > 1.2 && Math.sign(n - p) !== Math.sign(v)) n = v > 0 ? Math.ceil(p) : Math.floor(p);
           if (!cancel && n === 0 && Math.abs(p) > 0.3) n = Math.sign(p);
           n = Math.max(-2, Math.min(2, n));
-          if (this.calm()) { this.stopSpring(); return this.go(this.i + n, true); }
-          this._grab = null; this._goal = -n; this.spring();
+          if (this.calm()) { this.stopSpring(); this.go(this.i + n, true); return n; }
+          this._grab = null; this._goal = -n; this.spring(); return n;
         };
         st.addEventListener('dragstart', e => e.preventDefault());
         st.addEventListener('pointerdown', e => {
@@ -830,11 +830,13 @@
         st.addEventListener('lostpointercapture', e => { if (e.target === st) end(e); });
         // Trackpad (and Shift + wheel): the gesture's direction is read from its first few events.
         let axis = '', ax = 0, ay = 0, wx = 0, wT = -1e9, wLast = 0, wVel = 0, wDone = false;
-        const wRelease = () => { if (axis !== 'x' || wDone) return; wDone = true; settle(-this._grab, -wVel * 1000 / step); };
+        // Let go once the events pause; a gesture that has moved a look is done (its momentum tail is taken from the page
+        // and ignored), one that has not goes on from where it is if more comes.
+        const wRelease = () => { if (axis !== 'x' || wDone || this._grab == null) return; wDone = settle(-this._grab, -wVel * 1000 / step) !== 0; };
         st.addEventListener('wheel', e => {
           if (this.models.length < 2 || e.ctrlKey) return;
           const k = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1, dx = e.deltaX * k, dy = e.deltaY * k;
-          if (e.timeStamp - wT > 180) { axis = ''; ax = ay = wx = wVel = 0; wDone = false; }
+          if (e.timeStamp - wT > 240) { axis = ''; ax = ay = wx = wVel = 0; wDone = false; }
           const gap = e.timeStamp - wT; wT = e.timeStamp;
           if (!axis) {
             ax += dx; ay += dy;
@@ -845,10 +847,11 @@
           if (axis !== 'x') return;
           e.preventDefault();
           if (wDone) return;
+          if (this._grab == null) { startMove(); wx = 0; }
           // The content follows the fingers: a swipe to the left brings the next look in.
           wx += dx; const dtw = e.timeStamp - wLast; if (dtw > 0 && gap < 180) wVel = 0.7 * (-dx / dtw) + 0.3 * wVel; wLast = e.timeStamp;
           this._grab = base - wx / step; this.spring();
-          clearTimeout(this._wt); this._wt = setTimeout(wRelease, 110);
+          clearTimeout(this._wt); this._wt = setTimeout(wRelease, 170);
           if (Math.abs(wx) > step * 0.9) { clearTimeout(this._wt); wRelease(); }
         }, { passive: false });
       }
