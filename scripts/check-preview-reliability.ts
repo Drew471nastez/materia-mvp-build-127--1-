@@ -47,6 +47,8 @@ async function main() {
   const { bundle, css } = (await import("./editor-probe-harness.mjs")) as { bundle: string; css: string }
   let compat: unknown = null
   let assets: Record<string, string> = {}
+  /* The theme's pictures, which the import keeps apart from its text files (served by the asset route on the site). */
+  let binaries = new Map<string, Uint8Array>()
   if (target !== "native") {
     const r = await convertShopifyTheme(await zipOf(target))
     if (!r.ok) throw new Error(r.error)
@@ -55,6 +57,7 @@ async function main() {
     const pages = Object.fromEntries(r.theme.pages.map((p) => [p.page_key, p.sections]))
     compat = { settings: r.theme.settings, pages, sources, files }
     assets = r.theme.files
+    binaries = new Map(r.theme.binaries.map((b) => [b.name, b.bytes]))
     console.log(`${r.theme.name}: Add a section`)
   } else {
     console.log("Native default theme: Add a section")
@@ -90,6 +93,8 @@ async function main() {
     if (asset) {
       const name = decodeURIComponent(asset[1])
       const text = assets[`shopify/assets/${name}`]
+      const picture = binaries.get(name)
+      if (text === undefined && picture) { res.writeHead(200, { "Content-Type": ({ png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif", svg: "image/svg+xml", avif: "image/avif" } as Record<string, string>)[name.split(".").pop()!.toLowerCase()] ?? "application/octet-stream", "Access-Control-Allow-Origin": "*" }); res.end(Buffer.from(picture)); return }
       if (text === undefined) { res.writeHead(404, { "Access-Control-Allow-Origin": "*" }); res.end(); return }
       const type = name.endsWith(".css") ? "text/css" : name.endsWith(".js") ? "text/javascript" : name.endsWith(".svg") ? "image/svg+xml" : "text/plain"
       res.writeHead(200, { "Content-Type": type, "Access-Control-Allow-Origin": "*" })

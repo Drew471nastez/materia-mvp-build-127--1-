@@ -1758,6 +1758,8 @@ const SUITES = [
   "tests/theme-templates-r67.test.ts",
   /* Round 68, templates after the owner's notes: every button label reads on its fill in every template, and installed themes are fixed as they draw (lib/storelib-theme/compat/button-label.ts); the ebook's cover, book, logo and heading; Digital products' black announcement bar; the VSL funnel is Kitty, a money course; Digital Renaissance's new hero; Halfmoon in Inter; Digital products eleventh in Browse themes. Measured by scripts/check-button-labels-r68.mjs. */
   "tests/theme-templates-r68.test.ts",
+  /* Round 69: no broken picture in Add a section, on the canvas or the site, in any theme. Materia's placeholder made into a data: SVG carried preserveAspectRatio twice (fatal to an SVG file): the engine keeps the first of a repeated root attribute when an SVG becomes an address, so installed themes are fixed as they draw. An SVG never goes to the optimizer (the default theme's gallery cards). A card resolves the theme's own store pictures like the canvas. Measured by scripts/check-library-thumbs-r69.ts and scripts/check-preview-reliability.ts. */
+  "tests/library-thumbs-r69.test.ts",
   /* Round 68, two new templates: Coldframe, a LUT and video editing asset shop (lutshop), and Letterday, a five day challenge funnel (challenge) with an opt-in, an order bump, a one time offer and a thank you page; every colour from the theme's schemes, real credited photographs, no countdowns or income claims. Measured by scripts/check-theme-templates-new-r68.mjs. */
   "tests/theme-templates-new-r68.test.ts",
 ]
