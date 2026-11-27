@@ -8,6 +8,10 @@
  * database where that function was missing or failed, the page drew
  * "Nothing is live" over an empty library: a dead end with nothing to open.
  *
+ * Round 69: the starter is Creator Landing (STARTER_TEMPLATE below), not
+ * Storelib Default; what follows was written for Storelib Default and holds
+ * for it the same way.
+ *
  * Now the first visit installs Storelib Default the same way Browse themes
  * adds a template (lib/themes/template-install.ts): the Materia template
  * Browse themes shows as Storelib Default, the Sundry sample shop
@@ -39,15 +43,18 @@
  * from the signed-in caller, never from a request.
  */
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { DEFAULT_CODE_TEMPLATE, DEFAULT_TEMPLATE_NAME } from "@/lib/themes/marketplace-shared"
+import { STARTER_CODE_TEMPLATE, STARTER_WEBSITE_NAME } from "@/lib/themes/marketplace-shared"
 import { installCodeTemplate } from "@/lib/themes/template-install"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
-/** The template a new account starts with: the current Storelib Default (theme-packages/materia/templates/default). */
-export const STARTER_TEMPLATE = DEFAULT_CODE_TEMPLATE
-/** The starter website's name, Browse themes' own for it. */
-export const STARTER_NAME = DEFAULT_TEMPLATE_NAME
+/**
+ * The template a new account starts with. Changed on purpose (r69): Creator Landing
+ * (theme-packages/materia/templates/creator), never Storelib Default; why, at STARTER_CODE_TEMPLATE.
+ */
+export const STARTER_TEMPLATE = STARTER_CODE_TEMPLATE
+/** The starter website's name: the creator's website, not a template's name. */
+export const STARTER_NAME = STARTER_WEBSITE_NAME
 
 /** Whether a library of this size gets a starter: empty only, and never on a count that could not be read. */
 export function needsStarter(count: number | null | undefined): boolean {
@@ -83,7 +90,7 @@ export interface StarterDeps {
 }
 
 /**
- * Installs Storelib Default as a draft when the creator has no website.
+ * Installs the starter template (Creator Landing, round 69) as a draft when the creator has no website.
  * Idempotent; see the note at the top of this file.
  */
 export async function ensureStarterWebsite(db: Db, creatorId: string, who: { userId: string }, deps: StarterDeps = {}): Promise<StarterResult> {

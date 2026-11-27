@@ -67,7 +67,7 @@ import { buildThemePreset, getThemeDefinition, STORELIB_DEFAULT_ID, themeCatalog
 import { ensureStoreMenus } from "./store-menus-server"
 import { pointAtStoreMenus } from "./main-menu"
 import type { installCodeTemplate } from "@/lib/themes/template-install"
-import { DEFAULT_CODE_TEMPLATE } from "@/lib/themes/marketplace-shared"
+import { STARTER_CODE_TEMPLATE } from "@/lib/themes/marketplace-shared"
 import type { SectionInstance, ThemeSettingsValues } from "./types"
 
 /** How a new website starts. */
@@ -197,7 +197,8 @@ export async function createStartWebsite(
     (whose media folder the template's pictures go in) it is refused, not made the old way.
   */
   const blank = mode === "blank"
-  const template = input.template ?? (blank && input.userId ? { id: DEFAULT_CODE_TEMPLATE, userId: input.userId } : null)
+  /* Changed on purpose (r69): Start from blank is the starter template's frame (Creator Landing), never Storelib Default. */
+  const template = input.template ?? (blank && input.userId ? { id: STARTER_CODE_TEMPLATE, userId: input.userId } : null)
   if (blank && !template) return failed()
 
   /*

@@ -151,7 +151,8 @@ export async function WebsitePage({ create = false }: { /** The Create a website
 
   if (rows && rows.length === 0) {
     /*
-      An empty library: Storelib Default goes in as a draft, so there is a
+      An empty library: the starter template (Creator Landing since round 69,
+      never Storelib Default) goes in as a draft, so there is a
       website to open and nothing is live until the creator publishes it.
       The Materia template Browse themes shows (r63), its pictures stored in
       the owner's media folder, as Add stores them.

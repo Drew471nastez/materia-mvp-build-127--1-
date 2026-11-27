@@ -251,7 +251,8 @@ async function main() {
     const names = first.map((slug) => CODE_TEMPLATES.find((t) => t.slug === slug)?.name)
     /* Changed on purpose (r67): the owner: the Ebook in Clothing's place, and Notion creator, Digital studio and Fitness as a fourth row. */
     /* Changed on purpose (r68): the owner: Digital studio and Digital products swap places, so Digital products is eleventh. */
-    check("  Browse themes' first twelve: Storelib Default first, the Ebook, Notion templates, Night shop, Poster shop and Print on demand, then Notion creator, Digital products and Fitness", names.join("|") === "Storelib Default|Ebook|Merch|Digital studio|Art books|Notion templates|Night shop|Poster shop|Print on demand|Notion creator|Digital products|Fitness", names.join(", "))
+    /* Changed on purpose (r69): the owner, never the old Storelib Default first: Creator Landing, the starter template, in its place. */
+    check("  Browse themes' first twelve: Creator Landing first, the Ebook, Notion templates, Night shop, Poster shop and Print on demand, then Notion creator, Digital products and Fitness", names.join("|") === "Creator Landing|Ebook|Merch|Digital studio|Art books|Notion templates|Night shop|Poster shop|Print on demand|Notion creator|Digital products|Fitness", names.join(", "))
     check("  and the rest of the marketplace fills what is left, in its own order", /return \[\.\.\.first, \.\.\.listings\.filter\(\(l\) => !first\.includes\(l\)\)\]\.slice\(0, count\)/.test(client))
   }
   check("  with a Theme marketplace button beside the heading that opens the popup", /data-theme-marketplace-open="heading"[\s\S]{0,1200}\{tt\("Theme marketplace"\)\}/.test(client) && /text-\[14px\] font-semibold/.test(client) && !/MARKETPLACE_PATH/.test(client) && /<ThemeMarketplace\b/.test(client))

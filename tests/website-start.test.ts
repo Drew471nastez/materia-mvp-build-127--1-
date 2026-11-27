@@ -234,7 +234,7 @@ section("Creating it")
   const blankDb = fakeDb({ installs: [install()], themes: catalogue })
   const blankMade = await create({ supabase: blankDb.client, admin: blankDb.client }, { creatorId: "c1", mode: "blank", userId: "u1" }, { menus: noMenus, installTemplate: blankStub })
   check("Start from blank: the default template, its home page left blank, named New website",
-    blankMade.ok && blankMade.install.id === "made-blank" && JSON.stringify(blankCalls) === JSON.stringify([{ template: "default", name: "New website", blankHome: true, userId: "u1" }]), blankCalls)
+    blankMade.ok && blankMade.install.id === "made-blank" && JSON.stringify(blankCalls) === /* Changed on purpose (r69): Start from blank is Creator Landing's frame, never Storelib Default */ JSON.stringify([{ template: "creator", name: "New website", blankHome: true, userId: "u1" }]), blankCalls)
   check("  and no native install written beside it", blankDb.tables.installs.length === 1 && !blankDb.log.some((l) => l.startsWith("insert")))
   const noUser = fakeDb({ installs: [install()], themes: catalogue })
   const noUserRes = await create({ supabase: noUser.client, admin: noUser.client }, { creatorId: "c1", mode: "blank" }, { menus: noMenus, installTemplate: blankStub })

@@ -90,10 +90,12 @@ async function main() {
     const shown = mergeListings([native])
     check("a listing row naming the native theme is retired: never offered", !shown.some((l) => l.builtinThemeId) && shown.filter((l) => l.name === "Storelib Default").length === 1 && shown.find((l) => l.name === "Storelib Default")?.id === DEFAULT_TEMPLATE_LISTING_ID)
     check("Add theme takes no native theme any more (the old default is not offered)", BROWSABLE_THEME_IDS.length === 0 && /BROWSABLE_THEME_IDS\.includes\(def\.id\)/.test(code("app/api/website-builder/themes/add/route.ts")))
-    check("a first visit starts on it", STARTER_TEMPLATE === DEFAULT_CODE_TEMPLATE && STARTER_NAME === DEFAULT_TEMPLATE_NAME && !/getThemeDefinition|buildThemePreset|STORELIB_DEFAULT_ID/.test(code("lib/website-builder/starter-website.ts")))
+    /* Changed on purpose (r69): the owner, "when entering the website builder, it should not use the old Storelib default": a first visit starts on Creator Landing. */
+    check("a first visit never starts on it (Creator Landing, named My website)", STARTER_TEMPLATE === "creator" && STARTER_TEMPLATE !== DEFAULT_CODE_TEMPLATE && STARTER_NAME === "My website" && STARTER_NAME !== DEFAULT_TEMPLATE_NAME && !/getThemeDefinition|buildThemePreset|STORELIB_DEFAULT_ID/.test(code("lib/website-builder/starter-website.ts")))
     /* Changed on purpose (r69): the owner, "the AI should not use the old Storelib default": never its fallback. */
     check("the AI builder's fallback is never it", chooseMateriaTemplate({ prompt: "zzqx" }).template.template !== DEFAULT_CODE_TEMPLATE)
-    check("Start from blank names it", /DEFAULT_CODE_TEMPLATE/.test(code("lib/website-builder/create-website.ts")) && /userId: site\.ownerUserId \}/.test(code("app/api/website-builder/themes/create/route.ts")))
+    /* Changed on purpose (r69): Start from blank is the starter template's frame. */
+    check("Start from blank names the starter template, not it", /STARTER_CODE_TEMPLATE/.test(code("lib/website-builder/create-website.ts")) && !/DEFAULT_CODE_TEMPLATE/.test(code("lib/website-builder/create-website.ts")) && /userId: site\.ownerUserId \}/.test(code("app/api/website-builder/themes/create/route.ts")))
     check("the Website page and the initialize route pass the owner's id, for the pictures' folder",
       /ensureStarterWebsite\(createAdminClient\(\), creator\.id, \{ userId: access\.ownerUserId \}\)/.test(code("app/(storelib)/app/website-builder/website-page.tsx")) &&
         /ensureStarterWebsite\(admin, creator\.id, \{ userId: site\.ownerUserId \}\)/.test(code("app/api/website-builder/initialize/route.ts")))
@@ -101,20 +103,22 @@ async function main() {
     check("a public site with no website is the not published page, not a theme (unchanged)", /if \(found\.kind === "unpublished"\) return <SiteNotPublished/.test(read("app/(site)/w/[username]/render-site.tsx")))
   }
 
-  section("2. A first visit imports it for real")
+  /* Changed on purpose (r69): a first visit imports Creator Landing, measured the same way. */
+  section("2. A first visit imports the starter (Creator Landing) for real")
   {
     const db = dbWithStorage({ themes: [{ id: STORELIB_DEFAULT_ID }], store_theme_installs: [], store_theme_settings: [], store_theme_pages: [], store_theme_custom_files: [] })
     const made = await ensureStarterWebsite(db as never, CREATOR, { userId: USER })
     const installs = db.tables.store_theme_installs
     check("one website, made", made.created && installs.length === 1 && installs[0].id === made.installId, { made, installs })
-    check("  a draft named Storelib Default, an imported theme (not the native one's preset)", installs[0]?.status === "draft" && installs[0]?.name === "Storelib Default" && installs[0]?.is_custom === true, installs[0])
+    check("  a draft named My website, an imported theme (not the native one's preset)", installs[0]?.status === "draft" && installs[0]?.name === "My website" && installs[0]?.is_custom === true, installs[0])
     const pages = db.tables.store_theme_pages.filter((p) => p.install_id === made.installId)
     const home = (pages.find((p) => p.page_key === "home")?.sections ?? []) as { type: string; group?: string }[]
-    check("  its home page is the template's: the split hero, the products carousel, the FAQ", ["hero-split-media", "products-carousel", "faq-pro", "theme-header", "theme-footer"].every((t) => home.some((s) => s.type === t)), home.map((s) => s.type))
+    if (process.env.VERBOSE) console.log("  first visit home:", home.map((s) => s.type).join(", "))
+    check("  its home page is Creator Landing's: the hello, the shelves, the letter, in its own frame", ["creator-hello", "creator-shelf", "creator-letter", "theme-header", "theme-footer"].every((t) => home.some((s) => s.type === t)) && !home.some((s) => ["hero-split-media", "products-carousel"].includes(s.type)), home.map((s) => s.type))
     check("  with a product page and a collection page", pages.some((p) => p.page_key === "product") && pages.some((p) => p.page_key === "collection"), pages.map((p) => p.page_key))
     check("  no native section anywhere", !pages.some((p) => ((p.sections ?? []) as { type: string }[]).some((s) => ["hero", "feature_grid", "product_list", "cta"].includes(s.type))))
     const files = db.tables.store_theme_custom_files.filter((f) => f.install_id === made.installId)
-    check("  its files carry Sundry", files.some((f) => /Sundry/.test(String(f.content))), files.length)
+    check("  nothing of Sundry (Storelib Default's sample shop) in its files", files.length > 0 && !files.some((f) => /Sundry/.test(String(f.content))), files.length)
     check("  its pictures went to the owner's folder", db.uploads.length > 0 && db.uploads.every((u) => u.includes(`/${USER}/imported/`)), db.uploads.slice(0, 2))
     const again = await ensureStarterWebsite(db as never, CREATOR, { userId: USER })
     check("a second visit adds nothing", !again.created && db.tables.store_theme_installs.length === 1)
@@ -126,7 +130,7 @@ async function main() {
     const made = await createStartWebsite({ supabase: db as never, admin: db as never }, { creatorId: CREATOR, mode: "blank", userId: USER }, { menus: (async () => null) as never, installTemplate: installCodeTemplate })
     const id = made.ok ? made.install.id : ""
     const home = (db.tables.store_theme_pages.find((p) => p.install_id === id && p.page_key === "home")?.sections ?? []) as { type: string; group?: string }[]
-    check("a website named New website, from the default template", made.ok && (made.install as { template?: string }).template === "default" && db.tables.store_theme_installs.find((r) => r.id === id)?.name === "New website", made)
+    check("a website named New website, from the starter template (Creator Landing)", made.ok && (made.install as { template?: string }).template === "creator" && db.tables.store_theme_installs.find((r) => r.id === id)?.name === "New website", made)
     check("  its home page is the template's frame only", home.length > 0 && home.every((s) => !!s.group) && home.some((s) => s.type === "theme-header") && home.some((s) => s.type === "theme-footer"), home.map((s) => s.type))
     check("  its other pages are the template's", db.tables.store_theme_pages.filter((p) => p.install_id === id && p.page_key === "product").length === 1)
     check("homeChromeOnly leaves every other page alone", JSON.stringify(homeChromeOnly([{ page_key: "home", sections: [{ group: "header" }, {}] }, { page_key: "product", sections: [{}] }])) === JSON.stringify([{ page_key: "home", sections: [{ group: "header" }] }, { page_key: "product", sections: [{}] }]))
