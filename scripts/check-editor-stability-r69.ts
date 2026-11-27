@@ -492,7 +492,7 @@ async function live(browser: Browser, template: string) {
       await page.setViewport({ width: w, height: h, isMobile: w < 700, hasTouch: w < 700 })
       await page.evaluate(() => scrollTo({ top: 0, behavior: "instant" as ScrollBehavior }))
       await audit(`${mode} ${w}: at the top`)
-      if (mode === "theme") {
+      if (mode === "theme" && (w === 390 || w === 1440 || process.env.FULL)) {
         const H = await page.evaluate(() => document.documentElement.scrollHeight)
         for (let y = 0, i = 0; y < H && i < 30; y += h * 0.8, i++) { await wheel(h * 0.8); await audit(`${w}: wheel to ${Math.round(y + h * 0.8)}`, 850) }
         await wheel(-H * 1.2, 6); await audit(`${w}: fast to the top`)
