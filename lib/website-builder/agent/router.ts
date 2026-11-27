@@ -30,6 +30,7 @@
  */
 
 import { classifyIntent } from "./intent"
+import { purposeOfWords } from "./purpose-words"
 
 export type RouteAgent = "page" | "writer"
 export type RouteTarget = "element" | "block" | "section" | "page" | "theme"
@@ -59,6 +60,19 @@ export interface RouteInput {
   /** The sections already on the page (type and name), so "a new FAQ" beside an existing FAQ is a new one, never that one. */
   onPage?: { type: string; name?: string }[]
   hasHistory?: boolean
+  /**
+   * ROUND 69: what the box said Enter would do ("Editing: Hero", "New section
+   * below Hero", "Replacing: Hero"), from lib/website-builder/section-aim.ts.
+   * Honoured: the label the person read is the behaviour.
+   */
+  aim?: { kind: "edit" | "new" | "replace"; by?: "words" | "choice" }
+  /**
+   * ROUND 69: a site made from one of Storelib's templates (Materia): the
+   * purposes its own Materia sections cover. A new section for one of these
+   * is a Materia section, chosen and filled by the page assistant, not a new
+   * file written from nothing.
+   */
+  materiaPurposes?: string[]
 }
 
 export interface RouteDecision {
@@ -184,6 +198,27 @@ function namesAddable(thing: string, addable: { type: string; name?: string }[])
 }
 
 /**
+ * A NEW SECTION: the page assistant when the theme already has one for the job (it adds it and fills it), the
+ * section writer for a kind of its own. On a Materia site the job is read by purpose, so "a newsletter signup" is
+ * one of Materia's signup sections in the page's own style, not a file written from nothing (round 69).
+ */
+function newSection(input: RouteInput, words: string, reason: string): RuleDecision {
+  const said = words.replace(/\bsections?\b/gi, "")
+  const known = (!!input.addable && namesAddable(said, input.addable)) || materiaHas(words, input.materiaPurposes)
+  const own = input.images > 0 || OWN_KIND.test(words) || DIFFERENT.test(words)
+  const base = { target: "section" as const, lock: false, codeFocus: false, by: "rules" as const, ambiguous: false }
+  if (known && !own) return { ...base, agent: "page", reason: `${reason}: a kind the theme has` }
+  return { ...base, agent: "writer", reason: `${reason}: a kind of its own` }
+}
+
+/** The words ask for a job one of the site's Materia sections does. */
+export function materiaHas(words: string, purposes: string[] | undefined): boolean {
+  if (!purposes?.length) return false
+  const purpose = purposeOfWords(words)
+  return !!purpose && purposes.includes(purpose)
+}
+
+/**
  * The rules alone. Pure: tests/ask-unified-v.test.ts runs a table of prompts
  * and selections through it.
  */
@@ -243,11 +278,23 @@ export function routeByRules(input: RouteInput): RuleDecision {
   */
   if (scoped && sel && intent.settingsLayout) return decide("page", sectionTarget, true, hasFile, "the selection's settings panel")
 
+  /*
+    ROUND 69: THE BOX SAID WHAT ENTER DOES, AND IT IS DONE. "New section below Hero" is never written into the hero;
+    "Editing: Hero" never becomes a new section; "Replacing: Hero" puts a new one in its place. The lock is off for a
+    new one or a replacement, so the page assistant may add it, and on for an edit.
+  */
+  if (sel && input.aim?.kind === "replace") return decide("page", "section", false, false, "the open section, replaced")
+  if (input.aim?.kind === "new") return newSection(input, words, "a new section, as the box said")
+  if (scoped && sel && input.aim?.kind === "edit") {
+    const toCode = hasFile && !sel.blockId && (input.images > 0 || CODE_SHAPED.test(words) || intent.kind === "FUNCTIONAL_CHANGE" || intent.kind === "SECTION_REDESIGN" || !!intent.rebuild) && !(SETTING_SHAPED.test(words) && !CODE_SHAPED.test(words) && input.images === 0)
+    return decide("page", sectionTarget, true, toCode, "the open section, as the box said")
+  }
+
   /* "Copy this section" is a new one made from it; "make this section red" is the selection; "a new section below this section" is a new one placed by it. */
   const aboutThisOne = /\b(?:this|that|the selected)\s+section\b/i.test(words.replace(/\b(?:like|from|as|below|above|after|before|under|beneath|over|next to|beside)\s+(?:this|that|the selected)\s+(?:section|one)\b/gi, "")) && !/\b(?:copy|duplicate|clone|recreate|replicate)\b/i.test(words)
   if (NEW_SECTION.test(words) && !aboutThisOne) {
     const said = words.replace(/\bsections?\b/gi, "")
-    const known = !!input.addable && namesAddable(said, input.addable)
+    const known = (!!input.addable && namesAddable(said, input.addable)) || materiaHas(words, input.materiaPurposes)
     /*
       Round AK, the owner: "create a new FAQ section, something completely
       different" was routed as "a section the theme has" because the theme

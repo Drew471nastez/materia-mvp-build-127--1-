@@ -151,11 +151,12 @@ function main() {
 
   const chat = read("components/website-builder/theme-chat.tsx")
   const writeOne = chat.slice(chat.indexOf("const writeOne = React.useCallback("), chat.indexOf("const submit = React.useCallback("))
-  check("the spot is held before the request goes", writeOne.indexOf("onWriteStart?.(prompt)") > -1
-    && writeOne.indexOf("onWriteStart?.(prompt)") < writeOne.indexOf("await fetchSignedIn(() => fetch("))
+  /* Changed on purpose (r69): the spot is the chip's place, passed with the words. */
+  check("the spot is held before the request goes", writeOne.indexOf("onWriteStart?.(prompt, writePlace.current)") > -1
+    && writeOne.indexOf("onWriteStart?.(prompt, writePlace.current)") < writeOne.indexOf("await fetchSignedIn(() => fetch("))
   /* The ending is lib/website-builder/ask-code-run.ts (finishWrite), driven for real in tests/ask-images-u.test.ts. */
   const codeRun = read("lib/website-builder/ask-code-run.ts")
-  check("a section that was kept is handed over by type", /place: \(section\) => \(onWriteDone \? onWriteDone\(section\) : false\)/.test(writeOne) && /const section = \{ type, name: answer\.name, path: answer\.path \}/.test(codeRun))
+  check("a section that was kept is handed over by type", /place: async \(section\) => \{[\s\S]{0,200}await onWriteDone\(\{ \.\.\.section, snapshotted: true \}\)/.test(writeOne) /* Changed on purpose (r69): placed as one run, for Keep and Discard. */ && /const section = \{ type, name: answer\.name, path: answer\.path \}/.test(codeRun))
   check("anything else lets go of the spot, and says why", /finally \{[\s\S]{0,200}if \(!kept\) onWriteFailed\?\.\(done\?\.reply \?\? done\?\.error \?\? "The section could not be written\.", answered\)/.test(writeOne))
   check("the editor failing to place it is not reported as the write failing",
     /\} catch \{\s*placed = false\s*\}/.test(codeRun) && /is written\. Add it from Add Section, under Created\./.test(codeRun))

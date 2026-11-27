@@ -5756,7 +5756,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * the redo stack, so Redo brings the run back. Only on the page the run
    * was made on; anywhere else it answers false and the chat stops offering.
    */
-  const aiRuns = useRef(new Map<string, { page: string; before: { sections: SectionInstance[]; settings: ThemeSettingsValues } }>())
+  /*
+    ROUND 69: AND THE FILES IT WROTE. A run that changed the open section's code (or wrote a new section) kept the
+    file's text from before its first write here, so Discard puts the code back too, through the same save the code
+    editor uses. A file the run created has nothing to go back to (null): its section leaves the page with the
+    snapshot, and the file stays under Created by you, never deleted.
+  */
+  const aiRuns = useRef(new Map<string, { page: string; before: { sections: SectionInstance[]; settings: ThemeSettingsValues }; files: Record<string, string | null> }>())
+  /** The run whose writes are being recorded now. */
+  const aiRunNow = useRef<string | null>(null)
   /* When the latest run started (Date.now()): its end brings what it changed into view only if the canvas was left where it was. */
   const aiRunStartedAt = useRef(0)
   const startAiRun = useCallback(
@@ -5765,7 +5773,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       const before = snapshotNow()
       setUndoStack(prev => [...prev.slice(-30), before])
       setRedoStack([])
-      if (runId) aiRuns.current.set(runId, { page: currentPageRef.current, before })
+      if (runId) aiRuns.current.set(runId, { page: currentPageRef.current, before, files: {} })
+      aiRunNow.current = runId ?? null
       /* That snapshot is the run's one step: its operations, however far apart, add none (undo-run.ts, hold). */
       undoRun.hold()
     },
@@ -5776,6 +5785,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       const run = aiRuns.current.get(runId)
       if (!run || run.page !== currentPageRef.current) return false
       aiRuns.current.delete(runId)
+      if (aiRunNow.current === runId) aiRunNow.current = null
+      const putBack = Object.entries(run.files).filter((entry): entry is [string, string] => typeof entry[1] === "string")
+      if (putBack.length) {
+        setStorelibSources((previous) => ({ ...previous, ...Object.fromEntries(putBack) }))
+        for (const [path, content] of putBack) {
+          void fetch(`/api/website-builder/themes/${installId}/files`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path, content }) })
+            .then((res) => { if (!res.ok) toast.error(`${path.replace(/^sections\//, "")} could not be put back`) })
+            .catch(() => toast.error(`${path.replace(/^sections\//, "")} could not be put back`))
+        }
+      }
       const stack = undoRef.current
       if (stack[stack.length - 1] === run.before) {
         handleUndo()
@@ -5787,7 +5806,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setIsDirty(true)
       return true
     },
-    [handleUndo, snapshotNow],
+    [handleUndo, snapshotNow, installId],
   )
 
   const pageChangeRef = useRef(handlePageChange)
@@ -8450,12 +8469,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * open, or the end of the page above the footer.
    */
   const handleWriteStart = useCallback(
-    (prompt: string) => {
+    (prompt: string, place?: { selectedId?: string; near?: "after" | "before"; end?: "top" | "bottom" }) => {
       const current = sectionsRef.current
       const chosenIndex =
         canvasInsertAt != null ? bodyGapToListIndex(current, canvasInsertAt) : pendingInsertIndex
       const next = {
-        anchor: writingAnchor(current, { chosenIndex, selectedId: selectedSectionId, prompt }),
+        /* Round 69: `place` is where the chat's chip said it goes ("New section below Hero"). */
+        anchor: writingAnchor(current, { chosenIndex, selectedId: selectedSectionId, prompt, place }),
         prompt,
         page: currentPageRef.current,
       }
@@ -8495,7 +8515,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   const handleWriteDone = useCallback(
     /* The new section's id when it is on the page: the chat hands it back to aiRunFinished, which glides to it and rings it once. */
-    async ({ type }: { type: string; name: string; path: string }): Promise<string | false> => {
+    async ({ type, snapshotted }: { type: string; name: string; path: string; snapshotted?: boolean }): Promise<string | false> => {
       const writing = aiWritingRef.current
       /* The file is new, so the canvas has to fetch it before it can draw it. */
       const files = await loadStorelibSources()
@@ -8521,7 +8541,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         canvas.style.overflowAnchor = "none"
         window.setTimeout(() => { canvas.style.overflowAnchor = "" }, 1400)
       }
-      pushUndo()
+      /* The chat's run took the snapshot already (round 69, Keep and Discard under the section): one undo step, not two. */
+      if (!snapshotted) pushUndo()
       setSections((previous) => placeWrittenSection(previous, writing.anchor, instanceFromSchema(id, type, schema)))
       const placed = { ...writing, placedId: id }
       aiWritingRef.current = placed
@@ -11606,6 +11627,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const pendingAiSources = useRef<Record<string, string>>({})
   const aiSourceFlush = useRef<Promise<void> | null>(null)
   const aiSourceWritten = useCallback((path: string, source: string) => {
+    /* Round 69: the text before the run's first write of this file, for Discard (undoAiRun). */
+    const run = aiRunNow.current ? aiRuns.current.get(aiRunNow.current) : undefined
+    if (run && !(path in run.files)) run.files[path] = pendingAiSources.current[path] ?? storelibSourcesRef.current[path] ?? null
     pendingAiSources.current[path] = source
     if (aiSourceFlush.current) return
     // A streamed run may write several files before the next frame. Fold

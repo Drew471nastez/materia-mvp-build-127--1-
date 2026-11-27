@@ -13836,7 +13836,16 @@ const words: Record<string, string> = {
  "{name} comes with blocks for selling Notion templates. Add them under yours?": "{name} include blocchi per vendere template Notion. Aggiungerli sotto i tuoi?",
  "Add blocks": "Aggiungi blocchi",
  "The code editor did not open": "L'editor di codice non si è aperto",
- "You may have been signed out in another tab.": "Potresti essere stato disconnesso in un'altra scheda."
+ "You may have been signed out in another tab.": "Potresti essere stato disconnesso in un'altra scheda.",
+ "Replacing:": "Sostituisci:",
+ "Move where it goes": "Cambia posizione",
+ "New section instead": "Meglio una nuova sezione",
+ "Edit {name} instead": "Meglio modificare {name}",
+ "above {name}": "sopra {name}",
+ "below {name}": "sotto {name}",
+ "at the end of the page": "in fondo alla pagina",
+ "at the top of the page": "in cima alla pagina",
+ "Describe the new section": "Descrivi la nuova sezione"
 }
 
 export default words

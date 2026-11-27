@@ -171,6 +171,11 @@ const BodySchema = z.object({
    */
   lockToSelection: z.boolean().optional(),
   /**
+   * Round 69: what the box said Enter does (lib/website-builder/section-aim.ts):
+   * edit the open section, a new section at `index`, or the open one replaced.
+   */
+  aim: z.object({ kind: z.enum(["edit", "new", "replace"]), by: z.enum(["words", "choice"]).optional(), index: z.number().int().min(0).max(500).optional(), where: z.enum(["below", "above", "top", "bottom"]).optional() }).optional(),
+  /**
    * The creator is in Code a section with a section open: the change goes
    * into that section's code (lib/website-builder/agent/loop.ts, codeFocus).
    * Honoured only with a section that resolved on this page.
@@ -405,7 +410,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           below this" asks for a new one, and is not read as the open section to be rethought.
         */
         const openShape = body.lockToSelection === true || body.codeFocus === true ? null : selectedShapeOf(body.sections as never, body.selectedSectionId, (type) => (SECTION_SCHEMAS[type]?.blocks ?? []).map((b) => String((b as { type?: unknown }).type ?? "")))
-        const asksForNew = !!openShape && readSelection(body.prompt, openShape).aim === "new" ? true : !!openShape && resolveTarget({ prompt: asked, sections: body.sections, selectedId: body.selectedSectionId }).action === "add"
+        const asksForNew = body.aim?.kind === "new" || body.aim?.kind === "replace" ? true : body.aim?.kind === "edit" ? false : !!openShape && readSelection(body.prompt, openShape).aim === "new" ? true : !!openShape && resolveTarget({ prompt: asked, sections: body.sections, selectedId: body.selectedSectionId }).action === "add"
         const intent = classifyIntent(asked, {
           selected: !!body.selectedSectionId && !asksForNew,
           locked: body.lockToSelection === true && !!body.selectedSectionId,
@@ -789,8 +794,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           addable: [...ADDABLE_SECTIONS, ...customAddableSections(customSectionSchemas(agentSources))],
           selectedSectionId: selected?.id,
           selected,
-          lockToSelection: body.lockToSelection === true && !!selected,
+          lockToSelection: body.lockToSelection === true && !!selected && body.aim?.kind !== "new" && body.aim?.kind !== "replace",
           codeFocus: body.codeFocus === true && !!selected,
+          ...(body.aim ? { selectionAim: { kind: body.aim.kind, index: body.aim.index } } : {}),
           /* Read its work back against the request once before finishing, for anything built, coded or from a picture. */
           selfCheck: "auto",
           /* The agentic layer: what kind of request, a plan for a big one, the site's memory, the whole page checked, and a look at it in a browser. */

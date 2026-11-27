@@ -339,7 +339,7 @@ section("A section open is not always the subject")
 
   check("a new section asked for with one open is not classed as the open one rethought", classifyIntent("add a modern pricing section below this", { selected: false }).kind !== "SECTION_REDESIGN" && classifyIntent("add a modern pricing section below this", { selected: true }).kind === "SECTION_REDESIGN")
   const route = code("app/api/website-builder/themes/[installId]/agent/route.ts")
-  check("the route reads the open section before classifying the request", /const asksForNew = !!openShape && readSelection\(body\.prompt, openShape\)\.aim === "new"/.test(route) && /selected: !!body\.selectedSectionId && !asksForNew/.test(route))
+  check("the route reads the open section before classifying the request", /const asksForNew = body\.aim\?\.kind === "new" \|\| body\.aim\?\.kind === "replace" \? true : body\.aim\?\.kind === "edit" \? false : !!openShape && readSelection\(body\.prompt, openShape\)\.aim === "new"/.test(route) /* Changed on purpose (r69): the chip\'s aim is read first. */ && /selected: !!body\.selectedSectionId && !asksForNew/.test(route))
 }
 
 // ===========================================================================

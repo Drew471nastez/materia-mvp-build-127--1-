@@ -74,14 +74,17 @@ export interface WritingAnchor {
  */
 export function writingAnchor(
   sections: SectionInstance[],
-  opts: { chosenIndex?: number | null; selectedId?: string | null; prompt?: string } = {},
+  opts: { chosenIndex?: number | null; selectedId?: string | null; prompt?: string; place?: { selectedId?: string; near?: "after" | "before"; end?: "top" | "bottom" } } = {},
 ): WritingAnchor {
   let index: number
-  const selected = opts.selectedId ? sections.findIndex((s) => s.id === opts.selectedId) : -1
+  /* Round 69: the place the chat's chip showed ("New section below Hero") wins over reading the words again. */
+  const place = opts.place
+  const selectedId = place?.selectedId ?? opts.selectedId
+  const selected = selectedId ? sections.findIndex((s) => s.id === selectedId) : -1
   /* Asked to go under or over the open section, in so many words. */
-  const near = opts.prompt ? /\b(?:below|under|after|beneath|underneath)\s+(?:this|that|it|the selected)\b/i.test(opts.prompt) ? "after" : /\b(?:above|before|over)\s+(?:this|that|it|the selected)\b/i.test(opts.prompt) ? "before" : null : null
+  const near = place?.near ?? (opts.prompt ? /\b(?:below|under|after|beneath|underneath)\s+(?:this|that|it|the selected)\b/i.test(opts.prompt) ? "after" : /\b(?:above|before|over)\s+(?:this|that|it|the selected)\b/i.test(opts.prompt) ? "before" : null : null)
   /* At the end, said in words. */
-  const atEnd = !!opts.prompt && /\b(?:at|to)\s+the\s+(?:end|bottom)\b|\bbottom of the page\b|\blast section\b/i.test(opts.prompt)
+  const atEnd = place?.end === "bottom" || (!place?.end && !!opts.prompt && /\b(?:at|to)\s+the\s+(?:end|bottom)\b|\bbottom of the page\b|\blast section\b/i.test(opts.prompt))
   if (opts.chosenIndex != null) index = clampToBody(sections, opts.chosenIndex)
   else if (near && selected !== -1 && groupOf(sections[selected]) === "template") {
     index = clampToBody(sections, near === "after" ? selected + 1 : selected)

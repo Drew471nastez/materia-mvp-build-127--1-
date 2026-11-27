@@ -3118,7 +3118,7 @@ check(
     /setLockOn\(true\)\n  \}, \[selectedSectionId\]\)/.test(chat),
   )
   check("and it can be cleared to edit the whole page", /setLockOn\(false\)/.test(chat))
-  check("the panel actually sends it, or what the router widened it to", /const lockNow = opts\.lock \?\? live\.current\.locked/.test(chat) && /lockToSelection: lockNow,/.test(chat))
+  check("the panel actually sends it, or what the router widened it to", /const lockNow = \(opts\.lock \?\? live\.current\.locked\) && opts\.aim\?\.kind !== "new"/.test(chat) && /lockToSelection: lockNow && opts\.aim\?\.kind !== "new"/.test(chat)) /* Changed on purpose (r69): a new section or a replacement is never sent locked. */
 }
 
 check(

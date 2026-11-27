@@ -124,6 +124,9 @@ import {
 import { attachProblem, fileKey, kindOf, newFiles, pastedFiles, pictureFingerprint, stillsRoom } from "@/lib/website-builder/ask-attach"
 import { finishWrite, readWriteAnswer, type WriteOutcome } from "@/lib/website-builder/ask-code-run"
 import { blockAtKey, decideRoute, scopeName, writerAtOnce } from "@/lib/website-builder/ask-route"
+import { aimWire, resolveAim, writerPlace, type AimChoice, type AimWhere, type AimWire, type WriterPlace } from "@/lib/website-builder/section-aim"
+import { selectedShapeOf } from "@/lib/website-builder/agent/selection-intent"
+import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { anchorAt, composeDictation, spokenSince, type DictationAnchor } from "@/lib/website-builder/ask-dictation"
 import { uploadAskImage } from "@/lib/website-builder/ask-image-upload"
 import { imageAnswer, imageOp, type QuestionAction } from "@/lib/sites/agent/questions"
@@ -195,6 +198,8 @@ interface Exchange {
   /** The editor's snapshot for this run, which Undo restores. */
   runId?: string
   undone?: boolean
+  /** Round 69: Keep was pressed, so the change is no longer on review (Undo stays offered in the line under it). */
+  kept?: boolean
   /**
    * Which agent answered, as the router decided (lib/website-builder/agent/router.ts):
    * a new section ("code") is retried through the writer; `codeFocus` is an
@@ -316,6 +321,7 @@ const ExchangeItem = React.memo(function ExchangeItem({
   canContinue = false,
   onContinue,
   onUndo,
+  onKeep,
   onView,
   onOpenCode,
   onReport,
@@ -335,6 +341,8 @@ const ExchangeItem = React.memo(function ExchangeItem({
   canContinue?: boolean
   onContinue?: (exchange: Exchange) => void
   onUndo: (exchange: Exchange) => void
+  /** Round 69: Keep under a change that is still on review. */
+  onKeep?: (exchange: Exchange) => void
   onView: (images: ViewableImage[], at: number) => void
   onOpenCode?: (path: string) => void
   onReport: (exchange: Exchange, reason: string) => Promise<ReportState>
@@ -565,6 +573,32 @@ const ExchangeItem = React.memo(function ExchangeItem({
       */}
       <StepsTimeline rows={rows} open={exchange.running || (stepsOpen && hasWork)} onOpenCode={onOpenCode} />
 
+      {/*
+        ROUND 69: THE CHANGE IS ON THE CANVAS AS A DRAFT, AND IT IS THEIRS TO KEEP. Keep in the builder's own near
+        black, Discard beside it, which takes back the whole run: its settings, its blocks, a section it placed and the
+        code it wrote. Nothing is live until Publish either way.
+      */}
+      {!exchange.running && canUndo && !exchange.undone && !exchange.kept && onKeep && (
+        <div data-ask-review="" className={cn("flex items-center gap-2", arrive)}>
+          <button
+            type="button"
+            data-ask-keep=""
+            onClick={() => onKeep(exchange)}
+            className={cn("inline-flex items-center rounded-full bg-[#1a1a2e] px-3.5 font-medium text-white transition-colors hover:bg-black", phone ? "h-10 text-[14px]" : "h-8 text-[12.5px]")}
+          >
+            {tt("Keep")}
+          </button>
+          <button
+            type="button"
+            data-ask-discard=""
+            onClick={() => onUndo(exchange)}
+            className={cn("inline-flex items-center rounded-full border border-[#e5e7eb] bg-white px-3.5 text-[#1a1a2e]/75 transition-colors hover:border-[#1a1a2e]/25 hover:text-[#1a1a2e]", phone ? "h-10 text-[14px]" : "h-8 text-[12.5px]")}
+          >
+            {tt("Discard")}
+          </button>
+        </div>
+      )}
+
       {!exchange.running && (exchange.reply || exchange.error || count || hasWork || question) && (
         <div className="min-w-0">
           <AnswerMeta
@@ -572,7 +606,7 @@ const ExchangeItem = React.memo(function ExchangeItem({
             steps={stepsLabel(finished.length, !!activity.plan || activity.code.length > 0)}
             stepsOpen={stepsOpen}
             onToggleSteps={() => setStepsOpen((open) => !open)}
-            undo={exchange.undone ? "done" : canUndo ? "available" : null}
+            undo={exchange.undone ? "done" : canUndo && (exchange.kept || !onKeep) ? "available" : null}
             onUndo={() => onUndo(exchange)}
             copyText={(exchange.reply ? tidyReply(exchange.reply).map((p) => (p.kind === "li" ? `• ${p.text}` : p.text)).join("\n") : null) ?? detail ?? question?.question ?? ""}
             canReport={!!exchange.messageId}
@@ -741,9 +775,11 @@ function ThemeChatPanel({
    * could (false when the creator has moved to another page meanwhile);
    * failed lets go of the spot. See lib/website-builder/ai-placement.ts.
    */
-  onWriteStart?: (prompt: string) => void
+  /** Round 69: `place` is where the box said a new section goes ("below Hero"), from lib/website-builder/section-aim.ts. */
+  onWriteStart?: (prompt: string, place?: WriterPlace) => void
   /** The placed section's id (the canvas glides to it and rings it), true without one, or false when it could not be placed. */
-  onWriteDone?: (section: { type: string; name: string; path: string }) => Promise<string | boolean> | string | boolean
+  /** `snapshotted`: the chat took the run's undo snapshot already (round 69), so the editor does not push a second. */
+  onWriteDone?: (section: { type: string; name: string; path: string; snapshotted?: boolean }) => Promise<string | boolean> | string | boolean
   /** Nothing was written: `answered` when it replied in words instead, which is not a failure. */
   onWriteFailed?: (reason: string, answered?: boolean) => void
   /** A writer started at Enter (writerAtOnce) that the server sent to the page assistant instead: the spot goes and the chat comes back. */
@@ -982,6 +1018,27 @@ function ThemeChatPanel({
     setLockOn(true)
   }, [selectedSectionId])
 
+  /**
+   * ROUND 69: EDIT IT, OR A NEW SECTION. Read from the words as they are
+   * typed (lib/website-builder/section-aim.ts) and said on the chip: "Editing:
+   * Hero", or "New section below Hero". One tap beside it switches, and the
+   * tap is kept until another section is selected or the message goes. What
+   * the chip says is what is sent, and the server honours it.
+   */
+  const [aimChoice, setAimChoice] = React.useState<AimChoice>("auto")
+  const [aimWhere, setAimWhere] = React.useState<AimWhere | null>(null)
+  /** Round 69: where the writer puts the section this message asks for, from the chip at Enter. */
+  const writePlace = React.useRef<WriterPlace | undefined>(undefined)
+  React.useEffect(() => {
+    setAimChoice("auto")
+    setAimWhere(null)
+  }, [selectedSectionId])
+  const selectedShape = React.useMemo(
+    () => (selectedSection && lockOn ? selectedShapeOf(sections as never, selectedSection.id, (type) => (SECTION_SCHEMAS[type]?.blocks ?? []).map((b) => String((b as { type?: unknown }).type ?? ""))) : null),
+    [sections, selectedSection, lockOn],
+  )
+  const aim = React.useMemo(() => resolveAim({ prompt: draft, selected: selectedShape, choice: aimChoice, where: aimWhere }), [draft, selectedShape, aimChoice, aimWhere])
+
   const chosenEngine = engineOf(engine)
   /* Which models the creator's own AI answers, if they have connected one: "Your key" beside them in the menu. */
   const ownAi = useOwnAi()
@@ -1009,8 +1066,8 @@ function ThemeChatPanel({
    */
   const blockId = selectedBlock ? selectedBlockId : undefined
   const blockType = selectedBlock?.type
-  const live = React.useRef({ sections, settings, page, selectedSectionId, blockId, blockType, locked, engine: chosenEngine, conversation, exchanges: 0 })
-  live.current = { sections, settings, page, selectedSectionId, blockId, blockType, locked, engine: chosenEngine, conversation, exchanges: exchanges.length }
+  const live = React.useRef({ sections, settings, page, selectedSectionId, blockId, blockType, locked, engine: chosenEngine, conversation, exchanges: 0, aim })
+  live.current = { sections, settings, page, selectedSectionId, blockId, blockType, locked, engine: chosenEngine, conversation, exchanges: exchanges.length, aim }
 
   /**
    * WHAT TO ASK NEXT, from where the creator is: the section they have open,
@@ -1508,7 +1565,7 @@ function ThemeChatPanel({
        * is not the words sent, an answer that put a picture in ("Upload
        * image", with the picture), while the run reads the whole sentence.
        */
-      opts: { codeFocus?: boolean; lock?: boolean; display?: string; shown?: Attachment[]; into?: string } = {},
+      opts: { codeFocus?: boolean; lock?: boolean; display?: string; shown?: Attachment[]; into?: string; aim?: AimWire } = {},
     ) => {
       const prompt = text.trim()
       /**
@@ -1570,7 +1627,7 @@ function ThemeChatPanel({
       let subject = ""
       const tell = () => onWorkingChange?.([...working], subject || undefined)
       /* The router may widen the chip's scope ("now do the whole page"); without a decision, the chip decides. */
-      const lockNow = opts.lock ?? live.current.locked
+      const lockNow = (opts.lock ?? live.current.locked) && opts.aim?.kind !== "new" && opts.aim?.kind !== "replace"
       if (lockNow && live.current.selectedSectionId) {
         working.add(live.current.selectedSectionId)
         tell()
@@ -1621,7 +1678,9 @@ function ThemeChatPanel({
             settings: live.current.settings,
             selectedSectionId: live.current.selectedSectionId,
             ...(live.current.blockId && live.current.blockType ? { selectedBlockId: live.current.blockId, selectedBlockType: live.current.blockType } : {}),
-            lockToSelection: lockNow,
+            lockToSelection: lockNow && opts.aim?.kind !== "new" && opts.aim?.kind !== "replace",
+            /* Round 69: what the chip said Enter does: the open section, a new one at its place, or the open one replaced. */
+            ...(opts.aim ? { aim: opts.aim } : {}),
             /* The router said the change goes into the selected section's code. */
             ...(opts.codeFocus ? { codeFocus: true } : {}),
             provider: live.current.engine.provider,
@@ -1731,6 +1790,12 @@ function ThemeChatPanel({
                 /* Checked already: drawn now, saved when the run ends. The step that wrote it changed its sections. */
                 if (typeof event.path === "string" && typeof event.source === "string") {
                   wroteCode = true
+                  /* Round 69: a run that only changes code is one Discard away too: the snapshot, and the file's text before it (editor undoAiRun). */
+                  if (!snapshotTaken) {
+                    onRunStart(runId)
+                    snapshotTaken = true
+                    patch((e) => ({ ...e, runId }))
+                  }
                   onSourceWritten?.(event.path, event.source)
                 }
                 for (const id of stepSections) changed.add(id)
@@ -1952,7 +2017,7 @@ function ThemeChatPanel({
       let subject = tt("New section")
       const tell = () => onWorkingChange?.([WRITING_SECTION_ID], subject)
       /* Started at Enter already (dispatch, writerAtOnce): the spot is held and the canvas is on its way to it. */
-      if (!into || startedEarly.current !== into) onWriteStart?.(prompt)
+      if (!into || startedEarly.current !== into) onWriteStart?.(prompt, writePlace.current)
       startedEarly.current = null
       tell()
       /* The section arrives on the canvas: the dock gets out of its way while it does, and the folded pill says where it is. */
@@ -2009,8 +2074,16 @@ function ThemeChatPanel({
         })
         /* The compiler's own words are for the code editor, not for this chat; the detail stays in the console. */
         if (answer.errors?.length) console.warn("[storelib ai] section did not compile", answer.errors)
+        /* Round 69: the section lands as one run, so Keep and Discard under it work as they do for an edit. */
+        const writeRun = crypto.randomUUID()
         outcome = await finishWrite(answer, {
-          place: (section) => (onWriteDone ? onWriteDone(section) : false),
+          place: async (section) => {
+            if (!onWriteDone) return false
+            onRunStart(writeRun)
+            const placed = await onWriteDone({ ...section, snapshotted: true })
+            if (placed !== false) patch((e) => ({ ...e, runId: writeRun }))
+            return placed
+          },
           finished: (ids) => onRunFinished?.(ids),
           plainError: plainWriteError,
         })
@@ -2101,7 +2174,14 @@ function ThemeChatPanel({
           selectedBlockType: now.blockType,
           scoped: now.locked,
           hasHistory: now.exchanges > 0,
+          /* Round 69: what the chip said Enter does, as it was at Enter. */
+          ...(now.aim ? { aim: { kind: now.aim.kind, by: now.aim.by } } : {}),
         }
+        const wire = aimWire(now.aim)
+        writePlace.current = writerPlace(now.aim, now.selectedSectionId)
+        /* The tap was for this message; the next one is read from its own words. */
+        setAimChoice("auto")
+        setAimWhere(null)
         /*
           A NEW SECTION GOES TO ITS SPOT AT ENTER (round 18). The rules the
           server runs first say "the writer" for most asks for a section of
@@ -2115,7 +2195,7 @@ function ThemeChatPanel({
         const early = !writing && !busy && writerAtOnce(ask)
         if (early) {
           startedEarly.current = into
-          onWriteStart?.(prompt)
+          onWriteStart?.(prompt, writePlace.current)
           onWorkingChange?.([WRITING_SECTION_ID], tt("New section"))
         }
         const route = await asked
@@ -2126,7 +2206,7 @@ function ThemeChatPanel({
             onWorkingChange?.([])
             onWriteCancel?.()
           }
-          void send(prompt, images, true, { codeFocus: route.codeFocus, lock: route.lock, into })
+          void send(prompt, images, true, { codeFocus: route.codeFocus, lock: route.lock, into, aim: wire })
         }
       } finally {
         routing.current = false
@@ -2268,6 +2348,15 @@ function ThemeChatPanel({
       patchExchange(exchange.id, (e) => ({ ...e, undone: done, runId: done ? e.runId : undefined }))
     },
     [onUndoRun, patchExchange],
+  )
+
+  /** Round 69: Keep. The change stays as it is; Undo is still in the line under it. */
+  const keepRun = React.useCallback(
+    (exchange: Exchange) => {
+      patchExchange(exchange.id, (e) => ({ ...e, kept: true }))
+      hapticTap("light")
+    },
+    [patchExchange],
   )
 
   const reportOne = React.useCallback(
@@ -2837,11 +2926,41 @@ function ThemeChatPanel({
                   ? tt("Add a note, or just send")
                   : openQuestion
                     ? tt("Or type your answer")
-                    : locked
+                    : aim?.kind === "new"
+                      ? tt("Describe the new section")
+                      : locked
                       ? tt("Describe the change")
                       : exchanges.length
                       ? tt("Continue the conversation")
                       : tt("Ask for a change")
+
+  /*
+    ROUND 69: THE CHIP'S TWO READINGS. With a section open: "Editing: Hero" and "New section instead", or "New
+    section below Hero" and "Edit Hero instead"; the arrows on a new one flip above and below. With nothing open, only
+    when the words ask for a section: where it goes, top or end of the page.
+  */
+  const sectionName = selectedSection ? scopeName(selectedSection as never, null) : ""
+  const scopeAim = React.useMemo(() => {
+    if (!aim) return null
+    if (!selectedSection) {
+      if (aim.kind !== "new") return null
+      return { kind: "new" as const, place: aim.where === "bottom" ? tt("at the end of the page") : tt("at the top of the page"), onPlace: () => setAimWhere(aim.where === "bottom" ? "top" : "bottom") }
+    }
+    if (!locked) return null
+    if (aim.kind === "edit") return { kind: "edit" as const, switchLabel: tt("New section instead"), onSwitch: () => setAimChoice("new") }
+    if (aim.kind === "replace") return { kind: "replace" as const, switchLabel: tt("Edit {name} instead", { name: sectionName }), onSwitch: () => setAimChoice("edit") }
+    const where = aim.where ?? "below"
+    return {
+      kind: "new" as const,
+      place: where === "above" ? tt("above {name}", { name: sectionName }) : where === "below" ? tt("below {name}", { name: sectionName }) : where === "bottom" ? tt("at the end of the page") : tt("at the top of the page"),
+      onPlace: () => {
+        setAimChoice("new")
+        setAimWhere(where === "below" ? "above" : "below")
+      },
+      switchLabel: tt("Edit {name} instead", { name: sectionName }),
+      onSwitch: () => setAimChoice("edit"),
+    }
+  }, [aim, selectedSection, locked, sectionName])
 
   /* Undo is offered on the newest run that changed this page, while this is still the page. */
   const undoable = React.useMemo(() => {
@@ -2850,7 +2969,8 @@ function ThemeChatPanel({
       const e = exchanges[i]
       if (e.running) return null
       if (!e.runId && !e.undone) continue
-      if (e.undone || e.page !== page || e.activity.code.length > 0) return null
+      /* Round 69: a run that wrote code is undone too: the editor kept each file's text from before it (undoAiRun). */
+      if (e.undone || e.page !== page) return null
       return e.id
     }
     return null
@@ -3104,6 +3224,7 @@ function ThemeChatPanel({
                     canContinue={idle && !!exchange.canContinue && index === exchanges.length - 1}
                     onContinue={carryOnNow}
                     onUndo={undoRun}
+                    onKeep={keepRun}
                     onView={viewImages}
                     onOpenCode={onOpenCodeEditor}
                     onReport={reportOne}
@@ -3209,7 +3330,14 @@ function ThemeChatPanel({
             onLock={() => setLockOn(true)}
             onUnlock={() => setLockOn(false)}
             phone={phone}
+            aim={scopeAim}
           />
+        </div>
+      )}
+      {/* Round 69: nothing selected, and the words ask for a section: where it goes, said before Enter. */}
+      {!selectedSection && scopeAim && (
+        <div data-ask-scope-row="" data-ask-aim-row="" className="mb-2 flex min-w-0 flex-nowrap items-center gap-2">
+          <ScopeChip name="" locked={false} onLock={() => {}} onUnlock={() => {}} phone={phone} aim={scopeAim} />
         </div>
       )}
     </div>

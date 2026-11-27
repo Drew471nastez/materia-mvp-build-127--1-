@@ -187,7 +187,7 @@ section("1. The open section is what changes, worked out by the server")
     "the selection is resolved on the server from the page and the install's files, and the lock needs a real section",
     /const selected = resolveSelectedSection\(body\.sections as never, body\.selectedSectionId, origin\)/.test(route) &&
       /selectedSectionId: selected\?\.id,/.test(route) &&
-      /lockToSelection: body\.lockToSelection === true && !!selected,/.test(route),
+      /lockToSelection: body\.lockToSelection === true && !!selected && body\.aim\?\.kind !== "new"/.test(route) /* Changed on purpose (r69): a new section or a replacement is never locked. */,
   )
   check(
     "a section's code is read and written only by a type that is a file name, through the agent rule",

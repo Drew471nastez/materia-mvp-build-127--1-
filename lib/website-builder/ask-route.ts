@@ -35,6 +35,8 @@ export interface RouteAsk {
   selectedBlockType?: string
   scoped: boolean
   hasHistory: boolean
+  /** Round 69: what the box says Enter does (./section-aim.ts). */
+  aim?: { kind: "edit" | "new" | "replace"; by: "words" | "choice" }
 }
 
 /**
@@ -61,6 +63,7 @@ export function writerAtOnce(ask: RouteAsk): boolean {
       addable: [...ADDABLE_SECTIONS.map((type) => ({ type, name: SECTION_SCHEMAS[type]?.name })), ...body.map((s) => ({ type: s.type }))],
       onPage: body.map((s) => ({ type: s.type, name: s.name || undefined })),
       hasHistory: ask.hasHistory,
+      aim: ask.aim,
     })
     return ruled.agent === "writer" && !ruled.ambiguous
   } catch {
@@ -100,6 +103,7 @@ export async function decideRoute(installId: string, ask: RouteAsk, fetcher: typ
         selectedBlockType: ask.selectedBlockType,
         scoped: ask.scoped,
         hasHistory: ask.hasHistory,
+        ...(ask.aim ? { aim: { kind: ask.aim.kind, by: ask.aim.by } } : {}),
       }),
       signal: AbortSignal.timeout(timeoutMs),
     })

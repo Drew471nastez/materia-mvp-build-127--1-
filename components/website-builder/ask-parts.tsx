@@ -19,10 +19,14 @@
  *                  answers to tap, which wrap rather than scroll so every
  *                  one is in view. Once answered, the one sent is marked.
  *   THE SCOPE      "Editing: Hero": the edit is limited to the selection.
+ *                  Round 69: or "New section below Hero" when the words ask
+ *                  for one (lib/website-builder/section-aim.ts), with one tap
+ *                  to switch between the two, and the place itself a button
+ *                  that flips above and below.
  */
 
 import * as React from "react"
-import { X } from "lucide-react"
+import { ArrowUpDown, X } from "lucide-react"
 
 import { ClaudeMark, OpenAIMark } from "@/components/website-builder/connection-marks"
 import { chosenOption, type AskQuestion } from "@/lib/website-builder/ask-activity"
@@ -357,42 +361,112 @@ export function ImageUrlField({ phone, onUse, onCancel }: { phone: boolean; onUs
  * blocks, or its code) and nothing else. The x clears it to edit the whole
  * page; one press puts it back.
  */
+/** Round 69: what Enter will do, when it is not a plain edit, and the taps beside it. */
+export interface ScopeAim {
+  kind: "edit" | "new" | "replace"
+  /** "below Hero", "at the top of the page". */
+  place?: string
+  /** Flips the place: above and below the open section, or the two ends of the page. */
+  onPlace?: () => void
+  /** The other reading, in words: "New section instead", "Edit Hero instead". */
+  switchLabel?: string
+  onSwitch?: () => void
+}
+
+/** The quiet word beside the chip that switches what Enter does. */
+function SwitchWord({ label, onClick, phone, kind }: { label: string; onClick: () => void; phone: boolean; kind: string }) {
+  return (
+    <button
+      type="button"
+      data-ask-aim-switch={kind}
+      onClick={onClick}
+      className={cn(
+        "relative shrink-0 whitespace-nowrap rounded-full px-1 text-[12px] font-medium text-[#6b7280] transition-colors hover:text-[#1a1a2e]",
+        phone ? "h-9 after:absolute after:-inset-y-1 after:inset-x-0 after:content-['']" : "h-7",
+      )}
+    >
+      {label}
+    </button>
+  )
+}
+
 export function ScopeChip({
   name,
   locked,
   onLock,
   onUnlock,
   phone,
+  aim,
 }: {
   name: string
   locked: boolean
   onLock: () => void
   onUnlock: () => void
   phone: boolean
+  aim?: ScopeAim | null
 }) {
+  /*
+    A NEW SECTION, OR THE OPEN ONE REPLACED. Solid rather than dashed, because it is what Enter does, and the place is
+    the part that can be pressed: "below Hero" flips to "above Hero".
+  */
+  if (aim && aim.kind !== "edit") {
+    const lead = aim.kind === "new" ? tt("New section") : tt("Replacing:")
+    return (
+      <>
+        <span
+          data-ask-scope={aim.kind}
+          className={cn(
+            "inline-flex min-w-0 items-center gap-1 rounded-full border border-[#1a1a2e]/12 bg-[#1a1a2e] pl-2.5 text-[12px] text-white",
+            aim.onPlace ? "pr-1" : "pr-2.5",
+            phone ? "h-9" : "h-7",
+          )}
+        >
+          <span className="min-w-0 truncate">
+            <span className="font-medium">{lead}</span> {aim.kind === "new" ? (aim.place ?? "") : name}
+          </span>
+          {aim.onPlace && (
+            <button
+              type="button"
+              data-ask-aim-place=""
+              onClick={aim.onPlace}
+              aria-label={tt("Move where it goes")}
+              title={tt("Move where it goes")}
+              className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white/70 transition-colors after:absolute after:-inset-3 after:content-[''] hover:bg-white/10 hover:text-white"
+            >
+              <ArrowUpDown className="h-3 w-3" strokeWidth={2.25} />
+            </button>
+          )}
+        </span>
+        {aim.switchLabel && aim.onSwitch && <SwitchWord label={aim.switchLabel} onClick={aim.onSwitch} phone={phone} kind="edit" />}
+      </>
+    )
+  }
   if (locked) {
     return (
-      <span
-        data-ask-scope="locked"
-        title={tt("Only {name} will change", { name })}
-        className={cn(
-          "inline-flex min-w-0 items-center gap-1 rounded-full border border-[#1a1a2e]/12 bg-white pl-2.5 pr-1 text-[12px] text-[#1a1a2e]",
-          phone ? "h-9" : "h-7",
-        )}
-      >
-        <span className="min-w-0 truncate">
-          <span className="text-[#6b7280]">{tt("Editing:")}</span> {name}
-        </span>
-        <button
-          type="button"
-          onClick={onUnlock}
-          aria-label={tt("Stop editing only {name}", { name })}
-          title={tt("Edit the whole page instead")}
-          className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[#6b7280] transition-colors after:absolute after:-inset-3 after:content-[''] hover:bg-black/[0.06] hover:text-[#1a1a2e]"
+      <>
+        <span
+          data-ask-scope="locked"
+          title={tt("Only {name} will change", { name })}
+          className={cn(
+            "inline-flex min-w-0 items-center gap-1 rounded-full border border-[#1a1a2e]/12 bg-white pl-2.5 pr-1 text-[12px] text-[#1a1a2e]",
+            phone ? "h-9" : "h-7",
+          )}
         >
-          <X className="h-3 w-3" strokeWidth={2.25} />
-        </button>
-      </span>
+          <span className="min-w-0 truncate">
+            <span className="text-[#6b7280]">{tt("Editing:")}</span> {name}
+          </span>
+          <button
+            type="button"
+            onClick={onUnlock}
+            aria-label={tt("Stop editing only {name}", { name })}
+            title={tt("Edit the whole page instead")}
+            className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[#6b7280] transition-colors after:absolute after:-inset-3 after:content-[''] hover:bg-black/[0.06] hover:text-[#1a1a2e]"
+          >
+            <X className="h-3 w-3" strokeWidth={2.25} />
+          </button>
+        </span>
+        {aim?.switchLabel && aim.onSwitch && <SwitchWord label={aim.switchLabel} onClick={aim.onSwitch} phone={phone} kind="new" />}
+      </>
     )
   }
   return (
