@@ -1,4 +1,4 @@
-/* Templates round 29, rebranded in round 30 as Octavo: a Notion template shop by Maya after the owner's cleanslatetemplates.com reference: a ruled paper hero with a fan of real looking Notion pages, three counts, the study templates playing in a dark player, the templates on shelves by category (Study, Planning, Home and life), how buying works in three small working scenes, the maker, a newsletter and a huge wordmark in the footer. The round 29 opening chalkboard was removed at the owner's request (its section stays in base for installs that have it). Custom sections only where the theme has nothing like it (newleaf-*); the counts, the maker and the newsletter are the theme's own. */
+/* Templates round 29, rebranded in round 30 as Octavo; round 67: Schibsted Grotesk headings, Albert Sans text, deep orange buttons with white text and a folded page logo: a Notion template shop by Maya after the owner's cleanslatetemplates.com reference: a ruled paper hero with a fan of real looking Notion pages, three counts, the study templates playing in a dark player, the templates on shelves by category (Study, Planning, Home and life), how buying works as numbered steps beside a picture of two templates (round 67: the theme's own Image with text steps in place of the three animated scenes), buyer notes on the theme's testimonial wall, the maker, a newsletter and a huge wordmark in the footer. The round 29 opening chalkboard was removed at the owner's request (its section stays in base for installs that have it). Custom sections only where the theme has nothing like it (newleaf-*); the counts, the maker and the newsletter are the theme's own. */
 {
   "sections": {
     "hero": {
@@ -12,7 +12,7 @@
         "link_label": "or watch them in action",
         "link_url": "#in-action",
         "accent": "",
-        "ruled": true,
+        "ruled": false,
         "line_gap": 32,
         "rule_width": 220,
         "page_radius": 10,
@@ -315,66 +315,106 @@
       }
     },
     "how": {
-      "type": "newleaf-steps",
+      "type": "image-with-text-steps",
       "settings": {
-        "heading": "How it works",
-        "text": "New to Notion templates? It takes about a minute.",
-        "accent": "",
-        "card_color": "#ffffff",
-        "panel_color": "#eeede8",
-        "radius": 14,
-        "heading_size": 36,
-        "heading_size_mobile": 28,
         "color_scheme": "default",
         "section_width": "container",
-        "padding_top": 48,
-        "padding_bottom": 88,
-        "padding_top_mobile": 32,
-        "padding_bottom_mobile": 56
+        "image_position": "left",
+        "column_valign": "center",
+        "image_width_pct": 46,
+        "gap_desktop": 80,
+        "image": "shopify://shop_images/newleaf-how.webp",
+        "image_alt": "Two Notion pages from Octavo, Exam Planner and Lecture Notes, open in a workspace",
+        "image_aspect_desktop": "4 / 5",
+        "image_aspect": "4 / 5",
+        "image_radius": 16,
+        "step_style": "numbered",
+        "marker_size": 34,
+        "marker_font_size": 14,
+        "custom_colors": true,
+        "marker_color": "#c2410c",
+        "marker_text_color": "#ffffff",
+        "line_color": "#dedcd4",
+        "step_title_color": "#15182a",
+        "step_desc_color": "#4a4d57",
+        "step_title_size": 19,
+        "step_desc_size": 15,
+        "use_theme_button": true,
+        "button_radius": 6,
+        "padding_top": 96,
+        "padding_bottom": 96
       },
       "blocks": {
-        "st1": {
-          "type": "step",
+        "eyebrow": {
+          "type": "eyebrow",
           "settings": {
-            "heading": "Buy it here",
-            "text": "Pick a template and check out. Free ones cost nothing and arrive the same way.",
-            "scene": "card",
-            "image": "shopify://shop_images/newleaf-card-lecture-notes.webp",
-            "card_title": "Lecture Notes",
-            "card_price": "$2.99",
-            "button_label": "Get template",
-            "typed_text": ""
+            "text": "How it works",
+            "custom_style": true,
+            "color": "#c2410c",
+            "size": 13
           }
         },
-        "st2": {
-          "type": "step",
+        "heading": {
+          "type": "heading",
           "settings": {
-            "heading": "Duplicate it into your Notion",
-            "text": "Open the link in your email and press Duplicate. Every template works on Notion's free plan.",
-            "scene": "duplicate",
-            "card_title": "",
-            "card_price": "",
-            "button_label": "Duplicate",
-            "typed_text": ""
+            "text": "From checkout to your Notion",
+            "tag": "h2",
+            "size_desktop": 44,
+            "size_mobile": 30
           }
         },
-        "st3": {
+        "sub": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>New to Notion templates? It takes about a minute.</p>",
+            "size": 16
+          }
+        },
+        "s1": {
           "type": "step",
           "settings": {
-            "heading": "Clear the examples and start fresh",
-            "text": "Each one comes with sample pages, so you can see how it all fits together. Delete them when you are ready and it is yours.",
-            "scene": "typing",
-            "card_title": "",
-            "card_price": "",
-            "button_label": "",
-            "typed_text": "Your first page"
+            "title": "Pay here, or check out at $0",
+            "description": "<p>Free templates go through the same checkout, so every one arrives the same way.</p>"
+          }
+        },
+        "s2": {
+          "type": "step",
+          "settings": {
+            "title": "Open the link in your email",
+            "description": "<p>The receipt page has it too. Open it while you are signed in to Notion.</p>"
+          }
+        },
+        "s3": {
+          "type": "step",
+          "settings": {
+            "title": "Press Duplicate",
+            "description": "<p>The template is copied into your workspace. It works on Notion's free plan, on a computer and a phone.</p>"
+          }
+        },
+        "s4": {
+          "type": "step",
+          "settings": {
+            "title": "Clear the examples",
+            "description": "<p>Each template comes with sample pages that show how it fits together. Delete them when you are ready.</p>"
+          }
+        },
+        "button": {
+          "type": "button",
+          "settings": {
+            "label": "See the templates",
+            "url": "#study"
           }
         }
       },
       "block_order": [
-        "st1",
-        "st2",
-        "st3"
+        "eyebrow",
+        "heading",
+        "sub",
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "button"
       ]
     },
     "about": {
@@ -479,6 +519,115 @@
         "h",
         "s"
       ]
+    },
+    "reviews": {
+      "type": "testimonial-wall",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "text_align": "left",
+        "columns": 3,
+        "card_gap": 16,
+        "card_style": "filled",
+        "collapse": "never",
+        "collapsed_part": 60,
+        "more_label": "Show more",
+        "less_label": "Show fewer",
+        "enable_custom_style": true,
+        "card_bg": "#ffffff",
+        "quote_color": "#15182a",
+        "name_color": "#15182a",
+        "star_color": "#c2410c",
+        "star_empty_color": "#e4e4df",
+        "card_radius": 14,
+        "quote_size": 15.5,
+        "quote_size_mobile": 15,
+        "reveal": true,
+        "padding_top": 88,
+        "padding_bottom": 56,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 40
+      },
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "What people say",
+            "size": 44,
+            "size_mobile": 30
+          }
+        },
+        "sub": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>From people who use the templates every week.</p>"
+          }
+        },
+        "q1": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Lecture Notes is the first system I kept past week three. The questions on the left are what I revise from now.",
+            "name": "Priya S.",
+            "role": "Lecture Notes",
+            "rating": 5
+          }
+        },
+        "q2": {
+          "type": "testimonial",
+          "settings": {
+            "body": "I open Weekly Reset every Sunday evening. Ten minutes and I know what Monday looks like.",
+            "name": "Tom H.",
+            "role": "Weekly Reset",
+            "rating": 5
+          }
+        },
+        "q3": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Exam Planner shows the topics I keep skipping in red. Annoying, and exactly what I needed.",
+            "name": "Lea M.",
+            "role": "Exam Planner",
+            "rating": 5
+          }
+        },
+        "q4": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Our flat splits every bill in Home Admin now. Nobody asks who paid the broadband any more.",
+            "name": "Jonas B.",
+            "role": "Home Admin",
+            "rating": 5
+          }
+        },
+        "q5": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Recall Cards replaced the flashcard app I was paying for. Easy cards really do come back less.",
+            "name": "Amara O.",
+            "role": "Recall Cards",
+            "rating": 5
+          }
+        },
+        "q6": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Clear, tidy and the example pages made it obvious what goes where. Set it up in one evening.",
+            "name": "Chloe R.",
+            "role": "Time Blocking",
+            "rating": 5
+          }
+        }
+      },
+      "block_order": [
+        "heading",
+        "sub",
+        "q1",
+        "q2",
+        "q3",
+        "q4",
+        "q5",
+        "q6"
+      ]
     }
   },
   "order": [
@@ -489,6 +638,7 @@
     "planning",
     "home",
     "how",
+    "reviews",
     "about",
     "newsletter"
   ]

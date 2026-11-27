@@ -1,4 +1,4 @@
-/* Templates round 29, made cleaner in round 30 (Octavo): a template's page, built from the product itself. The way back (Templates / category) over the product information on paper: title, tagline (the description's first bold line), description, price, Get it and three checks, beside the product's desktop and phone picture on a tinted panel. Then What's inside, written from the description's Heading 3s with the product's own Notion pictures, three checks, a dark buy band and more templates from the same category. */
+/* Templates round 29, made cleaner in round 30 (Octavo): a template's page, built from the product itself. The way back (Templates / category) over the product information on paper: title, tagline (the description's first bold line), description, price, Get it and three checks, beside the product's desktop and phone picture on a tinted panel. Then What's inside, written from the description's Heading 3s with the product's own Notion pictures, three checks, a dark buy band and more templates from the same category. Round 67: the three checks gave way to the theme's own sections: how you get it (Image with text steps), buyer notes (Testimonial wall) and questions (FAQ pro). */
 {
   "sections": {
     "band": {
@@ -63,7 +63,7 @@
           "settings": {
             "price_font_size_desktop": 36,
             "price_font_size_mobile": 30,
-            "price_font_weight": "400"
+            "price_font_weight": "600"
           }
         },
         "once": {
@@ -145,65 +145,6 @@
         "panel_fit": "fit"
       }
     },
-    "checks": {
-      "type": "text-columns",
-      "settings": {
-        "color_scheme": "default",
-        "section_width": "container",
-        "content_alignment": "left",
-        "columns_desktop": 3,
-        "columns_tablet": 3,
-        "column_gap": 40,
-        "header_gap": 0,
-        "show_dividers": false,
-        "item_heading_size": 16,
-        "item_heading_size_mobile": 16,
-        "reveal": true,
-        "padding_top": 48,
-        "padding_bottom": 56,
-        "padding_top_mobile": 36,
-        "padding_bottom_mobile": 40,
-        "mobile_layout": "stack",
-        "show_arrows": false
-      },
-      "blocks": {
-        "c1": {
-          "type": "column",
-          "settings": {
-            "label": "",
-            "heading": "Example pages to learn from",
-            "text": "<p>See how it works before you clear them and add your own.</p>",
-            "link_label": "",
-            "link": ""
-          }
-        },
-        "c2": {
-          "type": "column",
-          "settings": {
-            "label": "",
-            "heading": "Works on the free plan",
-            "text": "<p>No paid Notion account or add-ons needed.</p>",
-            "link_label": "",
-            "link": ""
-          }
-        },
-        "c3": {
-          "type": "column",
-          "settings": {
-            "label": "",
-            "heading": "Help by email",
-            "text": "<p>If something does not work as you expected, write and Maya will sort it out.</p>",
-            "link_label": "",
-            "link": ""
-          }
-        }
-      },
-      "block_order": [
-        "c1",
-        "c2",
-        "c3"
-      ]
-    },
     "buy": {
       "type": "newleaf-buy-band",
       "settings": {
@@ -254,13 +195,319 @@
         "padding_top_mobile": 48,
         "padding_bottom_mobile": 56
       }
+    },
+    "how": {
+      "type": "image-with-text-steps",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "image_position": "left",
+        "column_valign": "center",
+        "image_width_pct": 46,
+        "gap_desktop": 80,
+        "image": "shopify://shop_images/newleaf-how.webp",
+        "image_alt": "Two Notion pages from Octavo, Exam Planner and Lecture Notes, open in a workspace",
+        "image_aspect_desktop": "4 / 5",
+        "image_aspect": "4 / 5",
+        "image_radius": 16,
+        "step_style": "numbered",
+        "marker_size": 34,
+        "marker_font_size": 14,
+        "custom_colors": true,
+        "marker_color": "#c2410c",
+        "marker_text_color": "#ffffff",
+        "line_color": "#dedcd4",
+        "step_title_color": "#15182a",
+        "step_desc_color": "#4a4d57",
+        "step_title_size": 19,
+        "step_desc_size": 15,
+        "use_theme_button": true,
+        "button_radius": 6,
+        "padding_top": 88,
+        "padding_bottom": 88
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "After you buy",
+            "custom_style": true,
+            "color": "#c2410c",
+            "size": 13
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "How you get it",
+            "tag": "h2",
+            "size_desktop": 44,
+            "size_mobile": 30
+          }
+        },
+        "sub": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Everything happens in your inbox and your own Notion. Nothing to install.</p>",
+            "size": 16
+          }
+        },
+        "s1": {
+          "type": "step",
+          "settings": {
+            "title": "Pay here, or check out at $0",
+            "description": "<p>Free templates go through the same checkout, so every one arrives the same way.</p>"
+          }
+        },
+        "s2": {
+          "type": "step",
+          "settings": {
+            "title": "Open the link in your email",
+            "description": "<p>The receipt page has it too. Open it while you are signed in to Notion.</p>"
+          }
+        },
+        "s3": {
+          "type": "step",
+          "settings": {
+            "title": "Press Duplicate",
+            "description": "<p>The template is copied into your workspace. It works on Notion's free plan, on a computer and a phone.</p>"
+          }
+        },
+        "s4": {
+          "type": "step",
+          "settings": {
+            "title": "Clear the examples",
+            "description": "<p>Each template comes with sample pages that show how it fits together. Delete them when you are ready.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow",
+        "heading",
+        "sub",
+        "s1",
+        "s2",
+        "s3",
+        "s4"
+      ]
+    },
+    "reviews": {
+      "type": "testimonial-wall",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "text_align": "left",
+        "columns": 3,
+        "card_gap": 16,
+        "card_style": "filled",
+        "collapse": "never",
+        "collapsed_part": 60,
+        "more_label": "Show more",
+        "less_label": "Show fewer",
+        "enable_custom_style": true,
+        "card_bg": "#ffffff",
+        "quote_color": "#15182a",
+        "name_color": "#15182a",
+        "star_color": "#c2410c",
+        "star_empty_color": "#e4e4df",
+        "card_radius": 14,
+        "quote_size": 15.5,
+        "quote_size_mobile": 15,
+        "reveal": true,
+        "padding_top": 40,
+        "padding_bottom": 40,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 40
+      },
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "What people say",
+            "size": 44,
+            "size_mobile": 30
+          }
+        },
+        "sub": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>From people who use Octavo templates every week.</p>"
+          }
+        },
+        "q1": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Lecture Notes is the first system I kept past week three. The questions on the left are what I revise from now.",
+            "name": "Priya S.",
+            "role": "Lecture Notes",
+            "rating": 5
+          }
+        },
+        "q2": {
+          "type": "testimonial",
+          "settings": {
+            "body": "I open Weekly Reset every Sunday evening. Ten minutes and I know what Monday looks like.",
+            "name": "Tom H.",
+            "role": "Weekly Reset",
+            "rating": 5
+          }
+        },
+        "q3": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Exam Planner shows the topics I keep skipping in red. Annoying, and exactly what I needed.",
+            "name": "Lea M.",
+            "role": "Exam Planner",
+            "rating": 5
+          }
+        },
+        "q4": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Our flat splits every bill in Home Admin now. Nobody asks who paid the broadband any more.",
+            "name": "Jonas B.",
+            "role": "Home Admin",
+            "rating": 5
+          }
+        },
+        "q5": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Recall Cards replaced the flashcard app I was paying for. Easy cards really do come back less.",
+            "name": "Amara O.",
+            "role": "Recall Cards",
+            "rating": 5
+          }
+        },
+        "q6": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Clear, tidy and the example pages made it obvious what goes where. Set it up in one evening.",
+            "name": "Chloe R.",
+            "role": "Time Blocking",
+            "rating": 5
+          }
+        }
+      },
+      "block_order": [
+        "heading",
+        "sub",
+        "q1",
+        "q2",
+        "q3",
+        "q4",
+        "q5",
+        "q6"
+      ]
+    },
+    "faq": {
+      "type": "faq-pro",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "first_item_open": true,
+        "open_icon": "plus",
+        "content_alignment": "left",
+        "max_content_width": 1200,
+        "col_gap": 72,
+        "gap_header_to_items": 32,
+        "gap_between_items": 10,
+        "item_padding_y": 18,
+        "item_padding_x": 22,
+        "item_radius": 12,
+        "show_dividers": false,
+        "enable_custom_style": true,
+        "card_bg": "#ffffff",
+        "card_border_color": "#e4e4df",
+        "question_color": "#15182a",
+        "icon_color": "#c2410c",
+        "answer_color": "#4a4d57",
+        "heading_color": "#15182a",
+        "question_size_desktop": 16,
+        "answer_size_desktop": 15,
+        "reveal": true,
+        "padding_top": 72,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Questions",
+            "tag": "h2",
+            "size_enable": true,
+            "size_desktop": 44,
+            "size_mobile": 30
+          }
+        },
+        "sub": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Anything else? <a href=\"/pages/contact\">Write to Maya</a>, she answers within two working days.</p>"
+          }
+        },
+        "f1": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I need a paid Notion plan?",
+            "answer": "<p>No. Every template works on Notion's free plan, on the web, the desktop app and the phone app.</p>"
+          }
+        },
+        "f2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I get the template after I pay?",
+            "answer": "<p>The receipt page and the email both have a link. Open it while you are signed in to Notion, press Duplicate and the template is copied into your workspace.</p>"
+          }
+        },
+        "f3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "I have never used Notion. Will I manage?",
+            "answer": "<p>Each template opens on a Start here page with example entries. If you can type in a table, you can use it.</p>"
+          }
+        },
+        "f4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I change it?",
+            "answer": "<p>Every page, property and view is yours to edit. Rename things, add columns, delete pages you do not need.</p>"
+          }
+        },
+        "f5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Will I get updates?",
+            "answer": "<p>Yes. When a template changes, everyone who bought it gets an email with the new link, at no cost.</p>"
+          }
+        },
+        "f6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Email within 14 days of buying and you get your money back.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading",
+        "sub",
+        "f1",
+        "f2",
+        "f3",
+        "f4",
+        "f5",
+        "f6"
+      ]
     }
   },
   "order": [
     "band",
     "main",
     "inside",
-    "checks",
+    "how",
+    "reviews",
+    "faq",
     "buy",
     "more"
   ]
