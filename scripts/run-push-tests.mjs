@@ -1739,6 +1739,8 @@ const SUITES = [
   "tests/theme-layout-r28.test.ts",
   /* Round 30, every template: filter dropdowns open over the product cards; a stacked hero keeps 24px between its buttons and its picture on a phone; a card's hover never shows the page through a see-through second picture, and a cover never rises into its title; Lowmoth's folders have real icons and its header is glass (the solid fill left a glass header alone); each template its own scroll reveal (Editorial added), transform and opacity only, the defaults installs have unchanged. Measured by scripts/check-theme-r30.mjs. */
   "tests/theme-r30.test.ts",
+  /* Round 67, templates after the owner's notes: Octavo's buttons a deep orange with white text (5.18:1), Schibsted Grotesk and Albert Sans, a folded page logo, how it works and product pages from the theme's own sections (Image with text steps, Testimonial wall, FAQ pro); the ebook in Manrope 800; the VSL funnel is Hablo, a Spanish course; Digital studio's brand is Halfmoon; no heading font is every template's. Measured by scripts/check-theme-templates-r67.mjs. */
+  "tests/theme-templates-r67.test.ts",
 ]
 
 /**
