@@ -2,7 +2,7 @@
  * ROUND 67 (p3): THE SHOP PARTS OF EVERY THEME.
  *
  *   WISHLIST    a header of words shows "Wishlist (N)" (the count's box at the label's size, not the icon's 0), a
- *               count bubble's number is worked out from its own fill with the line at a luminance of 0.31 (white on
+ *               count bubble's number is worked out from its own fill with the line at a luminance of 0.2 (white on
  *               Redline's red), both in the head of every installed theme's page (shop-calm.ts) and in Materia's
  *               own stylesheets for new installs.
  *   WISHLIST    /pages/wishlist and /wishlist draw the theme's own Wishlist template (Materia's search.wishlist),
@@ -40,14 +40,14 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 console.log("\nWISHLIST")
 {
   check("a header of words: the count's box takes the label's size", /\.header\[data-actions-text\] \.header__action \.header__wishlist h-count\{[^}]*font-size:inherit!important/.test(SHOP_CALM_CSS))
-  check("a bubble's number: white under a luminance of 0.31, one class over Materia's rule", /html body \.h-count\.h-count:not\(\.header-action-text \.h-count\)[^{]*\{--cb-auto:clamp\(0,\(0\.31 - /.test(SHOP_CALM_CSS))
-  check("Materia's own stylesheet: the same line, for new installs", /--cb-auto: clamp\(0, \(0\.31 - /.test(read("theme-packages/materia/base/assets/header-section.css")))
+  check("a bubble's number: white under a luminance of 0.2, one class over Materia's rule", /html body \.h-count\.h-count:not\(\.header-action-text \.h-count\)[^{]*\{--cb-auto:clamp\(0,\(0\.2 - /.test(SHOP_CALM_CSS))
+  check("Materia's own stylesheet: the same line, for new installs", /--cb-auto: clamp\(0, \(0\.2 - /.test(read("theme-packages/materia/base/assets/header-section.css")))
   check("Materia's own stylesheet: the count's box in text mode", /\.header__wishlist h-count \{[\s\S]{0,200}font-size: inherit !important/.test(read("theme-packages/materia/base/assets/header-layout.css")))
   /* The line itself: Redline's red takes white, yellow and white take black. */
   const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4))
   const lum = (hex: string) => { const n = parseInt(hex.slice(1), 16); return 0.2126 * lin(((n >> 16) & 255) / 255) + 0.7152 * lin(((n >> 8) & 255) / 255) + 0.0722 * lin((n & 255) / 255) }
-  const white = (hex: string) => lum(hex) < 0.31
-  check("white on Redline's red #f01a10, orange #ff5722, blue #2196f3, mid grey #888888", ["#f01a10", "#ff5722", "#2196f3", "#888888"].every(white))
+  const white = (hex: string) => lum(hex) < 0.2
+  check("white on Redline's red #f01a10, red #e11b1c, blue #2440e6, Octavo's orange #c2410c", ["#f01a10", "#e11b1c", "#2440e6", "#c2410c"].every(white))
   check("black on yellow #ffd400, light green #8ee28e, white, pastel pink #f8c8dc", !["#ffd400", "#8ee28e", "#ffffff", "#f8c8dc"].some(white))
 }
 

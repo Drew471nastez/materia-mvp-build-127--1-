@@ -65,10 +65,11 @@
  *     number's colour out from the bubble (header-section.css --cb-auto):
  *     white under a luminance of 0.179, where white and black have the same
  *     WCAG ratio, else black, which put a black number on Redline's intense
- *     red (#f01a10, luminance 0.19). People read small bold figures on a
- *     saturated colour as perceptual contrast (APCA) says, whose crossing is
- *     near 0.31: white on red, orange, blue and mid grey, black on yellow,
- *     light green, pastels and white. Only the line moves; a colour the
+ *     red (#f01a10, luminance 0.19). The line moves to 0.2: white on that red
+ *     (4.4 to 1, where black is 4.8 but reads as the wrong colour on a
+ *     saturated fill), and no fill gets a number under 4.2 to 1. A higher
+ *     line, where perceptual contrast (APCA) crosses near 0.31, would put
+ *     white at 3 to 1 on mid tones. Only the line moves; a colour the
  *     creator picked for the number, when it reads, still wins (--cb-text).
  *
  *  8. A SHORT RELATED ROW. A shop of two products has one product to
@@ -147,8 +148,8 @@ export const SHOP_CALM_CSS = [
   /* 6. Wishlist (N) in a header of words: the count's box at the label's size, not the icon's 0. */
   "@media (min-width:1025px){:is(#materia-header,.shopify-section.section-header) .header[data-actions-text] .header__action .header__wishlist h-count{display:inline-flex!important;align-items:center;position:static!important;font-size:inherit!important;line-height:inherit!important;order:2}}",
 
-  /* 7. A count bubble's number from its own fill: the line at a luminance of 0.31 (one class more than Materia's rule). */
-  "@supports (color:color(from red srgb-linear r g b)){html body .h-count.h-count:not(.header-action-text .h-count),html body .wishlist-count-header.wishlist-count-header{--cb-auto:clamp(0,(0.31 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 100000,1)}}",
+  /* 7. A count bubble's number from its own fill: the line at a luminance of 0.2 (one class more than Materia's rule). */
+  "@supports (color:color(from red srgb-linear r g b)){html body .h-count.h-count:not(.header-action-text .h-count),html body .wishlist-count-header.wishlist-count-header{--cb-auto:clamp(0,(0.2 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 100000,1)}}",
 
   /* 8. A related row with fewer cards than its columns sits under its heading: centred under a centred heading (round 67). */
   "[data-section-type=related-products]:has(.section__header.text-center) .products-grid__items:not(.swiper-wrapper),.pl[data-align=center] .products-grid__items:not(.swiper-wrapper){justify-content:center}",

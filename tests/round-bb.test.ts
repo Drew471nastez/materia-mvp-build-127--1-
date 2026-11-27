@@ -65,7 +65,7 @@ console.log("\nThe wishlist page of an imported theme\n")
 {
   const site = code("lib/storelib-theme/compat/site.ts")
   check("/wishlist draws the theme's own wishlist page when it has one", /if \(path === "\/wishlist"\) \{\s*\n\s*if \(site\.pages\.wishlist\) \{\s*\n\s*const own = at\("wishlist"/.test(site))
-  check("  and Storelib's page in the theme's header and footer when it has none", /if \(own\) return own\s*\n\s*\}\s*\n\s*return accountShell\(site, req, path\)/.test(site))
+  check("  and Storelib's page in the theme's header and footer when it has none", /if \(own\) return own\s*\n\s*\}\s*\n\s*return (themeWishlist\(site, req, path\) \?\? )?accountShell\(site, req, path\)/.test(site)) /* Changed on purpose (round 67): a theme's own search.wishlist is tried before Storelib's page. */
   check("  the old early frame is gone", !/if \(path === "\/wishlist"\) return accountShell/.test(site))
   const account = code("app/(site)/w/[username]/render-account.tsx")
   check("the framed page never draws the theme's stored sections (only the theme can)", /stored && stored\.length > 0 && !imported \? stored : /.test(account))
