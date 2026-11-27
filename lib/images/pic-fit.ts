@@ -224,6 +224,54 @@ export function installPicFit(doc: Document, win: Window): void {
     } else frame.style.aspectRatio = v
   }
   /* Each frame in this picture's row given the row's shape, once its pictures' shapes are known. */
+  /*
+   * THE SHAPES SEEN BEFORE, KEPT IN THIS BROWSER (round 67), so a row is given its shape before its pictures load
+   * and nothing below it moves: a picture's ratio by its address (the file behind the optimizer, without the size
+   * asked for). The first visit's row takes its shape as soon as each picture's size is known, which the browser
+   * reads from the file's first bytes, before it is drawn (watchSizes).
+   */
+  var SEEN = "sl:pic-r"
+  var seen: Record<string, number> = {}
+  try {
+    seen = JSON.parse(win.localStorage.getItem(SEEN) || "{}") || {}
+  } catch {
+    seen = {}
+  }
+  var addressOf = function (src: string): string {
+    try {
+      var u = new URL(src, doc.baseURI)
+      var raw = u.pathname === "/_next/image" ? u.searchParams.get("url") : null
+      var at = raw ? new URL(raw, doc.baseURI) : u
+      return at.host + at.pathname
+    } catch {
+      return ""
+    }
+  }
+  var remember = function (src: string, r: number) {
+    var k = addressOf(src)
+    if (!k || !(r > 0)) return
+    var v = Math.round(r * 1000) / 1000
+    if (seen[k] === v) return
+    seen[k] = v
+    try {
+      var keys = Object.keys(seen)
+      if (keys.length > 400) delete seen[keys[0]]
+      win.localStorage.setItem(SEEN, JSON.stringify(seen))
+    } catch {
+      /* Kept for this page only. */
+    }
+  }
+  /* A picture's ratio: its own once its size is known, else the one this browser saw before. 0 when neither. */
+  var ratioOf = function (pic: HTMLImageElement): number {
+    var src = pic.currentSrc || pic.src || ""
+    if (PADDED.test(src) && pic.getAttribute("data-cover-trim") !== "none") return 0
+    if (pic.naturalWidth > 0 && pic.naturalHeight > 0) {
+      var r = pic.naturalWidth / pic.naturalHeight
+      remember(src, r)
+      return r
+    }
+    return seen[addressOf(src)] || 0
+  }
   var reshape = function (img: HTMLImageElement) {
     var frame = img.closest(FRAMES) as HTMLElement | null
     if (!frame || frame.closest('[data-cover-padded="keep"]')) return
@@ -236,7 +284,8 @@ export function installPicFit(doc: Document, win: Window): void {
       var pics = row[i].getElementsByTagName("img")
       var pic: HTMLImageElement | null = null
       for (var q = 0; q < pics.length && !pic; q++) if (!pics[q].closest(".secondary-image,.hover-effect__alt") && !pics[q].classList.contains("secondary-image") && pics[q].getAttribute("data-pic-fit") !== "off") pic = pics[q]
-      if (pic && pic.naturalWidth > 0 && pic.naturalHeight > 0 && !(PADDED.test(pic.currentSrc || pic.src || "") && pic.getAttribute("data-cover-trim") !== "none")) ratios.push(pic.naturalWidth / pic.naturalHeight)
+      var r = pic ? ratioOf(pic) : 0
+      if (r > 0) ratios.push(r)
     }
     /* Frames of differing shapes: the theme gives each its picture's own (Adapt). */
     if (own.length !== 1) return
@@ -362,7 +411,56 @@ export function installPicFit(doc: Document, win: Window): void {
     },
     true,
   )
+  /* Every frame's row shaped from what is known now, then each frame by frame as its picture's size arrives (until the page has loaded, at most 4s). */
+  var shaped: HTMLImageElement[] = []
+  var watchSizes = function () {
+    var started = Date.now()
+    var tick = function () {
+      var imgs = doc.images
+      for (var i = 0; i < imgs.length; i++) {
+        var im = imgs[i]
+        if (shaped.indexOf(im) >= 0 || !im.closest || !im.closest(FRAMES)) continue
+        if (im.naturalWidth > 0 || seen[addressOf(im.currentSrc || im.src || "")]) {
+          shaped.push(im)
+          try {
+            reshape(im)
+          } catch {
+            /* The theme's shape. */
+          }
+        }
+      }
+      if (doc.readyState !== "complete" && Date.now() - started < 4000) (win.requestAnimationFrame || win.setTimeout)(tick)
+    }
+    tick()
+  }
+  /* While the page is still being read: a frame's row given the shape this browser saw before as soon as the frame is in the page, before it is drawn. */
+  if (doc.readyState === "loading" && typeof MutationObserver === "function") {
+    var parsing = new MutationObserver(function (list) {
+      for (var i = 0; i < list.length; i++) {
+        var added = list[i].addedNodes
+        for (var j = 0; j < added.length; j++) {
+          var n = added[j] as Element
+          if (n.nodeType !== 1) continue
+          var imgs = n.tagName === "IMG" ? [n as HTMLImageElement] : Array.prototype.slice.call(n.getElementsByTagName("img"))
+          for (var q = 0; q < imgs.length; q++) {
+            var im = imgs[q] as HTMLImageElement
+            if (!seen[addressOf(im.currentSrc || im.src || "")]) continue
+            try {
+              reshape(im)
+            } catch {
+              /* The theme's shape. */
+            }
+          }
+        }
+      }
+    })
+    parsing.observe(doc.documentElement, { childList: true, subtree: true })
+    doc.addEventListener("DOMContentLoaded", function () {
+      parsing.disconnect()
+    })
+  }
   var early = function () {
+    watchSizes()
     var imgs = doc.images
     for (var i = 0; i < imgs.length; i++) if (imgs[i].complete && imgs[i].naturalWidth > 0) paint(imgs[i])
   }
