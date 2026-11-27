@@ -194,8 +194,8 @@ function arm(el) {
     if (el.matches(FOOTER) || !markParts(el, typeOf(el))) return false;
   } else {
     // A motion element that gave way to this reveal pinned itself visible.
+    // A card's picture does not zoom (round 68): the card rises, nothing more.
     if (el.tagName === 'MOTION-ELEMENT') el.style.removeProperty('opacity');
-    markZoom(el);
   }
   el.classList.add('scroll-trigger--offscreen', 'scroll-trigger--armed');
   return true;

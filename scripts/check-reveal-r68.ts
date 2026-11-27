@@ -62,7 +62,7 @@ const WATCH = () => {
     }
     const a = t.getAnimations().find((x) => (x as CSSAnimation).animationName === e.animationName)
     const timing = a?.effect?.getComputedTiming()
-    const kind = t.matches(".shopify-section") ? "section" : t.matches(".mt-word") ? "word" : t.hasAttribute("data-reveal-part") ? "part" : "card"
+    const kind = t.matches(".shopify-section") ? "section" : t.hasAttribute("data-reveal-zoom") || t.closest("[data-reveal-zoom]") ? (t.closest(".shopify-section.reveal-parts") && !t.closest(".scroll-trigger:not(.shopify-section)") ? "part" : "card") : t.matches(".mt-word") ? "word" : t.hasAttribute("data-reveal-part") ? "part" : "card"
     /* A section's box carries a colour of its own (or its first child does, the section's band). */
     const box = t.getBoundingClientRect()
     const bgOf = (el: Element) => { if (/rgba\(0, 0, 0, 0\)|transparent/.test(getComputedStyle(el).backgroundColor) && getComputedStyle(el).backgroundImage === "none") return false; const r = el.getBoundingClientRect(); return r.width >= box.width * 0.9 && r.height >= box.height * 0.5 }
@@ -80,6 +80,9 @@ const LEFT = () => {
     if (r.width < 2 || r.height < 2 || r.bottom <= 0 || r.top >= innerHeight || r.right <= 0 || r.left >= innerWidth) continue
     const cs = getComputedStyle(el)
     if (cs.visibility === "hidden" || cs.display === "none") continue
+    /* Only what can be seen: the element (or something in it) is what lies on top at its middle (not a closed menu's, not a slide beyond its slider's edge). */
+    const at = document.elementFromPoint(Math.min(innerWidth - 1, Math.max(0, r.left + r.width / 2)), Math.min(innerHeight - 1, Math.max(0, r.top + r.height / 2)))
+    if (!at || !(el.contains(at) || at.contains(el))) continue
     const moved = cs.transform !== "none" && !/^matrix\(1, 0, 0, 1, 0, 0\)$/.test(cs.transform)
     if (parseFloat(cs.opacity) < 0.99 || (moved && el.getAnimations().length)) out.push(`${el.tagName.toLowerCase()}.${String(el.className).split(" ").slice(0, 3).join(".")} o=${cs.opacity} ${cs.transform}`)
   }

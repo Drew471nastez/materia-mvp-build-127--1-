@@ -382,7 +382,7 @@
 }
 @keyframes revealSettle { from { transform: scale(1.04); } to { transform: none; } }
 @keyframes revealWord {
-  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 0.3em, 0); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 0.25em, 0); }
   to { opacity: 1; transform: none; }
 }
 /* Mask reveal on a card opens from its top edge. */
