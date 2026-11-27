@@ -274,9 +274,12 @@
     var cardFrom = Math.min(cardTo, from.card || 0);
     var own = shadeOf(entry) ? alphaOf(p.shade) : 0, most = own * shadeTo;
     var old = from.old && from.old !== entry && from.old.motion && from.old.motion.after && from.old.root.isConnected ? from.old : null;
+    // A card in its shade's box fades with the box; a fade of its own as well
+    // made it come and go twice as fast as the shade (a dark dip over the card).
+    var boxed = !!(p.shade && p.shade.contains(p.card)) && !old;
     var anims = [
       p.card.animate([{ transform: start, composite: 'add' }, { transform: to, composite: 'add' }], o),
-      p.card.animate([{ opacity: cardFrom }, { opacity: cardTo }], { duration: sheet ? OPEN_MS : 220, easing: 'ease-out', fill: 'both' })
+      p.card.animate([{ opacity: boxed ? cardTo : cardFrom }, { opacity: cardTo }], { duration: sheet ? OPEN_MS : 220, easing: 'ease-out', fill: 'both' })
     ];
     anims.forEach(function (a) { a.pause(); });
     var els = [p.card].concat(p.shade ? [p.shade] : []);
@@ -348,9 +351,10 @@
     var cardFrom = mid ? Math.min(restOpacity(p.card), nowCard) : restOpacity(p.card);
     var shadeFrom = mid ? Math.min(restOpacity(p.shade), nowShade) : restOpacity(p.shade);
     p.card.style.willChange = 'transform, opacity';
+    var boxed = !!(p.shade && p.shade.contains(p.card)) && !opts.keepShade;
     var anims = [
       p.card.animate([{ transform: 'translate3d(0,0,0) scale(1)', composite: 'add' }, { transform: to, composite: 'add' }], o),
-      p.card.animate([{ opacity: cardFrom }, { opacity: 0 }], o)
+      p.card.animate([{ opacity: cardFrom }, { opacity: boxed ? cardFrom : 0 }], o)
     ];
     // Handed over (opts.keepShade): the shade holds while the card goes, and
     // the next popup takes it over as this one ends (moveIn, takeOver).
