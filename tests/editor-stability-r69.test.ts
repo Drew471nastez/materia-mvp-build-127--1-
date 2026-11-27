@@ -54,6 +54,12 @@ console.log("\nA section's script run again keeps what it does not add again (ca
   check("what stays is noted again, for the next run", /if \(kept\.length\) own\.set\(key, kept\.concat\(now\)\);/.test(CANVAS_BRIDGE))
 }
 
+console.log("\nA section added goes beside the page's own sections, never beside the layout's (canvas-bridge.ts)\n")
+{
+  check("a page's section is placed only beside one in <main> (Space: adding a second section moved the first out of <main>, both zero tall)", /var mainBox = document\.querySelector\("main, #MainContent, \[role=main\]"\);/.test(CANVAS_BRIDGE) && /return mainBox\.contains\(n\) === \(el\.isConnected \? mainBox\.contains\(el\) : true\);/.test(CANVAS_BRIDGE))
+  check("both neighbours are read that way", /m\.order\[j\]\.group === it\.group && home\(byId\(m\.order\[j\]\.id\)\)/.test(CANVAS_BRIDGE) && /byId\(m\.order\[k\]\.id\) !== el && home\(byId\(m\.order\[k\]\.id\)\)/.test(CANVAS_BRIDGE))
+}
+
 console.log("\nA change of width is not a scroll (header-sticky-controller.liquid)\n")
 {
   check("the width is read, not the height (a phone's address bar is still a scroll)", /if \(s\.vw !== innerWidth\) \{ if \(s\.vw != null\) s\.settleUntil = now \+ 500; s\.vw = innerWidth; \}/.test(controller))

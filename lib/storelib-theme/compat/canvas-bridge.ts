@@ -2785,6 +2785,7 @@ export const CANVAS_BRIDGE = `
     var added = [];
     /* Where everything was, for a section arriving (A SECTION ADDED ARRIVES): read before anything moves. */
     var tops = m.order.some(function (x) { return arriving[x.id] && !byId(x.id); }) ? pageTops() : null;
+    var mainBox = document.querySelector("main, #MainContent, [role=main]");
     for (var i = 0; i < m.order.length; i++) {
       var it = m.order[i];
       var el = byId(it.id);
@@ -2797,8 +2798,18 @@ export const CANVAS_BRIDGE = `
       }
       /* Placed after the section before it in its group, or else before the one after it. */
       var prev = null, next = null;
-      for (var j = i - 1; j >= 0 && !prev; j--) if (m.order[j].group === it.group) prev = byId(m.order[j].id);
-      for (var k = i + 1; k < m.order.length && !next; k++) if (m.order[k].group === it.group && byId(m.order[k].id) && byId(m.order[k].id) !== el) next = byId(m.order[k].id);
+      /*
+        ROUND 69: ONLY A NEIGHBOUR IN THE SAME PLACE. A section the layout draws
+        by itself (Materia's custom-colors, after the footer) carries no group
+        either, so it was taken for a neighbour of the page's own sections:
+        on a page of one section (Space), adding a second moved the first out
+        of <main> to the end of the body, and both were drawn zero tall over
+        the footer. A page's section is placed only beside one in <main> (or
+        wherever the page keeps them), the layout's own beside its own.
+      */
+      var home = function (n) { if (!n || it.group || !mainBox) return !!n; return mainBox.contains(n) === (el.isConnected ? mainBox.contains(el) : true); };
+      for (var j = i - 1; j >= 0 && !prev; j--) if (m.order[j].group === it.group && home(byId(m.order[j].id))) prev = byId(m.order[j].id);
+      for (var k = i + 1; k < m.order.length && !next; k++) if (m.order[k].group === it.group && byId(m.order[k].id) && byId(m.order[k].id) !== el && home(byId(m.order[k].id))) next = byId(m.order[k].id);
       if (prev) { if (prev.nextElementSibling !== el) prev.after(el); }
       else if (next) { if (el.nextElementSibling !== next) next.before(el); }
       else if (!el.isConnected) {

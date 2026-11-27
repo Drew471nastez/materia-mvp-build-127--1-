@@ -436,6 +436,7 @@ async function editor(browser: Browser, template: string) {
   if (STEPS.includes("add")) {
     for (const type of (process.env.ADD_TYPES ?? "faq,faq5,Faq1,faq-pro,faq-side-image,faq-floating,faq-tabs").split(",")) {
       const before = await (await fr()).evaluate(() => [...document.querySelectorAll(".shopify-section")].map((s) => s.id))
+      if (process.env.DEBUG) console.log("    before:", await f.evaluate(() => [...document.querySelectorAll(".shopify-section")].map((x) => `${x.id.slice(-14)} in ${x.parentElement!.tagName}.${String(x.parentElement!.className).slice(0, 30)}#${x.parentElement!.id} h=${Math.round(x.getBoundingClientRect().height)}`).join(" | ")))
       for (let i = 0; i < 3 && !(await page.$("[data-add-section]")); i++) {
         /* The panel's own Back (under the Sections tab), not the editor's way out at the top. */
         await page.evaluate(() => { const b = [...document.querySelectorAll<HTMLElement>("button")].find((x) => x.getAttribute("aria-label") === "Back" && x.getBoundingClientRect().top > 90 && x.getBoundingClientRect().left < 300); b?.click() })
@@ -450,6 +451,7 @@ async function editor(browser: Browser, template: string) {
       await fr()
       const added = await f.evaluate((was) => [...document.querySelectorAll(".shopify-section")].map((s) => s.id).find((id) => !was.includes(id)) ?? null, before)
       if (!added) { await found(`add ${type}`, ["nothing was added to the canvas"], page); continue }
+      if (process.env.DEBUG) console.log(await f.evaluate((sid) => { const el = document.getElementById(sid)!; const d = (x: Element) => { const c = getComputedStyle(x); const r = x.getBoundingClientRect(); return `${x.tagName}#${x.id.slice(-20)}.${String(x.className).slice(0, 50)} h=${Math.round(r.height)} top=${Math.round(r.top + scrollY)} pos=${c.position} disp=${c.display} cv=${c.contentVisibility} cis=${c.containIntrinsicSize} st=${(x as HTMLElement).style?.cssText?.slice(0, 80)}` }; return [el, el.previousElementSibling, el.nextElementSibling, el.parentElement, ...[...document.querySelectorAll(".shopify-section")]].filter(Boolean).map((x) => d(x!)).join("\n") }, added))
       for (const at of ["start", "center", "end"] as const) {
         await f.evaluate((sid, at) => document.getElementById(sid)?.scrollIntoView({ block: at, behavior: "instant" as ScrollBehavior }), added, at)
         await audit(`add ${type}, in view (${at})`, 1000)
