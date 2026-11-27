@@ -70,6 +70,11 @@
  *     near 0.31: white on red, orange, blue and mid grey, black on yellow,
  *     light green, pastels and white. Only the line moves; a colour the
  *     creator picked for the number, when it reads, still wins (--cb-text).
+ *
+ *  8. A SHORT RELATED ROW. A shop of two products has one product to
+ *     recommend: its card sits at the row's start, under a heading at the
+ *     start, or in the middle under a centred one, never at the start under
+ *     a centred heading. Recently viewed never repeats it (./shop-rows.ts).
  */
 
 /** The widest a product card is drawn, in CSS pixels. */
@@ -144,6 +149,9 @@ export const SHOP_CALM_CSS = [
 
   /* 7. A count bubble's number from its own fill: the line at a luminance of 0.31 (one class more than Materia's rule). */
   "@supports (color:color(from red srgb-linear r g b)){html body .h-count.h-count:not(.header-action-text .h-count),html body .wishlist-count-header.wishlist-count-header{--cb-auto:clamp(0,(0.31 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 100000,1)}}",
+
+  /* 8. A related row with fewer cards than its columns sits under its heading: centred under a centred heading (round 67). */
+  "[data-section-type=related-products]:has(.section__header.text-center) .products-grid__items:not(.swiper-wrapper),.pl[data-align=center] .products-grid__items:not(.swiper-wrapper){justify-content:center}",
 
   /* 5. A logo keeps its shape. */
   `:where(${LOGO_PLACES}){height:auto}`,
