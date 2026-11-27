@@ -28,6 +28,7 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { THEME_MOTION_FIX_HEAD } from "@/lib/storelib-theme/compat/theme-motion-fix"
 
 let passed = 0
 let failed = 0
@@ -94,6 +95,29 @@ console.log("\nHero Image 1\n")
   check("the verified badge's check is black or white by its fill, white without relative colours", /stroke="#ffffff" style="stroke:oklch\(from currentColor clamp\(0, \(0\.7 - l\) \* 1000, 1\) 0 0\)"/.test(icon))
   const copy = [def("happy_customers", "heading"), def("simple_rating", "text"), def("lod_rating_badge", "label_text")].join(" ")
   check("no AI words or dashes in the new copy", !/unlock|elevate|seamless|powerful|effortless|supercharge|transform|—/i.test(copy), copy)
+}
+
+console.log("\nFor the theme files stores already have (theme-motion-fix.ts)\n")
+{
+  const theme = code("lib/storelib-theme/compat/theme.ts")
+  check("written into every installed theme's head, live and in the canvas", /\$\{THEME_MOTION_FIX_HEAD\}<\/head>/.test(theme) && /\$\{SHOP_CALM_HEAD\}\$\{THEME_MOTION_FIX_HEAD\}/.test(theme))
+  check("an old menu's wait is overruled, not removed (its fit still runs)", THEME_MOTION_FIX_HEAD.includes(".header__menu .horizontal-list[data-hs-wait]{opacity:1!important;animation:none!important}"))
+  check("an old verified badge's check takes black or white by its fill, where relative colours exist", /@supports \(color: oklch\(from red l c h\)\)\{svg:has\(>path\[fill='currentColor'\]\[d\^='M3\.85 8\.62'\]\)>path\[d='m9 12 2 2 4-4'\]/.test(THEME_MOTION_FIX_HEAD))
+  /* The popup patch, run against a stand-in Element. */
+  const calls: unknown[] = []
+  class El { rest = "0.5"; inPopup = true; closest(sel: string) { return sel === "[data-mp-motion]" && this.inPopup ? {} : null } animate(k: unknown) { calls.push(k); return {} } }
+  const win = { Element: El, getComputedStyle: (e: El) => ({ opacity: e.rest }) }
+  const body = THEME_MOTION_FIX_HEAD.match(/<script data-sl-popup-rest>([\s\S]*)<\/script>/)![1]
+  new Function("window", "__name", body)(win, (f: unknown) => f)
+  new Function("window", "__name", body)(win, (f: unknown) => f)
+  const e = new El()
+  e.animate([{ opacity: 0 }, { opacity: 1 }]); e.animate([{ opacity: 1 }, { opacity: 0 }])
+  e.animate([{ opacity: 0 }, { opacity: 0.5 }])
+  const out = new El(); out.inPopup = false; out.animate([{ opacity: 0 }, { opacity: 1 }])
+  const hidden = new El(); hidden.rest = "0"; hidden.animate([{ opacity: 0 }, { opacity: 1 }])
+  const moved = new El(); moved.animate([{ opacity: 0, transform: "none" }, { opacity: 1 }])
+  check("old popups fade to and from the shade's own opacity", JSON.stringify(calls.slice(0, 2)) === JSON.stringify([[{ opacity: 0 }, { opacity: 0.5 }], [{ opacity: 0.5 }, { opacity: 0 }]]), calls)
+  check("new files' own resting opacity is left as passed; outside a moving popup, at rest 0, or with more than opacity: untouched; patched once", JSON.stringify(calls.slice(2)) === JSON.stringify([[{ opacity: 0 }, { opacity: 0.5 }], [{ opacity: 0 }, { opacity: 1 }], [{ opacity: 0 }, { opacity: 1 }], [{ opacity: 0, transform: "none" }, { opacity: 1 }]]), calls.slice(2))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
