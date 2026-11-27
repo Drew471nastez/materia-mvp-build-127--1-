@@ -340,7 +340,7 @@
     const editorRedraw = () => {
       measured = true;
       maxScroll = Infinity;
-      if (state) { state.markerDoc = null; state.stackTop = null; state.settleUntil = performance.now() + 500; }
+      if (state) { state.markerDoc = null; state.stackTop = null; state.pillTop = null; state.settleUntil = performance.now() + 500; }
       schedule();
     };
     document.addEventListener('storelib:settings-change', editorRedraw);

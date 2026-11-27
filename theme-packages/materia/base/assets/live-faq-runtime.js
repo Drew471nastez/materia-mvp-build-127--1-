@@ -29,7 +29,17 @@
   function reveal(root) {
     if (!root.matches('[data-faq-reveal], [data-faq7-reveal]') || root.classList.contains('is-revealed')) return;
     if (reduced.matches || window.mtIsRedraw?.(root) || !('IntersectionObserver' in window)) { root.classList.add('is-revealed'); return; }
-    const io = new IntersectionObserver(es => { for (const e of es) if (e.isIntersecting) { root.classList.add('is-revealed'); io.disconnect(); } }, {threshold: 0.12});
+    // Round 69: the first report says where it sits. In the first screen, or
+    // above it, it simply shows; further down it is armed (its contents wait,
+    // never its colour) and comes in once its top is 6% into the screen.
+    let first = true;
+    const show = () => { root.classList.add('is-revealed'); io.disconnect(); if (root.hasAttribute('data-faq-armed')) setTimeout(() => root.removeAttribute('data-faq-armed'), 700); };
+    const io = new IntersectionObserver(es => {
+      for (const e of es) {
+        if (first) { first = false; if (e.isIntersecting || e.boundingClientRect.top < innerHeight) { root.classList.add('is-revealed'); io.disconnect(); return; } if (root.matches('[data-faq-reveal]')) root.setAttribute('data-faq-armed', ''); continue; }
+        if (e.isIntersecting) show();
+      }
+    }, {threshold: 0, rootMargin: '0px 0px -6% 0px'});
     io.observe(root);
   }
   function add(root) {

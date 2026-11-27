@@ -10,8 +10,8 @@ const REVEAL_MAX_STAGGER = 4;
 const PART_TYPES = ['stagger_up', 'mask_reveal', 'split_text', 'editorial'];
 const MAX_PARTS = 14;
 // Sections whose own settings pick a reveal style play it themselves
-// (collection tabs, FAQ 4, countdown, scrolling text, marquee, logos).
-const OWN_REVEAL = '[data-ct-reveal], [data-faq7-reveal], [data-cd-reveal], .stm[data-lt-reveal], [data-own-reveal="true"], .lg[data-reveal="true"]';
+// (collection tabs, FAQ 1 to 4, countdown, scrolling text, marquee, logos).
+const OWN_REVEAL = '[data-ct-reveal], [data-faq-reveal], [data-faq7-reveal], [data-cd-reveal], .stm[data-lt-reveal], [data-own-reveal="true"], .lg[data-reveal="true"]';
 const revealInitialized = new WeakSet();
 const zoomInitialized = new WeakSet();
 const visibleZoom = new Set();

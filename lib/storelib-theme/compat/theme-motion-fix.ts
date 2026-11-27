@@ -51,6 +51,16 @@
  *     (data-mt-reveal="2" on <html>, set by animation.js) are left to their
  *     own, identical rules.
  *
+ * ROUND 69 (scripts/check-faq-band-r69.ts)
+ *
+ *  7. FAQ 1, 2 AND 3 ARE NEVER A WHITE BAND. Their own reveal (Reveal on
+ *     scroll, on by default) faded the section's root, which carries its
+ *     colour, from opacity 0 in the first screen too, until 12% of it was on
+ *     screen and for 0.8s after: the page's background showed where the
+ *     section is, up to 635px tall. The root is always drawn now; new files
+ *     reveal what is inside it, armed only below the first screen
+ *     (data-faq-armed), and the theme's own reveal plays on old files.
+ *
  *  6. A SHADE FOLLOWS ITS PANEL. A phone's full-width menu darkened the page
  *     before its panel covered it (and stayed dark as it left): the backdrop
  *     now eases the other way round from the panel. Promotion popup (Code)'s
@@ -207,4 +217,7 @@ const REVEAL_FIX_CSS = [
   "[data-sl-noshade]{background-color:transparent!important}[data-sl-noshade]::before,[data-sl-noshade]::after{visibility:hidden!important}",
 ].join("")
 
-export const THEME_MOTION_FIX_HEAD = `<style data-sl-motion-fix>${MOTION_FIX_CSS}${REVEAL_FIX_CSS}</style><script data-sl-popup-rest>try{(${installPopupRestOpacity.toString()})(window)}catch(e){}</script><script data-sl-popup-handoff>try{(${installPopupHandoff.toString()})(window)}catch(e){}</script>`
+/* 7 above: an old FAQ 1, 2 or 3 root is never faded, moved or clipped (a new one never is, so this changes nothing there). */
+const FAQ_FIX_CSS = "[data-faq-root][data-faq-reveal]{opacity:1!important;transform:none!important;filter:none!important;clip-path:none!important}"
+
+export const THEME_MOTION_FIX_HEAD = `<style data-sl-motion-fix>${MOTION_FIX_CSS}${REVEAL_FIX_CSS}</style><style data-sl-faq-fix>${FAQ_FIX_CSS}</style><script data-sl-popup-rest>try{(${installPopupRestOpacity.toString()})(window)}catch(e){}</script><script data-sl-popup-handoff>try{(${installPopupHandoff.toString()})(window)}catch(e){}</script>`

@@ -113,7 +113,11 @@ const AUDIT = () => {
       if (b.bottom < r.top || b.top > r.bottom) continue
       onScreen++
       const o = opacityOf(e)
-      if (o > 0.9 && !hiddenBy(e)) seen++
+      /* What lies on top at its middle: a clip-path or a cover hides it as surely as opacity (a fixed bar over it does not count). */
+      const cx = Math.min(innerWidth - 1, Math.max(0, b.left + b.width / 2)), cy = Math.min(innerHeight - 1, Math.max(0, b.top + b.height / 2))
+      const hit = document.elementFromPoint(cx, cy)
+      const onTop = !hit || s.contains(hit) || !!hit.closest("header, .shopify-section-group-header-group, [data-sl], [data-sl-ui]") || (() => { for (let x: Element | null = hit; x; x = x.parentElement) { const p = getComputedStyle(x).position; if (p === "fixed" || p === "sticky") return true } return false })()
+      if (o > 0.5 && !hiddenBy(e) && onTop) seen++
       else if (faint.length < 2) faint.push(`${e.tagName.toLowerCase()}.${String(e.className).split(" ")[0]} ${o.toFixed(2)}`)
     }
     const visibleArea = Math.min(r.bottom, innerHeight) - Math.max(r.top, 0)
@@ -169,7 +173,14 @@ function stickyFaults(down: HeaderState | null, up: HeaderState | null): string[
 async function editor(browser: Browser, template: string) {
   current = { template, part: "editor" }
   const zip = await JSZip.loadAsync(await composeTemplateZip(`materia/${template}`))
-  const ed = await editorFor(browser, 1440, 900, false, undefined, zip)
+  if (process.env.ANIM) {
+    const data = JSON.parse((await zip.file("config/settings_data.json")!.async("string")).replace(/\/\*[\s\S]*?\*\//g, "")) as { current: Record<string, unknown> }
+    data.current.scroll_animation = process.env.ANIM
+    zip.file("config/settings_data.json", JSON.stringify(data))
+  }
+  /* PAGE=page.faqs: that page's sections drawn as the home page (the editor opens on the home page). */
+  const tweak = process.env.PAGE ? (c: { pages: Record<string, unknown[]> }) => { const key = Object.keys(c.pages).find((k) => k === process.env.PAGE || k.endsWith(String(process.env.PAGE))); const home = Object.keys(c.pages).find((k) => /^(index|home)$/.test(k)); if (process.env.DEBUG) console.log("    pages:", Object.keys(c.pages).join(" ")); if (key && home) c.pages[home] = c.pages[key] } : undefined
+  const ed = await editorFor(browser, 1440, 900, false, tweak, zip)
   const errors: string[] = []
   ed.page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource|favicon|net::ERR|Blocked autofocusing/i.test(m.text())) errors.push(m.text().slice(0, 160)) })
   ed.page.on("pageerror", (e) => errors.push(String(e).slice(0, 160)))
@@ -400,6 +411,21 @@ async function editor(browser: Browser, template: string) {
     await page.keyboard.press("Escape")
     await audit(`let go of ${id.slice(-30)}`, 700)
   }
+  /* visit: after each switch, every section scrolled to, by the wheel, and read. */
+  if (STEPS.includes("visit")) {
+    for (const [label, sel] of [["phone", "[data-wb-device-switch]"], ["desktop", "[data-wb-device-switch]"], ["full screen", "[data-wb-full-toggle]"], ["out of full screen", "[data-wb-full-toggle]"]] as const) {
+      await toTop()
+      if (!(await press(sel))) break
+      await sleep(1500)
+      await fr()
+      const ids = await f.evaluate((want) => [...document.querySelectorAll(".shopify-section")].filter((s) => new RegExp(want).test(s.id) && !/header|announcement|popup|drawer|overlay|cart|notification|back-to-top|custom-colors/i.test(s.id)).map((s) => s.id), process.env.SECTIONS ?? ".")
+      for (const id of ids) {
+        const dy = await f.evaluate((sid) => { const el = document.getElementById(sid); return el ? el.getBoundingClientRect().top - 60 : 0 }, id)
+        await wheel(dy, Math.max(4, Math.min(16, Math.round(Math.abs(dy) / 300))))
+        await audit(`${label}: wheeled to ${id.replace(/^shopify-section-(template--\d+__|sections--\d+__)?/, "")}`, 1000)
+      }
+    }
+  }
   /* add: sections put in from the library (Add section), each scrolled to and read. */
   if (STEPS.includes("add")) {
     for (const type of (process.env.ADD_TYPES ?? "faq,faq5,Faq1,faq-pro,faq-side-image,faq-floating,faq-tabs").split(",")) {
@@ -483,7 +509,7 @@ async function live(browser: Browser, template: string) {
     await page.evaluateOnNewDocument("window.__name = (f) => f")
     const widths = mode === "theme" ? [390, 768, 1280, 1440] : [1440, 390]
     await page.setViewport({ width: widths[0], height: widths[0] < 700 ? 844 : 900, isMobile: widths[0] < 700, hasTouch: widths[0] < 700 })
-    await page.goto(base + "/", { waitUntil: "networkidle0", timeout: 90000 }).catch(() => {})
+    await page.goto(base + (process.env.PAGE ? `/pages/${process.env.PAGE}` : "/"), { waitUntil: "networkidle0", timeout: 90000 }).catch(() => {})
     await sleep(1200)
     const audit = async (step: string, settle = 1200) => { await sleep(settle); await found(step, await page.evaluate(AUDIT).catch((e) => [`unreadable ${String(e).slice(0, 60)}`]), page) }
     const wheel = async (dy: number, steps = 8) => { const v = page.viewport()!; await page.mouse.move(v.width / 2, v.height / 2); for (let i = 0; i < steps; i++) { await page.mouse.wheel({ deltaY: dy / steps }); await sleep(35) } }

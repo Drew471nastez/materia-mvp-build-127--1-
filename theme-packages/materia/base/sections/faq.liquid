@@ -173,31 +173,24 @@
   #shopify-section-{{ sid }} .faq6__a a { color: inherit; text-decoration: underline; }
 
   {%- if reveal and scroll_animation != 'none' and request.design_mode != true -%}
-    #shopify-section-{{ sid }} .faq6 {
+    {%- comment -%}
+      Round 69: the section's colour is always there. Its own reveal plays on
+      what is inside it, never on the root that carries the colour (the page's
+      background showed through as a white band up to 635px tall until 12% of
+      the section was on screen). Nothing is hidden by this rule alone:
+      live-faq-runtime.js arms (data-faq-armed) only a section that starts
+      below the first screen, so one in view simply shows. 12px and half a
+      second, the fine line of the theme's own reveal.
+    {%- endcomment -%}
+    #shopify-section-{{ sid }} .faq6[data-faq-armed] > .faq6__inner {
       opacity: 0;
-      transition: opacity .8s ease, transform .8s ease, filter .8s ease, clip-path .8s ease;
+      transform: translate3d(0, 12px, 0);
+      transition: opacity .5s cubic-bezier(.25, .6, .3, 1), transform .5s cubic-bezier(.25, .6, .3, 1);
       will-change: opacity, transform;
     }
-    {%- case scroll_animation -%}
-      {%- when 'slide-in' -%}
-        #shopify-section-{{ sid }} .faq6 { transform: translateX(-20px); }
-        #shopify-section-{{ sid }} .faq6.is-revealed { transform: translateX(0); }
-      {%- when 'smooth-fade-up' -%}
-        #shopify-section-{{ sid }} .faq6 { transform: translateY(20px); }
-        #shopify-section-{{ sid }} .faq6.is-revealed { transform: translateY(0); }
-      {%- when 'blur_up' -%}
-        #shopify-section-{{ sid }} .faq6 { transform: translateY(12px); filter: blur(4px); }
-        #shopify-section-{{ sid }} .faq6.is-revealed { transform: none; filter: none; }
-      {%- when 'slide_side' -%}
-        #shopify-section-{{ sid }} .faq6 { transform: translateX(-28px); }
-        #shopify-section-{{ sid }} .faq6.is-revealed { transform: none; }
-      {%- when 'mask_reveal' -%}
-        #shopify-section-{{ sid }} .faq6 { opacity: 1; clip-path: inset(0 0 100% 0); transform: translateY(10px); }
-        #shopify-section-{{ sid }} .faq6.is-revealed { clip-path: inset(0 0 0 0); transform: none; }
-    {%- endcase -%}
-    #shopify-section-{{ sid }} .faq6.is-revealed { opacity: 1; }
+    #shopify-section-{{ sid }} .faq6[data-faq-armed].is-revealed > .faq6__inner { opacity: 1; transform: none; }
     @media (prefers-reduced-motion: reduce) {
-      #shopify-section-{{ sid }} .faq6 { transition: none !important; transform: none !important; opacity: 1 !important; filter: none !important; clip-path: none !important; }
+      #shopify-section-{{ sid }} .faq6[data-faq-armed] > .faq6__inner { transition: none !important; transform: none !important; opacity: 1 !important; }
     }
   {%- endif -%}
 
