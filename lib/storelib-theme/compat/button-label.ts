@@ -34,6 +34,9 @@
  *     A fill's border and gradient variables that carried the old fill
  *     follow it.
  *
+ *  3. THE XP SHOP'S GREEN GLOSS (LEGACY_GRADIENTS) is a shade deeper, so its
+ *     white labels read.
+ *
  * New theme files and new installs are already fixed in their data, so this
  * changes nothing on them. Pure string work on the drawn page: no script, so
  * nothing flashes.
@@ -212,10 +215,22 @@ function fixPlainRule(selector: string, body: string, before: string): string {
   return out
 }
 
+/**
+ * The XP shop's glossy green buttons (xpshop sections, before round 68): white
+ * labels on a light green, 3.2:1 at the label's height. The same gloss, a
+ * shade deeper, reads at 4.5:1 or more. Exact strings, so nothing else moves.
+ */
+export const LEGACY_GRADIENTS: [string, string][] = [
+  ["#7ad36c 0%, #45b041 42%, #2f962f 58%, #3aa73a 100%", "#64b956 0%, #2e8634 42%, #1f6f21 58%, #277d28 100%"],
+  ["#8bdc7d 0%, #52bd4c 42%, #379f36 58%, #45b041 100%", "#6cc35e 0%, #33903a 42%, #237a24 58%, #2b852b 100%"],
+]
+
 /** Every button colour pair in the page (scheme variables, the header button's style attribute, a button's own rule), fixed where it needs to be. */
 export function fixButtonLabels(html: string): string {
   if (!/--btn-|--hs-cta-|btn|button/i.test(html)) return html
-  let out = html.replace(/\{[^{}<]*--btn-(?:primary|secondary)[^{}<]*\}/g, fixVars)
+  let out = html
+  for (const [from, to] of LEGACY_GRADIENTS) if (out.includes(from)) out = out.split(from).join(to)
+  out = out.replace(/\{[^{}<]*--btn-(?:primary|secondary)[^{}<]*\}/g, fixVars)
   out = out.replace(/style="[^"]*--hs-cta-bg[^"]*"/g, fixVars)
   out = out.replace(/(^|[}\s>])([^{}<>]*(?:btn|button)[^{}<>]*)\{([^{}<]*)\}/gi, (m, lead: string, selector: string, body: string, at: number, all: string) => {
     const next = fixPlainRule(selector, body, all.slice(Math.max(0, at - 6000), at))

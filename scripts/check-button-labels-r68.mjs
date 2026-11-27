@@ -9,8 +9,8 @@
  * opaque background behind it (WCAG contrast), at rest and while the pointer
  * is on it.
  *
- *   LOW      a filled button's label under 4.5:1 (a gradient fill is
- *            measured at each of its stops)
+ *   LOW      a filled button's label under 4.5:1 (3:1 for large text) (a gradient fill is
+ *            measured at its middle, where the label sits)
  *   ORANGE   a dark label on a saturated orange or red fill (hue under 45 or
  *            over 340, chroma 110 or more), the look the owner asked to be
  *            rid of ("button text black on that orange button")
@@ -47,8 +47,18 @@ let measured = 0
 
 const READ = `(hover) => {
   /* rgb(), rgba() and color(srgb r g b / a), the last in 0 to 1 */
-  const rgb = (s) => { const m = s.match(/[\\d.]+/g); if (!m) return [0, 0, 0, 0]; const n = m.map(Number); return /^color\\(srgb/.test(s) ? [n[0] * 255, n[1] * 255, n[2] * 255, n[3] ?? 1] : n }
-  const stops = (img) => (img.match(/rgba?\\([^)]*\\)/g) ?? []).map(rgb).filter((c) => (c[3] ?? 1) > 0.9)
+  /* Any other colour (lch(), oklch() from a relative colour) is read back through a canvas pixel. */
+  const cx = document.createElement('canvas').getContext('2d', { willReadFrequently: true })
+  const viaCanvas = (s) => { cx.clearRect(0, 0, 1, 1); cx.fillStyle = '#000'; cx.fillStyle = s; cx.fillRect(0, 0, 1, 1); const d = cx.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2], d[3] / 255] }
+  const rgb = (s) => { if (/^(ok)?l(ch|ab)\\(/.test(s)) return viaCanvas(s); const m = s.match(/[\\d.]+/g); if (!m) return [0, 0, 0, 0]; const n = m.map(Number); return /^color\\(srgb/.test(s) ? [n[0] * 255, n[1] * 255, n[2] * 255, n[3] ?? 1] : n }
+  /* A vertical gradient behind a centred label: its colour at the middle, between the two stops around 50% (Windows XP style buttons have a light band only at the top edge). */
+  const stops = (img) => {
+    const st = [...img.matchAll(/(rgba?\\([^)]*\\))\\s*([\\d.]+%)?/g)].map((m, i, all) => ({ c: rgb(m[1]), at: m[2] ? parseFloat(m[2]) : (i / Math.max(1, all.length - 1)) * 100 })).filter((x) => (x.c[3] ?? 1) > 0.9)
+    if (st.length < 2) return st.map((x) => x.c)
+    const hi = st.findIndex((x) => x.at >= 50); const a = st[Math.max(0, hi - 1)], b = st[Math.max(0, hi)]
+    const t = b.at === a.at ? 0 : (50 - a.at) / (b.at - a.at)
+    return [[0, 1, 2].map((k) => a.c[k] + (b.c[k] - a.c[k]) * t)]
+  }
   const lum = ([r, g, b]) => { const f = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4 }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b) }
   const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05) }
   const hue = ([r, g, b]) => { const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; if (!d) return 0; let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; return h < 0 ? h + 360 : h }
@@ -66,7 +76,9 @@ const READ = `(hover) => {
     if ((fg[3] ?? 1) < 0.5) continue
     const bg = { c: bgs.cs.reduce((w, c) => (ratio(fg, c) < ratio(fg, w) ? c : w)), own: bgs.own }
     const b = bg.c, chroma = Math.max(b[0], b[1], b[2]) - Math.min(b[0], b[1], b[2]), h = hue(b)
-    out.push({ text: el.textContent.trim().replace(/\\s+/g, ' ').slice(0, 30), ratio: Math.round(ratio(fg, b) * 100) / 100, filled: bg.own, orange: bg.own && chroma >= 110 && (h < 45 || h >= 340) && lum(fg) < lum(b), fg: fg.slice(0, 3).join(','), bg: b.slice(0, 3).join(','), hover })
+    /* WCAG large text (24px, or 18.66px bold) needs 3:1 */
+    const lcs = getComputedStyle(label), px = parseFloat(lcs.fontSize), large = px >= 24 || (px >= 18.66 && Number(lcs.fontWeight) >= 700)
+    out.push({ text: el.textContent.trim().replace(/\\s+/g, ' ').slice(0, 30), large, ratio: Math.round(ratio(fg, b) * 100) / 100, filled: bg.own, orange: bg.own && chroma >= 110 && (h < 45 || h >= 340) && lum(fg) < lum(b), fg: fg.slice(0, 3).join(','), bg: b.slice(0, 3).join(','), hover })
   }
   return out
 }`
@@ -84,7 +96,7 @@ for (const slug of slugs) {
     const rest = await page.evaluate(`(${READ})(false)`)
     for (const b of rest) {
       count++; measured++; if (b.filled) lowest = Math.min(lowest, b.ratio)
-      if (b.ratio < 4.5 && b.filled) failures.push(`LOW ${slug}/${path} ${width} ${JSON.stringify(b)}`)
+      if (b.ratio < (b.large ? 3 : 4.5) && b.filled) failures.push(`LOW ${slug}/${path} ${width} ${JSON.stringify(b)}`)
       else if (b.ratio < 4.5) unfilled.push(`${slug}/${path} ${width} ${JSON.stringify(b)}`)
       if (b.orange) failures.push(`ORANGE ${slug}/${path} ${width} ${JSON.stringify(b)}`)
     }

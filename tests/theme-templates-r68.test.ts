@@ -31,7 +31,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 
 import { SAMPLE_SHOPS } from "../scripts/theme-templates/shops"
-import { contrast as contrastRgb, fixButtonLabels, fixPair, saturatedOrange, LEGACY_PAIRS } from "../lib/storelib-theme/compat/button-label"
+import { contrast as contrastRgb, fixButtonLabels, fixPair, saturatedOrange, LEGACY_GRADIENTS, LEGACY_PAIRS } from "../lib/storelib-theme/compat/button-label"
 
 let passed = 0
 let failed = 0
@@ -97,6 +97,9 @@ function main() {
   const curriculum = fixButtonLabels(`<style>#s .rnc { --lapis: #e3a63a; } #s .rnc__btn { display: flex; background: var(--lapis); color: #15130f; } #t .x__btn { background: var(--lapis); color: #ffffff; }</style>`)
   check("  a button filled from its section's variable with a template's old pair (Renaissance's curriculum) gets the new pair; another label stays", /\.rnc__btn \{ display: flex; background: #b45309; color: #ffffff; \}/.test(curriculum) && /\.x__btn \{ background: var\(--lapis\); color: #ffffff; \}/.test(curriculum), curriculum)
   check("  a page with nothing to fix comes back as it was", fixButtonLabels("<style>.a{--btn-primary-color:#fff;--btn-primary-bg-color:#111}</style>") === "<style>.a{--btn-primary-color:#fff;--btn-primary-bg-color:#111}</style>")
+  const xpFiles = readdirSync(join(ROOT, "theme-packages", "materia", "base", "sections")).filter((f) => f.startsWith("xpshop-")).map((f) => read(join(ROOT, "theme-packages", "materia", "base", "sections", f))).join("\n")
+  check("the XP shop's green buttons are the deeper gloss, in the theme and for installed themes", LEGACY_GRADIENTS.every(([from, to]) => !xpFiles.includes(from) && xpFiles.includes(to)) && fixButtonLabels(`<style>.btn{background:linear-gradient(180deg, ${LEGACY_GRADIENTS[0][0]})}</style>`).includes(LEGACY_GRADIENTS[0][1]))
+  check("  its middle, where the label sits, reads white at 4.5:1", contrast("#277d28", "#ffffff") >= 4.5 && contrast("#2b852b", "#ffffff") >= 4.5)
   const theme = read(join(ROOT, "lib", "storelib-theme", "compat", "theme.ts"))
   check("theme.ts runs it over every page an installed theme draws", /import \{ fixButtonLabels \} from "\.\/button-label"/.test(theme) && /html = fixButtonLabels\(html\)/.test(theme))
 
