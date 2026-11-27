@@ -155,7 +155,7 @@ type HeaderState = NonNullable<ReturnType<typeof HEADER>>
 function stickyFaults(down: HeaderState | null, up: HeaderState | null): string[] {
   if (!down || !up) return []
   /* The page did not move (a popup holding the scroll): nothing to read. */
-  if (down.y < 300) return []
+  if (down.y < 300 || up.y > down.y - 50) return []
   const out: string[] = []
   let mode = down.mode
   if (!down.wide && down.mobile === "false") mode = "none"
@@ -235,6 +235,7 @@ async function editor(browser: Browser, template: string) {
   }, pick, value)
   const stickyRound = async (label: string) => {
     await toTop()
+    await f.evaluate(() => { (window as unknown as { MateriaPopups?: { close(): void } }).MateriaPopups?.close() }).catch(() => {})
     await wheel(1400); await sleep(900); await fr()
     const down = await f.evaluate(HEADER)
     await wheel(-260); await sleep(900); await fr()
