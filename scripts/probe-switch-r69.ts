@@ -1,3 +1,4 @@
+/** Round 69: the Show on scroll up header through the editor's phone, desktop and full screen switch, filmed a frame at a time. STICKY=on-scroll-up TEMPLATE=fitness npx tsx scripts/probe-switch-r69.ts */
 import puppeteer from "puppeteer-core"
 import JSZip from "jszip"
 import { composeTemplateZip } from "../lib/themes/template-packages"

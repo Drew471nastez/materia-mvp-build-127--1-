@@ -154,6 +154,8 @@ type HeaderState = NonNullable<ReturnType<typeof HEADER>>
 /** What the sticky mode says the header does after a scroll down and a little up. */
 function stickyFaults(down: HeaderState | null, up: HeaderState | null): string[] {
   if (!down || !up) return []
+  /* The page did not move (a popup holding the scroll): nothing to read. */
+  if (down.y < 300) return []
   const out: string[] = []
   let mode = down.mode
   if (!down.wide && down.mobile === "false") mode = "none"
@@ -212,6 +214,9 @@ async function editor(browser: Browser, template: string) {
   /* sticky: the header's own select. */
   const clickHeader = async () => {
     await toTop()
+    /* A popup the template opens on its own lies over the header. */
+    await f.evaluate(() => { (window as unknown as { MateriaPopups?: { close(): void } }).MateriaPopups?.close() }).catch(() => {})
+    await sleep(600)
     const b = await box()
     const y = await f.evaluate(() => { const h = document.querySelector("header.header"); if (!h) return null; const r = h.getBoundingClientRect(); return r.top + Math.min(r.height / 2, 30) })
     if (y === null) return false
