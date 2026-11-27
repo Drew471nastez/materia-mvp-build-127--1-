@@ -301,7 +301,8 @@ function wiring() {
   const chat = read("components/website-builder/theme-chat.tsx")
   check("the theme is read back at once and on the next return", /if \(!stopped && \(snapshotTaken \|\| wroteCode\)\) \{\s*onSourcesChanged\?\.\(\)/.test(chat) && /document\.addEventListener\("visibilitychange", again\)/.test(chat))
   check("  and after a refused run that had started", /if \(snapshotTaken \|\| wroteCode\) onSourcesChanged\?\.\(\)/.test(chat))
-  check("  a written file counts", /wroteCode = true\s*onSourceWritten\?\.\(event\.path, event\.source\)/.test(chat))
+  /* Changed on purpose (r69): the run takes its undo snapshot between the two, so a code only run can be discarded. */
+  check("  a written file counts", /wroteCode = true[\s\S]{0,400}?onSourceWritten\?\.\(event\.path, event\.source\)/.test(chat))
 
   console.log("\nOnePage never spins for ever")
   const gate = read("components/native-auth-gate.tsx")
