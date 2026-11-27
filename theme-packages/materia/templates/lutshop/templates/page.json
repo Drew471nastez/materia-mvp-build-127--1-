@@ -1,0 +1,17 @@
+/* Templates round 68: Coldframe's page page, the studio shop's layout in Coldframe's words and colour schemes. */
+{
+  "sections": {
+    "main": {
+      "type": "page-default",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 56,
+        "padding_bottom": 88
+      }
+    }
+  },
+  "order": [
+    "main"
+  ]
+}

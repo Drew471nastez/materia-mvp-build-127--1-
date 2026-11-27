@@ -1,0 +1,157 @@
+/* Templates round 68: Coldframe's questions page and the free LUT. */
+{
+  "sections": {
+    "faq": {
+      "type": "faq",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "structured_data": true,
+        "heading": "Questions",
+        "subheading": "<p>About the apps, log footage, downloads and the licence.</p>",
+        "first_item_open": true,
+        "allow_multiple_open": false,
+        "open_icon": "plus",
+        "content_alignment": "center",
+        "max_content_width": 820,
+        "gap_header_to_items": 36,
+        "gap_heading_to_subheading": 12,
+        "gap_between_items": 10,
+        "item_padding_y": 22,
+        "item_padding_x": 26,
+        "item_radius": 8,
+        "show_dividers": true,
+        "enable_custom_style": false,
+        "heading_size_desktop": 40,
+        "heading_size_mobile": 30,
+        "question_size_desktop": 17,
+        "question_size_mobile": 16,
+        "answer_size_desktop": 16,
+        "answer_size_mobile": 15,
+        "reveal": false,
+        "padding_top": 72,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "faq_item_1": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Which apps do the LUTs work in?",
+            "answer": "<p>Every LUT is a .cube file, so it loads in Premiere Pro, DaVinci Resolve, Final Cut Pro and CapCut, and in After Effects, Photoshop and LumaFusion too. The PDF in each pack shows where it goes in each app.</p>"
+          }
+        },
+        "faq_item_2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Log or Rec.709, which one do I load?",
+            "answer": "<p>Each pack has both. Shot in S-Log3, V-Log, C-Log3, F-Log or Apple Log? Load the version for your camera's log. Shot in a standard picture profile, or on a phone? Load the Rec.709 version.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "When do I get the files?",
+            "answer": "<p>Straight after you pay. The download link is on the confirmation page and in an email a minute later. It is a single zip per product.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do the transitions work in CapCut?",
+            "answer": "<p>The Clean Cuts pack has project files for Premiere Pro, DaVinci Resolve and Final Cut Pro, and the same transitions as video clips you lay over a cut in CapCut or any other editor.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I use them for client work?",
+            "answer": "<p>Yes. Use them in videos for yourself and for clients, on social, YouTube, ads and films. You cannot resell or share the files themselves. The licence page has the details.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I get a refund?",
+            "answer": "<p>Files cannot be returned once downloaded, so look at the before and after first. If a file is broken or not what the page shows, write within 14 days and we fix it or refund you.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Will a LUT fix my exposure or white balance?",
+            "answer": "<p>No LUT can. Set exposure and white balance first, then add the look. The guide shows the order for each app.</p>"
+          }
+        },
+        "faq_item_8": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I get updates?",
+            "answer": "<p>Yes, for free. When a pack gains a look, the new zip replaces the old one in your account and you get an email.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7",
+        "faq_item_8"
+      ]
+    },
+    "newsletter": {
+      "type": "newsletter",
+      "settings": {
+        "color_scheme": "scheme-3c9e1d42-6f1a-4b7e-9d20-5a8c0e7b1f31",
+        "section_width": "full_width",
+        "reset_spacing": true,
+        "heading": "",
+        "email_label": "Email address",
+        "email_placeholder": "name@email.com",
+        "btn_text": "Subscribe",
+        "note": "Two or three emails a month. Unsubscribe any time.",
+        "subscribed_button_text": "Subscribed",
+        "success_text": "Thanks, the free LUT is on its way.",
+        "header_alignment": "center",
+        "form_layout": "horizontal",
+        "show_icon": false,
+        "show_content_background": false,
+        "button_style": "primary",
+        "use_theme_button": true,
+        "use_theme_fields": true,
+        "header_size": "medium",
+        "reveal": false,
+        "padding_top": 88,
+        "padding_bottom": 88
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "A free LUT for your inbox",
+            "tag": "h2",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Sign up and get Log to 709, then a note when a new pack is out.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "faq",
+    "newsletter"
+  ]
+}

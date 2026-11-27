@@ -1,0 +1,162 @@
+/* Templates round 68: Coldframe's header, an announcement bar of the apps every pack works in over a dark header with the logo, the menu, search and the cart. */
+{
+  "type": "header",
+  "name": "t:sections.header.name",
+  "sections": {
+    "offer_bar": {
+      "type": "announcement-bar-basic",
+      "settings": {
+        "color_scheme": "scheme-3c9e1d42-6f1a-4b7e-9d20-5a8c0e7b1f31",
+        "section_width": "full_width",
+        "display_section_on": "display_all",
+        "reset_spacing": true,
+        "message": "",
+        "message_mobile": "",
+        "link": "/pages/faqs",
+        "open_in_new_tab": false,
+        "content_alignment": "center",
+        "content_gap": 12,
+        "bar_padding_x": 16,
+        "background_type": "solid",
+        "show_border_bottom": false,
+        "enable_custom_style": false,
+        "font_size": 14,
+        "mobile_font_size": 13,
+        "enable_custom_font_weight": true,
+        "message_font_weight": "500",
+        "letter_spacing": 0,
+        "text_transform": "none",
+        "reveal": false,
+        "show_close_button": false,
+        "show_close_button_mobile": false,
+        "bar_height": 40
+      },
+      "blocks": {
+        "message_1": {
+          "type": "message",
+          "settings": {
+            "text": "Every LUT pack works in Premiere Pro, DaVinci Resolve, Final Cut Pro and CapCut",
+            "text_mobile": "Works in Premiere, Resolve, Final Cut and CapCut",
+            "link": "/pages/faqs",
+            "open_in_new_tab": false,
+            "visibility": "all",
+            "enable_custom_style": false
+          }
+        }
+      },
+      "block_order": [
+        "message_1"
+      ]
+    },
+    "header": {
+      "type": "header",
+      "settings": {
+        "reveal": true,
+        "menu_tab": "unset",
+        "mega_menu": "main-menu",
+        "show_search": true,
+        "color_scheme": "default",
+        "icon_spacing": 10,
+        "header_height": 76,
+        "header_layout": "wide_container",
+        "logo_offset_x": 0,
+        "logo_position": "left",
+        "reset_spacing": true,
+        "section_width": "container",
+        "show_currency": false,
+        "show_language": false,
+        "separator_line": "unset",
+        "actions_as_text": false,
+        "collection_list": [],
+        "logo_gap_mobile": 0,
+        "mega_column_gap": 32,
+        "uppercase_first": false,
+        "action_text_size": 16,
+        "menu_custom_font": "assistant_n4",
+        "menu_hover_style": "inherit",
+        "redirect_to_link": true,
+        "logo_width_mobile": 124,
+        "menu_link_spacing": 20,
+        "menu_mobile_color": "#f2f1ec",
+        "show_account_icon": false,
+        "action_text_weight": "400",
+        "logo_width_desktop": 150,
+        "show_shopping_cart": true,
+        "show_wishlist_icon": false,
+        "sticky_header_type": "on-scroll-up",
+        "transparent_header": false,
+        "transparent_mobile": false,
+        "dropdowns_animation": "down-to-up",
+        "enable_custom_fonts": false,
+        "icon_spacing_mobile": 6,
+        "header_height_mobile": 60,
+        "logo_custom_position": true,
+        "logo_offset_x_mobile": 0,
+        "logo_position_mobile": "left",
+        "menu_mobile_chevrons": false,
+        "sticky_header_mobile": true,
+        "dropdown_link_spacing": 3,
+        "transparent_on_mobile": false,
+        "menu_mobile_title_type": "text",
+        "menu_dropdown_tinted_bg": true,
+        "menu_mobile_logo_height": 30,
+        "section_margin_top_mobile": 0,
+        "transparent_bottom_border": false,
+        "section_margin_top_desktop": 0,
+        "disable_white_fill_on_hover": false,
+        "transparent_text_icon_color": "#ffffff",
+        "section_margin_bottom_mobile": 0,
+        "transparent_hover_fill_color": "#ffffff",
+        "transparent_text_hover_color": "#111111",
+        "section_margin_bottom_desktop": 0,
+        "transparent_bottom_border_color": "#020202",
+        "menu_mobile_background": "#0d0e10",
+        "menu_font_size": 15,
+        "menu_font_weight": "500"
+      },
+      "blocks": {
+        "pill_glass_1": {
+          "type": "pill_glass",
+          "settings": {
+            "glass_blur": 18,
+            "glass_color": "#ffffff",
+            "glass_shine": 79,
+            "glass_border": false,
+            "glass_shadow": 32,
+            "glass_enabled": false,
+            "glass_opacity": 64,
+            "header_radius": 14,
+            "glass_contrast": 110,
+            "header_pill_bg": "#ffffff",
+            "glass_brightness": 98,
+            "glass_saturation": 135,
+            "glass_text_color": "#bc9494",
+            "header_max_width": 100,
+            "header_padding_x": 20,
+            "header_padding_y": 0,
+            "header_pill_blur": false,
+            "glass_text_enable": false,
+            "header_top_offset": 16,
+            "header_pill_enable": false,
+            "header_pill_mobile": false,
+            "header_side_offset": 16,
+            "header_bottom_offset": 0,
+            "header_pill_mobile_top": 8,
+            "header_pill_blur_amount": 7,
+            "header_pill_mobile_side": 12,
+            "header_pill_border_color": "#e4e3df",
+            "header_pill_border_width": 1,
+            "header_pill_mobile_radius": 50
+          }
+        }
+      },
+      "block_order": [
+        "pill_glass_1"
+      ]
+    }
+  },
+  "order": [
+    "offer_bar",
+    "header"
+  ]
+}

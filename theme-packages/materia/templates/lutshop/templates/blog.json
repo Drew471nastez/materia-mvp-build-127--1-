@@ -1,0 +1,181 @@
+/* Templates round 68: Coldframe's blog page, the studio shop's layout in Coldframe's words and colour schemes. */
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "alignment": "center",
+        "height": "based_on_content",
+        "padding_top": 104,
+        "padding_bottom": 104,
+        "background_image": "shopify://shop_images/lutshop-ba-hill-after.webp",
+        "overlay_opacity": 38,
+        "text_on_image": "light"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "Blog",
+            "header_size": "large",
+            "vertical_gap": 10,
+            "enable_heading_color": false
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Notes on grading, log footage and cutting faster, with the files in this shop.</p>",
+            "enable_custom_style": false
+          }
+        },
+        "breadcrumb_r61": {
+          "type": "breadcrumb",
+          "settings": {
+            "separator": "dot",
+            "font_size": 13,
+            "uppercase": false
+          }
+        }
+      },
+      "block_order": [
+        "breadcrumb_r61",
+        "heading_1",
+        "description_2"
+      ]
+    },
+    "main": {
+      "type": "main-blog",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 56,
+        "padding_bottom": 72,
+        "card_style": "editorial",
+        "sidebar_position": "left",
+        "layout": "grid",
+        "show_author": true,
+        "show_date": true,
+        "show_category": true,
+        "show_excerpt": true,
+        "excerpt_lines": 3,
+        "show_readmore": false,
+        "items_per_row": 3,
+        "items_to_show": 9,
+        "items_per_row_mobile": 1,
+        "image_ratio": "custom",
+        "custom_ratio": "16:10",
+        "content_alignment": "left",
+        "title_size": 19,
+        "column_gap": 24,
+        "row_gap": 56,
+        "hover_effect": "zoom",
+        "pagination": "default",
+        "padding_top_mobile": 36,
+        "padding_bottom_mobile": 48,
+        "margin_top": 0,
+        "image_radius": 10
+      },
+      "blocks": {
+        "categories_r61": {
+          "type": "categories",
+          "settings": {
+            "heading": "Blog categories",
+            "show_count": false
+          }
+        },
+        "recent_r61": {
+          "type": "recent",
+          "settings": {
+            "heading": "Popular posts",
+            "count": 3,
+            "show_image": true,
+            "show_date": true
+          }
+        },
+        "topics_r61": {
+          "type": "topics",
+          "settings": {
+            "heading": "Tags",
+            "all_label": ""
+          }
+        },
+        "promo_r61": {
+          "type": "promo",
+          "settings": {
+            "ratio": "portrait",
+            "overlay": 30,
+            "subheading": "From the shop",
+            "heading": "See what is new",
+            "button_label": "Shop now",
+            "link": "/collections/all",
+            "button_style": "light",
+            "image": "shopify://shop_images/lutshop-ba-hill-after.webp"
+          }
+        }
+      },
+      "block_order": [
+        "categories_r61",
+        "recent_r61",
+        "topics_r61",
+        "promo_r61"
+      ]
+    },
+    "newsletter": {
+      "type": "newsletter",
+      "settings": {
+        "color_scheme": "scheme-3c9e1d42-6f1a-4b7e-9d20-5a8c0e7b1f31",
+        "section_width": "full_width",
+        "reset_spacing": true,
+        "heading": "A free LUT for your inbox",
+        "email_label": "Email address",
+        "email_placeholder": "name@email.com",
+        "btn_text": "Subscribe",
+        "note": "Two or three emails a month. Unsubscribe any time.",
+        "subscribed_button_text": "Subscribed",
+        "success_text": "Thanks, you are on the list.",
+        "header_alignment": "center",
+        "form_layout": "vertical",
+        "show_icon": false,
+        "show_content_background": false,
+        "button_style": "primary",
+        "use_theme_button": true,
+        "use_theme_fields": true,
+        "header_size": "medium",
+        "reveal": false,
+        "padding_top": 88,
+        "padding_bottom": 88
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "A free LUT for your inbox",
+            "tag": "h2",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Sign up and get Log to 709, then a note when a new pack is out.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "main",
+    "newsletter"
+  ]
+}

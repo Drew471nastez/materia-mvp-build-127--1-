@@ -1,0 +1,1011 @@
+/* Templates round 68: Coldframe, a shop of LUT packs and video editing assets by one colourist: a log frame against Teal Hour under a line you drag, the packs, where a LUT goes in each app, three more before and afters, the other kinds of asset, what is inside a pack, bundles, the maker, reviews, questions and a free LUT for signing up, built from the theme's own sections on the theme's colour schemes. */
+{
+  "sections": {
+    "hero": {
+      "type": "before-and-after-slider-2",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "section_max_width_desktop": 1280,
+        "image_position": "right",
+        "image_col_fr": 3,
+        "content_col_fr": 2,
+        "layout_gap_desktop": 64,
+        "content_gap": 18,
+        "content_align": "left",
+        "image_aspect": "16 / 10",
+        "image_radius": 8,
+        "start_position": 50,
+        "handle_icon": "arrows",
+        "handle_size": 44,
+        "show_labels": true,
+        "label_size": 12,
+        "label_weight": "600",
+        "label_transform": "uppercase",
+        "label_radius": 100,
+        "label_offset": 14,
+        "padding_top_desktop": 48,
+        "padding_bottom_desktop": 72,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 48,
+        "layout_gap_mobile": 24
+      },
+      "blocks": {
+        "slider": {
+          "type": "slider",
+          "settings": {
+            "before_image": "shopify://shop_images/lutshop-ba-street-before.webp",
+            "before_label": "Log",
+            "before_alt": "A frame of a street at sunset as it comes off the camera, flat and grey",
+            "after_image": "shopify://shop_images/lutshop-ba-street-after.webp",
+            "after_label": "Teal Hour",
+            "after_alt": "The same frame with Teal Hour applied"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Colour grades for video, one click away",
+            "tag": "h1",
+            "size_enable": true,
+            "size_desktop": 60,
+            "size_mobile": 34
+          }
+        },
+        "text": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>LUT packs, transitions, overlays and sound effects for Premiere Pro, DaVinci Resolve, Final Cut Pro and CapCut. Drag the line to see a log frame before and after Teal Hour.</p>",
+            "max_width": 440
+          }
+        },
+        "button": {
+          "type": "button",
+          "settings": {
+            "text": "Shop LUT packs",
+            "link": "/collections/lut-packs",
+            "use_theme_button": true,
+            "radius": 6
+          }
+        }
+      },
+      "block_order": [
+        "slider",
+        "heading",
+        "text",
+        "button"
+      ]
+    },
+    "packs": {
+      "type": "products-listing",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "collection": "lut-packs",
+        "items_to_show": 8,
+        "heading": "LUT packs",
+        "show_view_all": true,
+        "view_all_label": "View all",
+        "header_alignment": "left",
+        "heading_subtext_gap": 10,
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 20,
+        "row_gap": 36,
+        "show_badges": true,
+        "show_vendor": false,
+        "show_rating": true,
+        "show_short_description": false,
+        "show_swatches": false,
+        "show_price": true,
+        "show_add_to_cart": true,
+        "show_action": true,
+        "reveal": false,
+        "padding_top": 56,
+        "padding_bottom": 88
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "LUT packs",
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Twelve looks or so in each pack, every one in a log and a Rec.709 version.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    },
+    "apps": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "scheme-3c9e1d42-6f1a-4b7e-9d20-5a8c0e7b1f31",
+        "section_width": "container",
+        "reset_spacing": true,
+        "content_alignment": "left",
+        "columns_desktop": 4,
+        "columns_tablet": 2,
+        "column_gap": 32,
+        "header_gap": 40,
+        "show_dividers": true,
+        "enable_custom_style": false,
+        "item_heading_size": 20,
+        "item_heading_size_mobile": 19,
+        "padding_top": 88,
+        "padding_bottom": 88,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "mobile_layout": "stack"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Works in the app you already use",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Every LUT is a standard .cube file. This is where it goes.</p>"
+          }
+        },
+        "c1": {
+          "type": "column",
+          "settings": {
+            "label": "Premiere Pro",
+            "heading": "Lumetri Color",
+            "text": "<p>Creative, then Look, then Browse. Or Basic Correction, Input LUT, for the log version.</p>"
+          }
+        },
+        "c2": {
+          "type": "column",
+          "settings": {
+            "label": "DaVinci Resolve",
+            "heading": "Color page",
+            "text": "<p>Copy the folder into Resolve's LUT folder, then right click a clip and pick the look.</p>"
+          }
+        },
+        "c3": {
+          "type": "column",
+          "settings": {
+            "label": "Final Cut Pro",
+            "heading": "Custom LUT effect",
+            "text": "<p>Drop the effect on a clip, choose the LUT from the menu and set the input to your camera's log.</p>"
+          }
+        },
+        "c4": {
+          "type": "column",
+          "settings": {
+            "label": "CapCut",
+            "heading": "Adjust, then LUT",
+            "text": "<p>On desktop, import the .cube under Adjust and LUT. It stays in your list for the next project.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "c1",
+        "c2",
+        "c3",
+        "c4"
+      ]
+    },
+    "warm": {
+      "type": "before-and-after-slider-2",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "section_max_width_desktop": 1280,
+        "image_position": "left",
+        "image_col_fr": 3,
+        "content_col_fr": 2,
+        "layout_gap_desktop": 64,
+        "content_gap": 18,
+        "content_align": "left",
+        "image_aspect": "16 / 10",
+        "image_radius": 8,
+        "start_position": 50,
+        "handle_icon": "arrows",
+        "handle_size": 44,
+        "show_labels": true,
+        "label_size": 12,
+        "label_weight": "600",
+        "label_transform": "uppercase",
+        "label_radius": 100,
+        "label_offset": 14,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 48,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 48,
+        "layout_gap_mobile": 24
+      },
+      "blocks": {
+        "slider": {
+          "type": "slider",
+          "settings": {
+            "before_image": "shopify://shop_images/lutshop-ba-sea-before.webp",
+            "before_label": "Log",
+            "before_alt": "A frame of a lake under evening cloud as it comes off the camera, flat and grey",
+            "after_image": "shopify://shop_images/lutshop-ba-sea-after.webp",
+            "after_label": "Warm Stock",
+            "after_alt": "The same frame with Warm Stock applied"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Warm Stock",
+            "tag": "h2",
+            "size_enable": true,
+            "size_desktop": 44,
+            "size_mobile": 34
+          }
+        },
+        "text": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Faded film blacks and creamy highlights, for travel, weddings and anything shot near sunset. Twelve LUTs, from a light touch to a heavy print look.</p>",
+            "max_width": 440
+          }
+        },
+        "button": {
+          "type": "button",
+          "settings": {
+            "text": "See Warm Stock",
+            "link": "/products/warm-stock-luts",
+            "use_theme_button": true,
+            "radius": 6
+          }
+        }
+      },
+      "block_order": [
+        "slider",
+        "heading",
+        "text",
+        "button"
+      ]
+    },
+    "nordic": {
+      "type": "before-and-after-slider-2",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "section_max_width_desktop": 1280,
+        "image_position": "right",
+        "image_col_fr": 3,
+        "content_col_fr": 2,
+        "layout_gap_desktop": 64,
+        "content_gap": 18,
+        "content_align": "left",
+        "image_aspect": "16 / 10",
+        "image_radius": 8,
+        "start_position": 50,
+        "handle_icon": "arrows",
+        "handle_size": 44,
+        "show_labels": true,
+        "label_size": 12,
+        "label_weight": "600",
+        "label_transform": "uppercase",
+        "label_radius": 100,
+        "label_offset": 14,
+        "padding_top_desktop": 48,
+        "padding_bottom_desktop": 48,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 48,
+        "layout_gap_mobile": 24
+      },
+      "blocks": {
+        "slider": {
+          "type": "slider",
+          "settings": {
+            "before_image": "shopify://shop_images/lutshop-ba-fog-before.webp",
+            "before_label": "Log",
+            "before_alt": "A frame of a foggy field as it comes off the camera, flat and grey",
+            "after_image": "shopify://shop_images/lutshop-ba-fog-after.webp",
+            "after_label": "Nordic Matte",
+            "after_alt": "The same frame with Nordic Matte applied"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Nordic Matte",
+            "tag": "h2",
+            "size_enable": true,
+            "size_desktop": 44,
+            "size_mobile": 34
+          }
+        },
+        "text": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Cool and quiet, with lifted blacks and muted greens. Made for overcast days, interviews and slow documentary work.</p>",
+            "max_width": 440
+          }
+        },
+        "button": {
+          "type": "button",
+          "settings": {
+            "text": "See Nordic Matte",
+            "link": "/products/nordic-matte-luts",
+            "use_theme_button": true,
+            "radius": 6
+          }
+        }
+      },
+      "block_order": [
+        "slider",
+        "heading",
+        "text",
+        "button"
+      ]
+    },
+    "night": {
+      "type": "before-and-after-slider-2",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "section_max_width_desktop": 1280,
+        "image_position": "left",
+        "image_col_fr": 3,
+        "content_col_fr": 2,
+        "layout_gap_desktop": 64,
+        "content_gap": 18,
+        "content_align": "left",
+        "image_aspect": "16 / 10",
+        "image_radius": 8,
+        "start_position": 50,
+        "handle_icon": "arrows",
+        "handle_size": 44,
+        "show_labels": true,
+        "label_size": 12,
+        "label_weight": "600",
+        "label_transform": "uppercase",
+        "label_radius": 100,
+        "label_offset": 14,
+        "padding_top_desktop": 48,
+        "padding_bottom_desktop": 96,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 48,
+        "layout_gap_mobile": 24
+      },
+      "blocks": {
+        "slider": {
+          "type": "slider",
+          "settings": {
+            "before_image": "shopify://shop_images/lutshop-ba-palms-before.webp",
+            "before_label": "Log",
+            "before_alt": "A frame of palm trees at dusk as it comes off the camera, flat and grey",
+            "after_image": "shopify://shop_images/lutshop-ba-palms-after.webp",
+            "after_label": "Night Signal",
+            "after_alt": "The same frame with Night Signal applied"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Night Signal",
+            "tag": "h2",
+            "size_enable": true,
+            "size_desktop": 44,
+            "size_mobile": 34
+          }
+        },
+        "text": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Deep blacks with cyan and magenta in the lights. For city nights, neon and music videos, and it holds skin tones under coloured light.</p>",
+            "max_width": 440
+          }
+        },
+        "button": {
+          "type": "button",
+          "settings": {
+            "text": "See Night Signal",
+            "link": "/products/night-signal-luts",
+            "use_theme_button": true,
+            "radius": 6
+          }
+        }
+      },
+      "block_order": [
+        "slider",
+        "heading",
+        "text",
+        "button"
+      ]
+    },
+    "kinds": {
+      "type": "collection-list",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "show_view_all_button": false,
+        "header_alignment": "left",
+        "header_size": "medium",
+        "header_spacing": 28,
+        "display_mode": "grid",
+        "items_per_row": 4,
+        "column_gap": 20,
+        "image_ratio": "square",
+        "rounded_image": false,
+        "information_spacing": 14,
+        "design": "default",
+        "collection_information_position": "below_image",
+        "show_product_count": false,
+        "show_description": false,
+        "font_size": 17,
+        "font_weight": "subheading_weight",
+        "text_alignment": "left",
+        "card_hover_effect": "zoom",
+        "padding_top": 88,
+        "padding_bottom": 88,
+        "items_per_row_mobile": 2
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "More for the edit"
+          }
+        },
+        "collection_2": {
+          "type": "collection",
+          "settings": {
+            "collection": "lut-packs",
+            "collection_image": "shopify://shop_images/lutshop-cat-luts.webp",
+            "collection_title": "LUT packs"
+          }
+        },
+        "collection_3": {
+          "type": "collection",
+          "settings": {
+            "collection": "transitions",
+            "collection_image": "shopify://shop_images/lutshop-cat-clean-cuts.webp",
+            "collection_title": "Transitions"
+          }
+        },
+        "collection_4": {
+          "type": "collection",
+          "settings": {
+            "collection": "overlays",
+            "collection_image": "shopify://shop_images/lutshop-cat-light-leaks.webp",
+            "collection_title": "Overlays"
+          }
+        },
+        "collection_5": {
+          "type": "collection",
+          "settings": {
+            "collection": "sound-effects",
+            "collection_image": "shopify://shop_images/lutshop-cat-sound.webp",
+            "collection_title": "Sound effects"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "collection_2",
+        "collection_3",
+        "collection_4",
+        "collection_5"
+      ]
+    },
+    "inside": {
+      "type": "image-with-text-steps",
+      "settings": {
+        "color_scheme": "scheme-3c9e1d42-6f1a-4b7e-9d20-5a8c0e7b1f31",
+        "section_width": "container",
+        "image_position": "left",
+        "column_valign": "center",
+        "image_width_pct": 52,
+        "gap_desktop": 72,
+        "image": "shopify://shop_images/lutshop-timeline.webp",
+        "image_alt": "An edit open in Premiere Pro, with the timeline and the effects panel",
+        "image_aspect_desktop": "4 / 5",
+        "image_radius": 8,
+        "step_style": "numbered",
+        "marker_size": 32,
+        "marker_font_size": 13,
+        "custom_colors": false,
+        "step_title_size": 18,
+        "step_desc_size": 15,
+        "use_theme_button": true,
+        "button_radius": 6,
+        "padding_top": 96,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Inside every LUT pack"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "One folder, ready for your timeline",
+            "tag": "h2",
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "s1": {
+          "type": "step",
+          "settings": {
+            "title": "The LUTs, twice",
+            "description": "<p>Each look as a Rec.709 LUT and as a log LUT for Sony, Panasonic, Canon, Fujifilm and Apple Log.</p>"
+          }
+        },
+        "s2": {
+          "type": "step",
+          "settings": {
+            "title": "33 point .cube files",
+            "description": "<p>The size every editor reads, light enough to scrub in real time.</p>"
+          }
+        },
+        "s3": {
+          "type": "step",
+          "settings": {
+            "title": "A two page guide",
+            "description": "<p>Where the LUT goes in each app, and how much to pull it back with the opacity.</p>"
+          }
+        },
+        "s4": {
+          "type": "step",
+          "settings": {
+            "title": "Reference stills",
+            "description": "<p>The before and after frames from this page, to match against.</p>"
+          }
+        },
+        "button": {
+          "type": "button",
+          "settings": {
+            "label": "Get the free one first",
+            "url": "/products/log-to-709-starter-lut"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow",
+        "heading",
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "button"
+      ]
+    },
+    "kit": {
+      "type": "product-duo",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "divider_text": "or",
+        "header_alignment": "left",
+        "header_spacing": 32,
+        "content_alignment": "left",
+        "card_style": "plain",
+        "column_gap": 40,
+        "image_ratio": "square",
+        "use_theme_button": true,
+        "title_size": 22,
+        "text_size": 15,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "mobile_layout": "stack"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Bundles"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "Everything in the shop, or every LUT, for less than buying the packs one by one."
+          }
+        },
+        "product_3": {
+          "type": "product",
+          "settings": {
+            "product": "the-full-kit",
+            "label": "Save $117",
+            "button_action": "page",
+            "button_label": "See the kit",
+            "button_style": "primary"
+          }
+        },
+        "point_4": {
+          "type": "point",
+          "settings": {
+            "text": "All six LUT packs and the free starter"
+          }
+        },
+        "point_5": {
+          "type": "point",
+          "settings": {
+            "text": "Clean Cuts, Light Leaks and 16mm Grain"
+          }
+        },
+        "point_6": {
+          "type": "point",
+          "settings": {
+            "text": "Whoosh and Hit sound effects"
+          }
+        },
+        "product_7": {
+          "type": "product",
+          "settings": {
+            "product": "teal-hour-luts",
+            "label": "The one most people start with",
+            "button_action": "page",
+            "button_label": "See Teal Hour",
+            "button_style": "secondary"
+          }
+        },
+        "point_8": {
+          "type": "point",
+          "settings": {
+            "text": "Twelve teal and orange looks"
+          }
+        },
+        "point_9": {
+          "type": "point",
+          "settings": {
+            "text": "Log and Rec.709 versions"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "product_3",
+        "point_4",
+        "point_5",
+        "point_6",
+        "product_7",
+        "point_8",
+        "point_9"
+      ]
+    },
+    "maker": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "scheme-3c9e1d42-6f1a-4b7e-9d20-5a8c0e7b1f31",
+        "section_width": "container",
+        "reset_spacing": true,
+        "image_position": "left",
+        "text_column_width": 50,
+        "content_align": "left",
+        "content_gap": 18,
+        "media_type": "image",
+        "image": "shopify://shop_images/lutshop-maker.webp",
+        "image_alt": "Jonas holding a cinema camera with a monitor on top",
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "image_fit": "cover",
+        "image_radius": 8,
+        "enable_custom_style": false,
+        "gap_desktop": 72,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "side_padding_mobile": 16,
+        "mobile_order": "media_first"
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Made by Jonas Wahl"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Graded on real jobs first",
+            "tag": "h2",
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "text": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>I colour music videos and adverts in Rotterdam. Every look here started as a grade for a client, then got tested on footage from six cameras and two phones before it went in a pack.</p><p>If a LUT does something odd to your footage, send me a frame and I will tell you why.</p>"
+          }
+        },
+        "button": {
+          "type": "button",
+          "settings": {
+            "label": "About Coldframe",
+            "link": "/pages/about",
+            "button_style": "secondary"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow",
+        "heading",
+        "text",
+        "button"
+      ]
+    },
+    "reviews": {
+      "type": "testimonials",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "display_mode": "carousel",
+        "show_quote_mark": false,
+        "show_rating": true,
+        "columns": 3,
+        "column_gap": 20,
+        "header_alignment": "left",
+        "card_style": "boxed",
+        "card_align": "left",
+        "card_padding": 28,
+        "card_content_gap": 18,
+        "card_radius": 8,
+        "avatar_shape": "circle",
+        "avatar_size": 44,
+        "carousel_pagination": "show",
+        "pagination_style": "line",
+        "pagination_position": "center",
+        "enable_custom_colors": false,
+        "enable_custom_typography": false,
+        "reveal": false,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "columns_mobile": 1
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "enabled": true,
+            "text": "What editors say"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "enabled": true,
+            "text": "<p>Sample reviews in the layout this section shows. Replace them with what your own buyers write.</p>"
+          }
+        },
+        "testimonial_3": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Shot a wedding on an FX3 in S-Log3 and Teal Hour 04 got me ninety percent of the way. Skin stays skin, which is all I ask.</p>",
+            "rating": 5,
+            "name": "Maya Ferreira",
+            "role": "Teal Hour",
+            "avatar": "shopify://shop_images/lutshop-buyer-1.webp"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>The whip pans line up on the beat without me nudging keyframes. I use the Resolve versions on every travel edit now.</p>",
+            "rating": 5,
+            "name": "Dev Patel",
+            "role": "Clean Cuts",
+            "avatar": "shopify://shop_images/lutshop-buyer-2.webp"
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Quiet without going grey. The log and 709 versions in one folder saved me from guessing which one to load.</p>",
+            "rating": 5,
+            "name": "Lena Brandt",
+            "role": "Nordic Matte",
+            "avatar": "shopify://shop_images/lutshop-buyer-3.webp"
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Clean files, sensible names, no noise floor. I found the riser I needed in ten seconds because they are sorted by length.</p>",
+            "rating": 4,
+            "name": "Theo Marsh",
+            "role": "Whoosh and Hit",
+            "avatar": "shopify://shop_images/lutshop-buyer-4.webp"
+          }
+        },
+        "testimonial_7": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Bought the kit for a client series and the licence covered all of it. The PDF shows where the LUT goes in each app, which my editor needed.</p>",
+            "rating": 5,
+            "name": "Ines Vidal",
+            "role": "The Full Kit",
+            "avatar": "shopify://shop_images/lutshop-buyer-5.webp"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "testimonial_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6",
+        "testimonial_7"
+      ]
+    },
+    "faq": {
+      "type": "faq",
+      "settings": {
+        "color_scheme": "scheme-3c9e1d42-6f1a-4b7e-9d20-5a8c0e7b1f31",
+        "section_width": "container",
+        "structured_data": true,
+        "heading": "Questions",
+        "subheading": "<p>About the apps, log footage, downloads and the licence.</p>",
+        "first_item_open": true,
+        "allow_multiple_open": false,
+        "open_icon": "plus",
+        "content_alignment": "center",
+        "max_content_width": 820,
+        "gap_header_to_items": 36,
+        "gap_heading_to_subheading": 12,
+        "gap_between_items": 10,
+        "item_padding_y": 22,
+        "item_padding_x": 26,
+        "item_radius": 8,
+        "show_dividers": true,
+        "enable_custom_style": false,
+        "heading_size_desktop": 40,
+        "heading_size_mobile": 30,
+        "question_size_desktop": 17,
+        "question_size_mobile": 16,
+        "answer_size_desktop": 16,
+        "answer_size_mobile": 15,
+        "reveal": false,
+        "padding_top": 96,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "faq_item_1": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Which apps do the LUTs work in?",
+            "answer": "<p>Every LUT is a .cube file, so it loads in Premiere Pro, DaVinci Resolve, Final Cut Pro and CapCut, and in After Effects, Photoshop and LumaFusion too. The PDF in each pack shows where it goes in each app.</p>"
+          }
+        },
+        "faq_item_2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Log or Rec.709, which one do I load?",
+            "answer": "<p>Each pack has both. Shot in S-Log3, V-Log, C-Log3, F-Log or Apple Log? Load the version for your camera's log. Shot in a standard picture profile, or on a phone? Load the Rec.709 version.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "When do I get the files?",
+            "answer": "<p>Straight after you pay. The download link is on the confirmation page and in an email a minute later. It is a single zip per product.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do the transitions work in CapCut?",
+            "answer": "<p>The Clean Cuts pack has project files for Premiere Pro, DaVinci Resolve and Final Cut Pro, and the same transitions as video clips you lay over a cut in CapCut or any other editor.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I use them for client work?",
+            "answer": "<p>Yes. Use them in videos for yourself and for clients, on social, YouTube, ads and films. You cannot resell or share the files themselves. The licence page has the details.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I get a refund?",
+            "answer": "<p>Files cannot be returned once downloaded, so look at the before and after first. If a file is broken or not what the page shows, write within 14 days and we fix it or refund you.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6"
+      ]
+    },
+    "newsletter": {
+      "type": "newsletter",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "full_width",
+        "reset_spacing": true,
+        "heading": "",
+        "email_label": "Email address",
+        "email_placeholder": "name@email.com",
+        "btn_text": "Subscribe",
+        "note": "Two or three emails a month. Unsubscribe any time.",
+        "subscribed_button_text": "Subscribed",
+        "success_text": "Thanks, the free LUT is on its way.",
+        "header_alignment": "center",
+        "form_layout": "horizontal",
+        "show_icon": false,
+        "show_content_background": false,
+        "button_style": "primary",
+        "use_theme_button": true,
+        "use_theme_fields": true,
+        "header_size": "medium",
+        "reveal": false,
+        "padding_top": 88,
+        "padding_bottom": 88
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "A free LUT for your inbox",
+            "tag": "h2",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Sign up and get Log to 709, then a note when a new pack is out.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "hero",
+    "packs",
+    "apps",
+    "warm",
+    "nordic",
+    "night",
+    "kinds",
+    "inside",
+    "kit",
+    "maker",
+    "reviews",
+    "faq",
+    "newsletter"
+  ]
+}

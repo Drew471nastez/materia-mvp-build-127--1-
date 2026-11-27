@@ -188,6 +188,8 @@ export const CODE_TEMPLATES: readonly CodeTemplate[] = [
   { slug: "digital-studio", template: "digistudio", name: "Digital studio", category: "digital" },
   /* Templates round 29: a Notion template shop by Maya after the owner's cleanslatetemplates.com reference: a ruled paper hero with a fan of template pages that fly in, counts that count up, the study templates playing in a dark player, shelves by category, how buying works in three small working scenes, the maker, a newsletter and a huge wordmark in the footer. Round 30: renamed Octavo (was New Leaf), the opening chalkboard removed, ink blue on paper with Libre Baskerville and Karla, and real looking Notion pages for every picture. */
   { slug: "notion-template-shop", template: "newleaf", name: "Octavo", category: "digital" },
+  /* Templates round 68: Coldframe, a shop of LUT packs and video editing assets by one colourist, dark like a grading suite: a log frame against Teal Hour under a line you drag, the packs, where a LUT goes in Premiere Pro, DaVinci Resolve, Final Cut Pro and CapCut, three more before and afters, transitions, overlays and sound effects, what is inside a pack, bundles, the maker, reviews and questions, with a licence page. Every picture is a real Unsplash frame, graded with the pack's own look. */
+  { slug: "lut-shop", template: "lutshop", name: "LUT shop", category: "digital" },
 ]
 
 /** Where a template's pictures live: its home page whole at 1440 wide, and at a phone's width (scripts/build-theme-template-covers.ts takes both). */
