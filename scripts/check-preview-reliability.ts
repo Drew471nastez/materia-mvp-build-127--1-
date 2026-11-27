@@ -18,7 +18,7 @@
  * a card is still waiting at the end, or any card shows broken words.
  */
 import { createServer } from "node:http"
-import { readFileSync, readdirSync, statSync } from "node:fs"
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
 import JSZip from "jszip"
 import puppeteer from "puppeteer-core"
@@ -71,6 +71,19 @@ async function main() {
     if (url.pathname === "/editor-probe.js") {
       res.writeHead(200, { "Content-Type": "text/javascript" })
       res.end(readFileSync(bundle))
+      return
+    }
+    /* Round 69: storelib.com's own public files (the placeholder picture a card draws an empty picture with), and the optimizer answered by the picture itself, as on the site. */
+    if (url.pathname === "/_next/image") {
+      const to = url.searchParams.get("url") ?? ""
+      if (to.startsWith("/") && !to.startsWith("//") && !/\.svg$/i.test(to)) { res.writeHead(302, { Location: to }); res.end(); return }
+      res.writeHead(400); res.end(); return
+    }
+    const pub = join("public", decodeURIComponent(url.pathname).replace(/\.\.+/g, ""))
+    if (url.pathname.length > 1 && existsSync(pub) && statSync(pub).isFile()) {
+      const ext = pub.split(".").pop()!.toLowerCase()
+      res.writeHead(200, { "Content-Type": ({ svg: "image/svg+xml", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif" } as Record<string, string>)[ext] ?? "application/octet-stream" })
+      res.end(readFileSync(pub))
       return
     }
     const asset = url.pathname.match(/^\/api\/site-theme\/assets\/[^/]+\/[^/]+\/(.+)$/)
@@ -182,6 +195,35 @@ async function main() {
     if (!compat) {
       texts.push(...(await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("[data-library-card]")].filter((c) => !c.hidden).map((c) => ({ key: `${c.getAttribute("data-library-card")}:${c.getAttribute("data-preset")}`, text: (c.querySelector<HTMLElement>("[data-preview-box]")?.innerText ?? "").replace(/\s+/g, " ").trim() })))))
     }
+    /*
+      ROUND 69: NO BROKEN PICTURE. A picture in a card that finished loading
+      with nothing (the browser's broken image icon) or has no address at all
+      (an empty frame), in the editor's own document (native cards) and in the
+      imported theme's sheet. Every card is gone past once, so each picture
+      has been asked for.
+    */
+    const pictures = { broken: [] as string[], empty: [] as string[] }
+    const readPictures = () => {
+      const out = { broken: [] as string[], empty: [] as string[] }
+      for (const img of Array.from(document.querySelectorAll<HTMLImageElement>("[data-library-card] img, [data-sl-pv] img"))) {
+        const r = img.getBoundingClientRect()
+        if (r.width < 2 || r.height < 2 || getComputedStyle(img).visibility === "hidden") continue
+        const where = img.closest("[data-library-card]")?.getAttribute("data-library-card") ?? img.closest("[data-sl-pv]")?.getAttribute("data-sl-pv") ?? "?"
+        const src = (img.getAttribute("src") ?? "").trim()
+        if (!src && !img.currentSrc && !img.srcset) out.empty.push(where)
+        else if (img.complete && img.naturalWidth === 0) out.broken.push(`${where} ${(img.currentSrc || src).slice(0, 80)}`)
+      }
+      return out
+    }
+    for (const f of [page.mainFrame(), ...page.frames().filter((x) => x.parentFrame() === page.mainFrame())]) {
+      const got = await f.evaluate(readPictures).catch(() => ({ broken: [] as string[], empty: [] as string[] }))
+      pictures.broken.push(...got.broken)
+      pictures.empty.push(...got.empty)
+    }
+    console.log(`  pictures: ${pictures.broken.length} broken, ${pictures.empty.length} with no address`)
+    for (const b of [...new Set(pictures.broken)].slice(0, 20)) console.log(`    broken picture in ${b}`)
+    for (const b of [...new Set(pictures.empty)].slice(0, 20)) console.log(`    picture with no address in ${b}`)
+    if (pictures.broken.length || pictures.empty.length) failed++
     const broken = texts.filter((t) => bad.test(t.text))
     for (const b of broken) console.log(`    broken words in ${b.key}: ${b.text.match(bad)?.[0]} ... "${b.text.slice(Math.max(0, b.text.search(bad) - 40), b.text.search(bad) + 60)}"`)
     if (broken.length) failed++

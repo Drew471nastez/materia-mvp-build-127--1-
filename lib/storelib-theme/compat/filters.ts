@@ -517,9 +517,9 @@ const F: Record<string, FilterFn> = {
   newline_to_br: (v) => str(v).replace(/\r?\n/g, "<br />\n"),
   escape: (v) => (v === null || v === undefined ? "" : escapeHtml(str(v))),
   escape_once: (v) => escapeOnce(str(v)),
-  url_encode: (v) => encodeURIComponent(str(v)).replace(/%20/g, "+"),
+  url_encode: (v) => encodeURIComponent(svgForUrl(str(v))).replace(/%20/g, "+"),
   url_decode: (v) => { try { return decodeURIComponent(str(v).replace(/\+/g, " ")) } catch { return str(v) } },
-  url_escape: (v) => encodeURI(str(v)),
+  url_escape: (v) => encodeURI(svgForUrl(str(v))),
   url_param_escape: (v) => encodeURIComponent(str(v)),
   remove: (v, [a]) => str(v).split(str(a)).join(""),
   remove_first: (v, [a]) => str(v).replace(str(a), ""),
@@ -552,7 +552,7 @@ const F: Record<string, FilterFn> = {
   sha256: (v) => digest(str(v), 64),
   hmac_sha1: (v, [k]) => digest(str(k) + "\u0000" + str(v), 40),
   hmac_sha256: (v, [k]) => digest(str(k) + "\u0000" + str(v), 64),
-  base64_encode: (v) => b64encode(str(v)),
+  base64_encode: (v) => b64encode(svgForUrl(str(v))),
   base64_decode: (v) => b64decode(str(v)),
   base64_url_safe_encode: (v) => b64encode(str(v), true),
   base64_url_safe_decode: (v) => b64decode(str(v), true),
@@ -896,6 +896,45 @@ function defaultPagination(v: unknown): string {
 }
 
 /** Shopify's placeholder pictures, drawn as simple outlines in the current colour. */
+/*
+  ===========================================================================
+   AN SVG MADE INTO AN ADDRESS KEEPS ONE OF EACH ATTRIBUTE (round 69)
+  ===========================================================================
+  The owner: in Add a section, Hero Benefits and the lookbook hero showed the
+  browser's broken image icon on a grey box, on the canvas too once added.
+  Materia's placeholder-image snippet turns `placeholder_svg_tag` into a
+  data: address for an <img>, and adds its own preserveAspectRatio to the
+  drawing's <svg>. Shopify's drawing has none; this engine's (placeholderSvg)
+  has one, so the tag carried it twice. Inline in HTML a repeated attribute
+  is forgiven (the first is kept), but a data: SVG is read as XML, where it
+  is fatal: no picture at all, on 32 sections of every Materia template
+  (scripts/check-library-thumbs-r69.ts).
+
+  So an SVG document handed to url_encode, url_escape or base64_encode keeps
+  the first of any attribute its root tag repeats, which is what the same
+  drawing shows inline. Any theme that builds a picture this way is covered,
+  including one installed before this round with the old snippet in its
+  files. Anything that is not an <svg> document is left exactly as it was.
+*/
+const SVG_ROOT = /^(\s*<svg\b)([^>]*)(>)/i
+const SVG_ATTR = /\s+([^\s=/>]+)(\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]+))?/g
+export function svgForUrl(text: string): string {
+  const m = SVG_ROOT.exec(text)
+  if (!m) return text
+  const seen = new Set<string>()
+  let repeated = false
+  const attrs = m[2].replace(SVG_ATTR, (all, name: string) => {
+    const key = name.toLowerCase()
+    if (seen.has(key)) {
+      repeated = true
+      return ""
+    }
+    seen.add(key)
+    return all
+  })
+  return repeated ? `${m[1]}${attrs}${m[3]}${text.slice(m[0].length)}` : text
+}
+
 function placeholderSvg(name: string, cls: string): string {
   const c = cls ? ` class="${attr(cls)}"` : ""
   const label = escapeHtml(name.replace(/[-_]/g, " ").replace(/\d+$/, "").trim() || "image")

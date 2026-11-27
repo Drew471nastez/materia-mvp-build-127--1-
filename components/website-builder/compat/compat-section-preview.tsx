@@ -30,6 +30,7 @@ import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 import { createContext, memo, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
 import { draftAssetVersion, loadCompatFiles, useCompatFilesVersion } from "@/components/website-builder/compat/compat-files"
 import { assetAddresses, templateOfPage } from "@/lib/storelib-theme/compat/install"
+import { shopImageName } from "@/lib/website-builder/picture-address"
 import { drawPage, drawSection, pageContextFor, themeOfInstall, withoutScripts, type StoredBlock, type StoredSection } from "@/lib/storelib-theme/compat/page"
 import type { CompatPage, CompatTheme } from "@/lib/storelib-theme/compat/theme"
 import { freezeViewportInMarkup, inlineStylesheets } from "@/lib/storelib-theme/compat/preview-styles"
@@ -207,7 +208,8 @@ export function libraryThemeOptions(installId: string, rows: Record<string, stri
   return {
     assetUrl: (name: string) => media[name] ?? `/api/site-theme/assets/${installId}/${version(installId)}/${encodeURIComponent(name)}`,
     assetText: (name: string) => rows[`shopify/assets/${name}`] ?? null,
-    imageUrl: (v: string) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : ""),
+    /* "shopify://shop_images/x.jpg": the theme's own picture of that name where it brought one, as the canvas and the live site draw it (compat-canvas.tsx, lib/website-builder/compat-site.ts), so a card shows what adding the section gives. */
+    imageUrl: (v: string) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : media[shopImageName(v) ?? ""] ?? ""),
   }
 }
 

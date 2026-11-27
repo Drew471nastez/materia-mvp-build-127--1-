@@ -68,6 +68,15 @@ export function ownStorageFile(hostname: string, pathname: string): boolean {
 /** Whether the optimizer can be pointed at this URL at all. */
 export function isOptimizableImage(src?: string | null): boolean {
   if (!src) return false
+  /*
+    Round 69: an SVG never goes to the optimizer. next.config does not set
+    dangerouslyAllowSVG, so /_next/image answers an SVG with a 400 and the
+    <img> is the browser's broken picture: the default theme's gallery and
+    collage cards in Add a section drew /placeholder.svg that way. An SVG is
+    drawn as it is, sharp at any width (as siteImageProps and
+    onePageImageSrc already do).
+  */
+  if (/\.svg$/i.test(src.split(/[?#]/, 1)[0])) return false
   // Root-relative: our own /public, always fine. `//host/path` is not.
   if (src.startsWith("/") && !src.startsWith("//")) return true
   try {

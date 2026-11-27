@@ -167,7 +167,8 @@ async function main() {
       }, cards.map((c) => `${c.type}#${c.preset} ${c.name}`))
       if (process.env.SHOTS) {
         mkdirSync(process.env.SHOTS, { recursive: true })
-        for (const c of found.filter((x) => x.broken.length || x.empty).slice(0, 6)) {
+        const named = process.env.SHOT_TYPES ? new RegExp(process.env.SHOT_TYPES) : null
+        for (const c of found.filter((x) => (named ? named.test(x.name) : x.broken.length || x.empty)).slice(0, named ? 40 : 6)) {
           const el = await tab.$(`[data-r3-card="${c.key}"]`)
           await el?.screenshot({ path: join(process.env.SHOTS, `${id}-${mode}-${c.key}.png`) }).catch(() => {})
         }
