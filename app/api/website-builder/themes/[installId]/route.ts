@@ -108,7 +108,7 @@ async function getCreatorAndInstall(installId: string, read = false) {
 // Returns full install data with settings, pages, and username
 /* Counted while it is answered: the work after a Publish waits for the editor's open on this server (round 68, lib/website-builder/editor-reads.ts). */
 export async function GET(req: Request, ctx: Params) {
-  return asEditorRead(() => readGET(req, ctx))
+  return asEditorRead((await ctx.params).installId, () => readGET(req, ctx))
 }
 
 async function readGET(_req: Request, { params }: Params) {

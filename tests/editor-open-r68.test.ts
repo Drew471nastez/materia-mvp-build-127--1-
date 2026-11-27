@@ -244,29 +244,36 @@ async function main() {
   ;(globalThis as { __PUSH_TEST_EDITOR_FIRST_OFF__?: boolean }).__PUSH_TEST_EDITOR_FIRST_OFF__ = false
   check("at 3 MB/s, right after a Publish, the canvas has its data within 8 s (21 s before this round)", results[3].after < 8000, results[3])
 
-  out("\n4. The work after a Publish waits while this server answers the editor's open")
+  out("\n4. The work after a Publish waits while this server answers that website's editor as it opens")
   {
     forgetEditorReads()
-    check("nothing on its way: not reading", !editorReading())
-    const end = editorReadBegins()
-    check("a read on its way: reading", editorReading())
+    check("nothing on its way: not reading", !editorReading("site-a"))
+    const end = editorReadBegins("site-a")
+    check("a read on its way: that website's editor is reading", editorReading("site-a"))
+    check("and another website's is not (a server answers many people's editors)", !editorReading("site-b"))
     const t = performance.now()
     setTimeout(end, 300)
-    await afterEditorReads(5000, 20)
+    await afterEditorReads("site-a", 5000, 20)
     const waited = performance.now() - t
     check("the work waits for the read and a moment after it, then goes", waited >= 300 && waited < 3000, Math.round(waited))
+    const t3 = performance.now()
+    const other = editorReadBegins("site-b")
+    await afterEditorReads("site-c", 5000, 20)
+    other()
+    check("another website's open holds nothing up", performance.now() - t3 < 100)
     forgetEditorReads()
-    const end2 = editorReadBegins()
+    const end2 = editorReadBegins("site-a")
     const t2 = performance.now()
-    await afterEditorReads(400, 20)
+    await afterEditorReads("site-a", 400, 20)
     end2()
     check("never longer than its cap", performance.now() - t2 < 1000)
     check("the cap is stated: 15 s", EDITOR_FIRST_CAP_MS === 15_000)
     forgetEditorReads()
     const src = read("lib/website-builder/after-publish.ts")
-    check("quietAfterPublish waits for the editor's reads after its quiet window", /setTimeout\(r, ms\)\)\.then\(\(\) => afterEditorReads\(\)\)/.test(src))
+    check("quietAfterPublish waits for that website's editor reads after its quiet window", src.includes("setTimeout(r, ms)).then(() => (installId ? afterEditorReads(installId) : undefined))"))
+    check("the publish and the add name their website", (read("app/api/website-builder/themes/[installId]/publish/route.ts").match(/quietAfterPublish\(installId\)/g) ?? []).length === 4 && (read("app/api/themes/marketplace/add/route.ts").match(/quietAfterPublish\(owner\.installId\)/g) ?? []).length === 2)
     for (const f of ["app/api/website-builder/themes/[installId]/route.ts", "app/api/website-builder/themes/[installId]/sections/route.ts", "app/api/website-builder/themes/[installId]/files/route.ts"]) {
-      check(`${f.split("/").slice(-2).join("/")} counts its GET as an editor read`, /asEditorRead\(\(\) => (readGET|handleGET)\(req, (ctx|params)\)\)/.test(read(f)))
+      check(`${f.split("/").slice(-2).join("/")} counts its GET as a read of that website's editor`, /asEditorRead\(\(await (ctx|params)\.params\)\.installId, \(\) => (readGET|handleGET)\(req, (ctx|params)\)\)/.test(read(f)))
     }
   }
 

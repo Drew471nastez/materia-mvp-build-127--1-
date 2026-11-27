@@ -299,7 +299,7 @@ async function firstTemplateCover(owner: CoverOwner, bytes: { desktop: Buffer; p
       const c = await storeCover(owner, bytes.desktop, bytes.phone)
       after(async () => {
         /* After the editor's first read: the new website is most often opened at once (round 67, after-publish.ts). */
-        await quietAfterPublish()
+        await quietAfterPublish(owner.installId)
         await coverAfterCreate(owner, origin, "template")
       })
       return { cover: { url: c.url, mobile_url: c.mobile_url, updated_at: c.updated_at ?? new Date().toISOString() }, cover_pending: false }
@@ -309,7 +309,7 @@ async function firstTemplateCover(owner: CoverOwner, bytes: { desktop: Buffer; p
   }
   after(async () => {
         /* After the editor's first read: the new website is most often opened at once (round 67, after-publish.ts). */
-        await quietAfterPublish()
+        await quietAfterPublish(owner.installId)
         await coverAfterCreate(owner, origin, "template")
       })
   return { cover: null, cover_pending: true }

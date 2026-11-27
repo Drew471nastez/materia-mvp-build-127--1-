@@ -69,7 +69,7 @@ async function getCreatorInstall(installId: string, read = false, beside?: (user
 // GET /api/website-builder/themes/[installId]/sections?page=home
 /* Counted while it is answered: the work after a Publish waits for the editor's open on this server (round 68, lib/website-builder/editor-reads.ts). */
 export async function GET(req: Request, ctx: Params) {
-  return asEditorRead(() => readGET(req, ctx))
+  return asEditorRead((await ctx.params).installId, () => readGET(req, ctx))
 }
 
 async function readGET(req: Request, { params }: Params) {
