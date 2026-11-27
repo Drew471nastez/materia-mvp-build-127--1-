@@ -177,7 +177,8 @@ async function tryTheLook(browser: Browser, touchBrowser: Browser, base: string)
     await p.close()
   }
 
-  /* Touch: taps, drags, a vertical swipe scrolls the page */
+  /* Touch: taps, drags, a vertical swipe scrolls the page. A swipe here starts sideways (3 px of vertical wobble per step):
+     one whose first move is more down than across is a scroll, which the browser takes over (touch-action: pan-y). */
   {
     const p = await touchBrowser.newPage()
     await p.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true })
