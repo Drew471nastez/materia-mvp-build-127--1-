@@ -56,7 +56,7 @@ interface ProductGalleryProps {
   /**
    * How a picture sits in its frame. Storelib's own product page (app/(storelib)/(marketing)/p/[slug]) passes
    * `contain`: every photo whole, letterboxed on the padded copy's light grey as Explore's card is (the owner's rule for
-   * storelib.com's commerce pages; #f0f0f0 is the middle of processImageToWidescreen's grey). Left out, the photo is whole too (round 65): only `cover` cuts it.
+   * storelib.com's commerce pages; #f0f0f0 is the middle of processImageToWidescreen's grey). Left out, the photo covers its frame (round 68, as a website's product pictures do).
    */
   fit?: "cover" | "contain"
 }
@@ -78,8 +78,8 @@ export function ProductGallery({
   followVariantsOf,
   fit,
 }: ProductGalleryProps) {
-  /* Round 65: a product picture is never cut. Whole in its frame unless a caller asks for cover, on its own edge's colours (lib/images/pic-fit.ts, data-pic-frame). */
-  const whole = fit !== "cover"
+  /* Round 68: a website's product picture covers its frame (the owner: "cover fit"); whole only where a caller asks for contain (Storelib's own product page). */
+  const whole = fit === "contain"
   const [currentIndex, setCurrentIndex] = useState(0)
   /* A chosen variant's photo the gallery did not have, added at its end. */
   const [variantExtra, setVariantExtra] = useState<string[]>([])

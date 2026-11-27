@@ -172,15 +172,15 @@ export function ProductMedia({
     a frame of that height, laid out absolutely so they never make the row taller. Nothing is measured, so
     nothing moves after the first paint. A single column keeps every picture at its own shape, as before.
   */
-  /* Round 65: never cut. A picture in a frame of another shape sits whole in it, on its own edge's colours (lib/images/pic-fit.ts). */
-  const COVER = "absolute inset-0 h-full w-full object-contain"
+  /* Round 68: a picture in a frame of another shape covers it (the owner: "cover fit"), as round 63 drew it; round 65's whole picture sat small in its frame. */
+  const COVER = "absolute inset-0 h-full w-full object-cover"
   const NATURAL_PHONE = sliderOnPhone ? COVER : "static h-auto object-contain"
   const NATURAL_DESK: Record<MediaLayout, [string, string]> = {
     /* [the picture that sets the row's height, every other one], written out whole so the stylesheet has them. */
     stacked: ["@[768px]:static @[768px]:h-auto @[768px]:object-contain", "@[768px]:static @[768px]:h-auto @[768px]:object-contain"],
-    stacked_2col: ["@[768px]:static @[768px]:h-auto @[768px]:object-contain", "@[768px]:absolute @[768px]:inset-0 @[768px]:h-full @[768px]:object-contain"],
-    slideshow: ["@[768px]:static @[768px]:h-auto @[768px]:object-contain", "@[768px]:absolute @[768px]:inset-0 @[768px]:h-full @[768px]:object-contain"],
-    carousel: ["@[768px]:static @[768px]:h-auto @[768px]:object-contain", "@[768px]:absolute @[768px]:inset-0 @[768px]:h-full @[768px]:object-contain"],
+    stacked_2col: ["@[768px]:static @[768px]:h-auto @[768px]:object-contain", "@[768px]:absolute @[768px]:inset-0 @[768px]:h-full @[768px]:object-cover"],
+    slideshow: ["@[768px]:static @[768px]:h-auto @[768px]:object-contain", "@[768px]:absolute @[768px]:inset-0 @[768px]:h-full @[768px]:object-cover"],
+    carousel: ["@[768px]:static @[768px]:h-auto @[768px]:object-contain", "@[768px]:absolute @[768px]:inset-0 @[768px]:h-full @[768px]:object-cover"],
   }
   /** The classes a natural-shape picture is drawn with at `pos`: the first sets the height, the rest cover it. */
   const naturalFit = (pos: number) => {
@@ -235,7 +235,7 @@ export function ProductMedia({
               alt={pos === 0 ? title : `${title}, picture ${pos + 1}`}
               className={cn(
                 "block w-full",
-                aspect ? "h-full object-contain" : naturalFit(pos),
+                aspect ? "h-full object-cover" : naturalFit(pos),
                 open && "cursor-zoom-in",
               )}
               loading={pos === 0 ? "eager" : "lazy"}
@@ -294,7 +294,7 @@ export function ProductMedia({
                   </span>
                 </span>
               ) : (
-                <img src={src} {...siteImageProps(src, "96px")} alt={`${title} thumbnail ${pos + 1}`} className="h-full w-full object-contain" loading="lazy" decoding="async" />
+                <img src={src} {...siteImageProps(src, "96px")} alt={`${title} thumbnail ${pos + 1}`} className="h-full w-full object-cover" loading="lazy" decoding="async" />
               )}
             </button>
           ))}

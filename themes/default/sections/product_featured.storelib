@@ -176,7 +176,7 @@
 @container (min-width: 900px) { .grid { grid-template-columns: repeat(var(--cols-d), minmax(0, 400px)); } }
 .card { display: flex; flex-direction: column; }
 .card__media { overflow: hidden; border-radius: var(--s-radius); background: var(--s-border); }
-.card__media img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.card__media img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .card__title { margin: 14px 0 0; font-size: 15px; font-weight: 600; color: var(--s-heading); }
 .card__rating { margin: 6px 0 0; display: flex; align-items: center; gap: 6px; font-size: 13px; line-height: 1; color: var(--s-para); }
 .card__rating > span { position: relative; letter-spacing: 1px; color: var(--s-border); }

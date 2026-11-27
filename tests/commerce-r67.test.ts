@@ -24,7 +24,6 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { SHOP_CALM_CSS } from "@/lib/storelib-theme/compat/shop-calm"
 import { SHOP_ROWS_HEAD, installShopRows } from "@/lib/storelib-theme/compat/shop-rows"
-import { installPicFit } from "@/lib/images/pic-fit"
 import { aboutFallbackSections, looksAdminBuilt } from "@/lib/admin/creator-site/about-fallback"
 import { isWishlistPath, themeWishlistTemplate } from "@/lib/storelib-theme/compat/site"
 
@@ -66,32 +65,14 @@ console.log("\nWISHLIST PAGE")
 
 console.log("\nPICTURES")
 {
-  type Parts = { axisOf: (n: number, b: number) => "x" | "y" | null; shapeOf: (r: number[], f: number) => number | null; snap: (r: number) => number }
-  const win: Record<string, unknown> = {}
-  const doc = {
-    readyState: "complete",
-    baseURI: "https://shop.test/",
-    location: { origin: "https://shop.test" },
-    head: { appendChild: () => {} },
-    documentElement: { classList: { add: () => {} } },
-    images: [],
-    addEventListener: () => {},
-    createElement: () => ({ setAttribute: () => {}, textContent: "" }),
-  }
-  installPicFit(doc as unknown as Document, win as unknown as Window)
-  const p = win.__slPicFitParts as Parts
-  check("a 4:5 photo in a 3:4 card fills it (6% off)", p.axisOf(0.8, 0.75) === null)
-  check("a 16:9 banner in a 3:4 card is not cut: bands", p.axisOf(16 / 9, 0.75) === "y")
-  check("a row of 16:9 banners in 3:4 cards takes 16:9", Math.abs((p.shapeOf([1.78, 1.77, 1.78], 0.75) ?? 0) - 16 / 9) < 0.001)
-  check("a row of 4:3 photos in square cards takes 4:3", Math.abs((p.shapeOf([1.33, 1.33, 1.34], 1) ?? 0) - 4 / 3) < 0.001)
-  check("a row of 2:3 posters in 3:4 cards takes 2:3 (11% off is a cut)", Math.abs((p.shapeOf([0.667, 0.667], 0.75) ?? 0) - 2 / 3) < 0.001)
-  check("a row whose pictures are near the frame keeps the theme's shape", p.shapeOf([0.8, 0.75, 0.78], 0.75) === null)
-  check("a mixed row takes its middle picture's shape", Math.abs((p.shapeOf([1.78, 1.33, 1, 0.67, 0.67], 0.75) ?? 0) - 1) < 0.001)
-  check("snapped: 1500x1000 is 3:2, a 0.7 poster is 2:3, a 21:9 banner is 16:9", p.snap(1.5) === 3 / 2 && p.snap(0.7) === 2 / 3 && p.snap(21 / 9) === 16 / 9)
-  check("the fill is drawn as cover", /img\[data-pic-fit="fill"\]\{object-fit:cover!important\}/.test(read("lib/images/pic-fit.ts").replace(/'\s*\+\s*\n\s*"/g, "")) || read("lib/images/pic-fit.ts").includes(`img[data-pic-fit="fill"]{object-fit:cover!important}`))
+  /*
+   * Changed on purpose (r68): the owner asked for cover. No bands, no row shapes learned in localStorage: every frame
+   * keeps the theme's shape and its picture covers it (tests/product-pictures-r68.test.ts).
+   */
   const fit = read("lib/images/pic-fit.ts")
-  check("a frame on screen never changes shape: shapes are placed only as a frame is put in the page, from shapes kept before", /new MutationObserver[\s\S]{0,900}place\(found\[q\]/.test(fit) && !/setShape\(/.test(fit.slice(fit.indexOf("var learn"), fit.indexOf("var place"))) && /var v = seen\[keyOf\(pic, own\)\]\s*if \(v > 0\) setShape\(frame, v\)/.test(fit))
-  check("a theme whose frames already differ (Adapt) is left as it is", /if \(own\.length !== 1 \|\| !ratios\.length\) return/.test(read("lib/images/pic-fit.ts")))
+  check("a frame on screen never changes shape: the fit sets no shape at all", !/setShape|data-pic-shape|aspectRatio\s*=/.test(fit))
+  check("no row shape is read from localStorage (sl:pic-row is cleared)", !/getItem\(/.test(fit) && /removeItem\("sl:pic-row"\)/.test(fit))
+  check("nothing is drawn contained but a cut out product", /img\[data-pic-fit="cutout"\]\{object-fit:contain!important\}/.test(fit) && !/img\[data-pic-fit="fill"\]/.test(fit) && !/data-pic-fit="band"/.test(fit))
 }
 
 console.log("\nROWS")

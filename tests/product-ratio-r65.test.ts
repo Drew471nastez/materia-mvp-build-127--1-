@@ -4,8 +4,8 @@
  *   FIT       lib/images/pic-fit.ts: in a product frame (a Materia card or gallery picture, anything marked
  *             data-pic-frame) the picture sits whole (object-fit: contain), and the frame either side of it is
  *             painted from the picture's own edge colours; a picture of the frame's shape fills it.
- *   EDGES     the bands' colours are each edge's median, so a mark in a corner does not tint a band; a see-through
- *             edge leaves the frame's own colour; under half a percent off the frame's shape is a fill.
+ *   (r68)     the owner asked for cover: a picture covers its frame; only a cut out product of another shape sits
+ *             whole (tests/product-pictures-r68.test.ts). The FIT checks below say so.
  *   PAGES     the fit runs in every page's head with the trim (COVER_TRIM_SCRIPT), after it, and a padded copy the
  *             trim found nothing to cut on is painted as it is.
  *   THEMES    Materia's frames carry the classes the fit looks for; the native theme's cards and gallery, and
@@ -31,10 +31,10 @@ function check(name: string, ok: boolean, detail?: unknown) {
 const root = process.cwd()
 const read = (p: string) => readFileSync(join(root, p), "utf8")
 
+/* Changed on purpose (r68): the fit's parts are the cut out test and the shape test; no bands, no row shapes. */
 type Parts = {
-  edgesOf: (px: ArrayLike<number>, w: number, h: number) => { l: string[]; r: string[]; t: string[]; b: string[]; clear: boolean }
-  backdrop: (e: unknown, axis: "x" | "y") => string
-  axisOf: (nr: number, br: number) => "x" | "y" | null
+  seeThrough: (px: ArrayLike<number>, w: number, h: number) => boolean
+  offShape: (nr: number, br: number) => boolean
 }
 
 /* A picture's pixels: `fill(x, y)` gives [r, g, b, a]. */
@@ -77,7 +77,7 @@ function page(opts: { natural: [number, number]; box: [number, number]; src?: st
     addEventListener: (t: string, f: (e: unknown) => void) => (listeners[t] ??= []).push(f),
     createElement: (tag: string) =>
       tag === "canvas"
-        ? { width: 0, height: 0, getContext: () => ({ drawImage: () => {}, getImageData: (_x: number, _y: number, w: number, h: number) => ({ data: w === 48 && h === 48 ? px : pixels(w, h, () => [10, 20, 30, 255]) }) }) }
+        ? { width: 0, height: 0, getContext: () => ({ drawImage: () => {}, getImageData: (_x: number, _y: number, w: number, h: number) => ({ data: px.length === w * h * 4 ? px : pixels(w, h, () => [px[0], px[1], px[2], px[3]]) }) }) }
         : { setAttribute: () => {}, textContent: "" },
   }
   const win: Record<string, unknown> = {}
@@ -85,45 +85,37 @@ function page(opts: { natural: [number, number]; box: [number, number]; src?: st
   return { img, attrs, props, styles, win, parts: win.__slPicFitParts as Parts, load: () => listeners.load?.forEach((f) => f({ target: img })) }
 }
 
+/*
+ * Changed on purpose (r68): the owner asked for cover. A picture covers its frame (every theme's own CSS), and the fit
+ * only marks a cut out product of another shape (see-through edges) to sit whole (data-pic-fit="cutout"). No bands,
+ * no contain from the first paint. tests/product-pictures-r68.test.ts holds the new rules.
+ */
 console.log("\nFIT")
 {
-  const poster = page({ natural: [700, 1000], box: [400, 400] })
-  check("a poster 0.7 wide in a square frame: bands left and right, painted", poster.attrs["data-pic-fit"] === "band" && /left top\/50\.5% 100%/.test(poster.props["--pf-bg"] ?? ""), poster.attrs)
-  check("the band's colours are the picture's edge (rgb(10,20,30))", (poster.props["--pf-bg"] ?? "").includes("rgb(10,20,30)"))
-  const wide = page({ natural: [1920, 1080], box: [400, 400] })
-  check("a 16:9 picture in a square frame: bands top and bottom", /left top\/100% 50\.5%/.test(wide.props["--pf-bg"] ?? "") && wide.attrs["data-pic-fit"] === "band")
-  const square = page({ natural: [1600, 1600], box: [400, 400] })
-  check("a square picture in a square frame fills it, no bands", square.attrs["data-pic-fit"] === "fill" && !square.props["--pf-bg"])
-  const outside = page({ natural: [700, 1000], box: [400, 400], inFrame: false })
+  const PNG = "https://shop.test/_next/image?url=shoe.png&w=640&q=90"
+  const photo = page({ natural: [700, 1000], box: [400, 400] })
+  check("a photo (JPEG) in a frame of another shape is left to cover it", !("data-pic-fit" in photo.attrs) && !photo.props["--pf-bg"])
+  const opaque = page({ natural: [1920, 1080], box: [400, 400], src: PNG })
+  check("an opaque PNG covers its frame too", !("data-pic-fit" in opaque.attrs))
+  const cut = page({ natural: [1920, 1080], box: [400, 400], src: PNG, px: pixels(48, 48, () => [0, 0, 0, 0]) })
+  check("a cut out product of another shape sits whole", cut.attrs["data-pic-fit"] === "cutout")
+  const near = page({ natural: [1000, 1000], box: [400, 410], src: PNG, px: pixels(48, 48, () => [0, 0, 0, 0]) })
+  check("a cut out product near its frame's shape covers it", !("data-pic-fit" in near.attrs))
+  const outside = page({ natural: [1920, 1080], box: [400, 400], src: PNG, px: pixels(48, 48, () => [0, 0, 0, 0]), inFrame: false })
   check("a picture outside a product frame is left alone", !("data-pic-fit" in outside.attrs))
-  const css = poster.styles.map((s) => s.textContent).join("")
-  check("the frames' pictures are contained and centred from the first paint, !important over a theme's cover", /object-fit:contain!important;object-position:50% 50%!important/.test(css) && css.includes(PIC_FRAMES))
-  check("the band background beats a theme's own (a grey placeholder)", /img\[data-pic-fit="band"\]\{background:var\(--pf-bg\)!important\}/.test(css))
+  const css = photo.styles.map((s) => s.textContent).join("")
+  check("no picture is contained from the first paint; only a cut out one is", !/img:not\(\[data-pic-fit="off"\]\)\{object-fit:contain/.test(css) && /img\[data-pic-fit="cutout"\]\{object-fit:contain!important\}/.test(css) && css.includes(PIC_FRAMES))
   check("PIC_FRAMES is the list the script carries", PIC_FIT_SCRIPT.includes(JSON.stringify(PIC_FRAMES)))
-}
-
-console.log("\nEDGES")
-{
-  const { parts } = page({ natural: [700, 1000], box: [400, 400] })
-  /* Changed on purpose (r67): within 8% of the frame's shape a picture fills it (cover, under 4% off each edge); 0.7 in 3:4 is 7% off, 0.65 is 13%. */
-  check("near the frame's shape is a fill, further off are bands", parts.axisOf(0.749, 0.75) === null && parts.axisOf(0.7, 0.75) === null && parts.axisOf(0.65, 0.75) === "x" && parts.axisOf(16 / 9, 1) === "y")
-  /* A dark poster, a magenta mark in its top left corner (4% of it). */
-  const marked = parts.edgesOf(pixels(48, 48, (x, y) => (x < 2 && y < 2 ? [255, 0, 255, 255] : [16, 50, 79, 255])), 48, 48)
-  check("a mark in a corner does not tint the band (median)", marked.l[0] === "rgb(16,50,79)" && marked.t[0] === "rgb(16,50,79)", marked.l[0])
-  const graded = parts.edgesOf(pixels(48, 48, (_x, y) => [Math.round((y / 47) * 255), 0, 0, 255]), 48, 48)
-  check("the band runs through the edge's colours top to bottom", graded.l.length === 6 && graded.l[0] !== graded.l[5] && /^rgb\(\d+,0,0\)$/.test(graded.l[5]))
-  const clear = parts.edgesOf(pixels(48, 48, () => [255, 255, 255, 0]), 48, 48)
-  check("a see-through edge is told (the frame's own colour shows)", clear.clear === true && marked.clear === false)
-  const cut = page({ natural: [700, 1000], box: [400, 400], px: pixels(48, 48, () => [0, 0, 0, 0]) })
-  check("a cut out product on a see-through background gets no band", cut.attrs["data-pic-fit"] === "clear" && !cut.props["--pf-bg"])
+  const parts = photo.parts
+  check("see-through edges are told", parts.seeThrough(pixels(8, 8, () => [0, 0, 0, 0]), 8, 8) && !parts.seeThrough(pixels(8, 8, () => [9, 9, 9, 255]), 8, 8))
+  check("within 8% of the frame's shape is not off", !parts.offShape(0.72, 0.75) && parts.offShape(16 / 9, 0.75))
 }
 
 console.log("\nPAGES")
 {
-  const busy = page({ natural: [1280, 720], box: [400, 400], src: "https://shop.test/_next/image?url=a_processed.jpg&w=640&q=90", trim: "busy" })
-  check("a padded copy is the trim's first: not painted while it is cut", !("data-pic-fit" in busy.attrs))
-  const none = page({ natural: [1280, 720], box: [400, 400], src: "https://shop.test/_next/image?url=a_processed.jpg&w=640&q=90", trim: "none" })
-  check("a padded copy the trim found nothing to cut on is painted as it is", none.attrs["data-pic-fit"] === "band")
+  const PNG = "https://shop.test/_next/image?url=a_processed.jpg&w=640&q=90"
+  const busy = page({ natural: [1280, 720], box: [400, 400], src: PNG, trim: "busy", px: pixels(48, 48, () => [0, 0, 0, 0]) })
+  check("a padded copy is the trim's first: not looked at while it is cut", !("data-pic-fit" in busy.attrs))
   check("the trim tells the fit when it found nothing to cut", /__slPicFitPaint[\s\S]{0,80}if \(fit\) fit\(img\)/.test(read("lib/images/cover-trim.ts")))
   check("every page's head script runs the trim, then the fit", COVER_TRIM_SCRIPT.indexOf("installCoverTrim") < COVER_TRIM_SCRIPT.indexOf("installPicFit") && COVER_TRIM_SCRIPT.endsWith(PIC_FIT_SCRIPT) && COVER_TRIM_HEAD.includes(PIC_FIT_SCRIPT))
   check("the script parses", (() => { try { new Function(COVER_TRIM_SCRIPT); return true } catch { return false } })())
@@ -143,12 +135,15 @@ console.log("\nTHEMES")
   check("the merchant's Image ratio setting still sets the frame (square 1/1, portrait 3/4, landscape 4/3, custom)", /when 'square'\s+assign ratio = '1\/1'[\s\S]*when 'landscape'\s+assign ratio = '4\/3'[\s\S]*when 'portrait'\s+assign ratio = '3\/4'[\s\S]*product_custom_ratio/.test(item))
   for (const f of ["product_grid", "collection_featured", "product_featured", "main_wishlist", "not_found", "search"]) {
     const src = read(`themes/default/sections/${f}.storelib`)
-    check(`native ${f}: every card frame is marked, its picture contained`, !/class="card__media"(?![^>]*data-pic-frame)/.test(src) && /\.card__media img \{[^}]*object-fit: contain;/.test(src))
+    /* Changed on purpose (r68): the picture covers the card's frame. */
+    check(`native ${f}: every card frame is marked, its picture covers it`, !/class="card__media"(?![^>]*data-pic-frame)/.test(src) && /\.card__media img \{[^}]*object-fit: cover;/.test(src))
   }
   const media = read("components/website-builder/sections/renderers/product/product-media.tsx")
-  check("native gallery: frames marked, no photo drawn with object-cover (videos keep theirs)", /data-media-item=\{i\}\s+data-pic-frame=""/.test(media) && !/(h-full object-cover" : naturalFit|@\[768px\]:object-cover|const COVER = "[^"]*object-cover)/.test(media) && /thumbnail \$\{pos \+ 1\}`\} className="h-full w-full object-contain"/.test(media))
+  /* Changed on purpose (r68): a picture in a frame of another shape covers it; the one that sets the row's height keeps its own shape. */
+  check("native gallery: frames marked, framed photos and thumbnails cover", /data-media-item=\{i\}\s+data-pic-frame=""/.test(media) && /h-full object-cover" : naturalFit/.test(media) && /const COVER = "absolute inset-0 h-full w-full object-cover"/.test(media) && /thumbnail \$\{pos \+ 1\}`\} className="h-full w-full object-cover"/.test(media))
   const gallery = read("components/product/product-gallery.tsx")
-  check("Storelib's product gallery: whole unless a caller asks for cover, frame marked", /const whole = fit !== "cover"/.test(gallery) && /data-gallery-index=\{currentIndex\}\s+data-pic-frame=""/.test(gallery))
+  /* Changed on purpose (r68): covers unless a caller asks for contain (Storelib's own product page does). */
+  check("Storelib's product gallery: covers unless a caller asks for contain, frame marked", /const whole = fit === "contain"/.test(gallery) && /data-gallery-index=\{currentIndex\}\s+data-pic-frame=""/.test(gallery))
   check("Explore's 16:9 card is still left as the owner set it (kept from the trim and the fit)", /data-cover-trim="keep"/.test(read("components/explore/product-card.tsx")) && PIC_FIT_SCRIPT.includes('[data-cover-padded="keep"]'))
 }
 

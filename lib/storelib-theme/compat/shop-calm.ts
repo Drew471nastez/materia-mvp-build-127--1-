@@ -90,7 +90,7 @@ const FRACTIONS = ["1/1", "3/4", "4/3", "4/5", "5/4", "2/3", "3/2", "16/9", "9/1
 /*
   The gallery's shape from its first slide's own --aspect-ratio. "Adapt" writes the picture's own
   ratio as a decimal (0.7, 1.7777): matched by its first two digits, close enough for a width cap
-  (the picture is drawn whole in its frame, lib/images/pic-fit.ts).
+  (the picture covers its frame, lib/images/pic-fit.ts).
 */
 function galleryRatioRules(): string {
   const first = (v: string) =>

@@ -170,7 +170,7 @@ export function installCoverTrim(doc: Document, win: Window): void {
     if (!url) {
       img.setAttribute("data-cover-trim", "none")
       img.setAttribute("data-cover-from", key)
-      /* Round 65: nothing to cut, so the frame's fit (lib/images/pic-fit.ts) paints it as it is. */
+      /* Nothing to cut, so the frame's fit (lib/images/pic-fit.ts) looks at it as it is. */
       var fit = (w as Window & { __slPicFitPaint?: (i: HTMLImageElement) => void }).__slPicFitPaint
       if (fit) fit(img)
       return
@@ -308,8 +308,8 @@ export function installCoverTrim(doc: Document, win: Window): void {
 
 /**
  * The script for a page's <head>: Storelib's own pages and its themes' websites (app/(storelib)/layout.tsx, app/(site)/layout.tsx).
- * Round 65: the frame's fit runs with it (lib/images/pic-fit.ts), so every page that trims a padded copy also fits
- * every product picture whole in its frame.
+ * The frame's fit runs with it (lib/images/pic-fit.ts): since round 68 a product picture covers its frame, and only
+ * a cut out product of another shape sits whole in it.
  */
 export const COVER_TRIM_SCRIPT = `try{(${installCoverTrim.toString()})(document,window)}catch(e){}${PIC_FIT_SCRIPT}`
 
