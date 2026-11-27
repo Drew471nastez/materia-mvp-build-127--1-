@@ -110,7 +110,9 @@ async function main() {
   let failed = 0
   try {
     const page = await browser.newPage()
-    await page.setViewport({ width: 1440, height: 900 })
+    /* WIDTH=1280 DSF=2: the screen, and its pixel ratio for screenshots people look at. */
+    const W = Number(process.env.WIDTH ?? 1440)
+    await page.setViewport({ width: W, height: Math.round(W * 0.625), deviceScaleFactor: Number(process.env.DSF ?? 1) })
     await page.evaluateOnNewDocument("window.__name = (f) => f")
     const errors: string[] = []
     page.on("pageerror", (e) => errors.push(String((e as Error).message ?? e).slice(0, 200)))
@@ -241,6 +243,19 @@ async function main() {
       await page.evaluate(() => { const l = [...document.querySelectorAll<HTMLElement>("[data-library-scroll]")].sort((a, b) => b.scrollHeight - a.scrollHeight)[0]; if (l) l.scrollTop = l.scrollHeight / 2 })
       await sleep(600)
       await page.screenshot({ path: `${shots}/library-${name}-middle.png` })
+      /* CARDS=hero-benefits,hero-collage: each named card at the top of the list. */
+      for (const type of (process.env.CARDS ?? "").split(",").filter(Boolean)) {
+        const found = await page.evaluate((t) => {
+          const card = document.querySelector<HTMLElement>(`[data-library-card="${t}"]`)
+          const l = card?.closest<HTMLElement>("[data-library-scroll]")
+          if (!card || !l) return false
+          l.scrollTop += card.getBoundingClientRect().top - l.getBoundingClientRect().top - 16
+          return true
+        }, type)
+        if (!found) { console.log(`  no card ${type}`); continue }
+        await sleep(2500)
+        await page.screenshot({ path: `${shots}/library-${name}-${type}.png` })
+      }
       console.log(`  screenshots in ${shots}/library-${name}-*.png`)
     }
   } finally {
