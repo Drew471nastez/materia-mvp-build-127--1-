@@ -42,10 +42,12 @@ function refused(error: string, status: number): WebsiteCaller {
 }
 
 /** The signed in person's store for the website builder. */
-export async function websiteCaller(opts: { read?: boolean } = {}): Promise<WebsiteCaller> {
+export async function websiteCaller(opts: { read?: boolean; beside?: (userId: string) => void } = {}): Promise<WebsiteCaller> {
   const own = await createClient()
   const { user, status, error } = await editorUser(own, opts)
   if (!user) return refused(error, status)
+  /* Work for this signed in person that needs nothing of the store yet (websiteInstallCaller's `beside`). */
+  opts.beside?.(user.id)
   const found = await areaStore(own, user.id, "website")
   if (found.kind === "denied") return refused(NO_ACCESS, 403)
   if (found.kind === "unreachable") return refused(UNREACHABLE, 503)
@@ -56,7 +58,19 @@ export async function websiteCaller(opts: { read?: boolean } = {}): Promise<Webs
 export type WebsiteInstallCaller<T> = (WebsiteCaller & { error: null; install: T }) | (Exclude<WebsiteCaller, { error: null }> & { install: null })
 
 /** The same, and the site in the URL checked to be the store's. */
-export async function websiteInstallCaller<T = { id: string; creator_id: string }>(installId: string, columns = "id, creator_id", opts: { read?: boolean } = {}): Promise<WebsiteInstallCaller<T>> {
+export async function websiteInstallCaller<T = { id: string; creator_id: string }>(
+  installId: string,
+  columns = "id, creator_id",
+  /*
+    `beside` (round 67): work for this signed in person that needs no answer
+    about the store or the website yet (a read's rate limit), started once
+    they are known, beside the checks that the store is theirs and the
+    website the store's, rather than after them. Its answer is the
+    caller's to wait for, after this has answered; nothing of the website
+    is read before that check.
+  */
+  opts: { read?: boolean; beside?: (userId: string) => void } = {},
+): Promise<WebsiteInstallCaller<T>> {
   const c = await websiteCaller(opts)
   if (c.error !== null) return { ...c, install: null }
   const found = await storeInstall<T>(c.supabase, c.creatorId, installId, columns)

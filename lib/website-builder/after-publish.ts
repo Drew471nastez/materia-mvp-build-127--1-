@@ -83,6 +83,26 @@ export function liveOf(rows: PublishRows): { settings: unknown; pages: { page_ke
   return { settings: rows.settings?.settings ?? null, pages: rows.pages.map((p) => ({ page_key: p.page_key, sections: p.sections })), files }
 }
 
+/**
+ * THE EDITOR'S FIRST READ GOES FIRST (round 67). Right after Publish (and
+ * Add) the person most often opens the editor, whose first read (the
+ * install and the page's sections) is what "Still opening your website"
+ * waits on. Measured over a pooled database (tests/editor-open-r67.test.ts),
+ * the release's read of every file, the warm and the files kept ahead all
+ * started in the same moment as that read and shared its connections and
+ * this server's thread. The heavy part of the work after a Publish now
+ * starts this long after the answer, in the same order as before (the
+ * release first, the warm and the backup after it): nobody waits on it, and
+ * the site is drawn from its rows meanwhile, exactly as before the release.
+ */
+export const QUIET_AFTER_PUBLISH_MS = 4_000
+/** The quiet window, then the work. Tests may shorten it (globalThis.__PUSH_TEST_QUIET_MS__). */
+export function quietAfterPublish(): Promise<void> {
+  const forced = (globalThis as { __PUSH_TEST_QUIET_MS__?: number }).__PUSH_TEST_QUIET_MS__
+  const ms = typeof forced === "number" ? forced : QUIET_AFTER_PUBLISH_MS
+  return ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve()
+}
+
 /** How long the warm waits for the release before drawing the pages anyway (from the rows, as before round 66). */
 export const WARM_WAITS_FOR_RELEASE_MS = 10_000
 /** How long the backup waits for it: the backup is in no hurry, and the route has two minutes (maxDuration). */

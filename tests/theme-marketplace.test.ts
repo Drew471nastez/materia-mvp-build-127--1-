@@ -243,12 +243,14 @@ async function main() {
   /* Changed on purpose (templates round 16): the marketplace is a popup over the page, opened by a button, not a link to /themes in a new tab (scripts/check-theme-popup.mjs measures it). */
   /* Changed on purpose (the owner: six template cards, then Show more that opens the marketplace popup; the Explore more themes card is gone). */
   /* Changed on purpose (round 24): the owner: nine cards (three rows), Storelib Default first, Notion templates in place of the Cookbook, and Night shop, Poster shop and Print on demand as the third row; the rest follow in the marketplace's order. */
-  check("Browse themes is a grid of nine cards, three to a row, then Show more that opens the popup", /const ROW_THEME_CARDS = 9/.test(client) && /const explore = browseThemes\(listings, ROW_THEME_CARDS\)/.test(client) && /<ThemeTemplateCard\b/.test(client) && !/MoreThemesCard/.test(client) && /lg:grid-cols-3/.test(client) && /data-theme-marketplace-open="more"[\s\S]{0,200}onClick=\{\(e\) => openThemes\(e\.currentTarget\)\}[\s\S]{0,1200}\{tt\("Show more"\)\}/.test(client))
+  /* Changed on purpose (r67): the owner: a fourth row of three, twelve cards. */
+  check("Browse themes is a grid of twelve cards, three to a row, then Show more that opens the popup", /const ROW_THEME_CARDS = 12/.test(client) && /const explore = browseThemes\(listings, ROW_THEME_CARDS\)/.test(client) && /<ThemeTemplateCard\b/.test(client) && !/MoreThemesCard/.test(client) && /lg:grid-cols-3/.test(client) && /data-theme-marketplace-open="more"[\s\S]{0,200}onClick=\{\(e\) => openThemes\(e\.currentTarget\)\}[\s\S]{0,1200}\{tt\("Show more"\)\}/.test(client))
   {
     /* Changed on purpose (round 24): the order Browse themes puts first, and that every one of them is a template the code ships. */
     const first = (client.match(/export const BROWSE_THEMES_FIRST = \[([^\]]+)\]/)?.[1] ?? "").match(/"[^"]+"/g)?.map((x) => x.slice(1, -1)) ?? []
     const names = first.map((slug) => CODE_TEMPLATES.find((t) => t.slug === slug)?.name)
-    check("  Browse themes' first nine: Storelib Default first, Notion templates, then Night shop, Poster shop and Print on demand", names.join("|") === "Storelib Default|Clothing|Merch|Digital products|Art books|Notion templates|Night shop|Poster shop|Print on demand", names.join(", "))
+    /* Changed on purpose (r67): the owner: the Ebook in Clothing's place, and Notion creator, Digital studio and Fitness as a fourth row. */
+    check("  Browse themes' first twelve: Storelib Default first, the Ebook, Notion templates, Night shop, Poster shop and Print on demand, then Notion creator, Digital studio and Fitness", names.join("|") === "Storelib Default|Ebook|Merch|Digital products|Art books|Notion templates|Night shop|Poster shop|Print on demand|Notion creator|Digital studio|Fitness", names.join(", "))
     check("  and the rest of the marketplace fills what is left, in its own order", /return \[\.\.\.first, \.\.\.listings\.filter\(\(l\) => !first\.includes\(l\)\)\]\.slice\(0, count\)/.test(client))
   }
   check("  with a Theme marketplace button beside the heading that opens the popup", /data-theme-marketplace-open="heading"[\s\S]{0,1200}\{tt\("Theme marketplace"\)\}/.test(client) && /text-\[14px\] font-semibold/.test(client) && !/MARKETPLACE_PATH/.test(client) && /<ThemeMarketplace\b/.test(client))

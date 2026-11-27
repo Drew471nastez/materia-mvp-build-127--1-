@@ -11,7 +11,7 @@
  *      in all), each with Publish, Edit and the long tail in a menu. A
  *      website being imported, added or copied has its row there from the
  *      first moment (./incoming.tsx), and the page scrolls to it when it lands.
- *   3. Browse themes: nine templates as cards, then Show more, which opens
+ *   3. Browse themes: twelve templates as cards, then Show more, which opens
  *      the theme marketplace as a popup over this page with every theme
  *      (./themes/themes-client.tsx). A card's cover opens the template's
  *      preview over the page (./themes/theme-preview.tsx).
@@ -745,8 +745,13 @@ async function decodedFirst(url: string | null, within = 10_000): Promise<void> 
 /** Saves this tab has already fetched the page again for. */
 const REFRESHED = new Set<string>()
 
-/** How many templates Browse themes shows before Show more opens the marketplace: three rows of three on a laptop (round 24, the owner: nine, then Show more). */
-const ROW_THEME_CARDS = 9
+/** How long Adding shows on the marketplace's card or preview before the marketplace leaves (round 67). */
+const ADDING_BEAT_MS = 450
+/** The marketplace's and the preview's exit, and a frame over: the page scrolls once they have gone. */
+const MARKET_LEAVES_MS = 240
+
+/** How many templates Browse themes shows before Show more opens the marketplace: four rows of three on a laptop (round 24, the owner: nine, then Show more; round 67: a fourth row). */
+const ROW_THEME_CARDS = 12
 
 /**
  * The templates Browse themes puts first, in this order, by address (round
@@ -755,7 +760,8 @@ const ROW_THEME_CARDS = 9
  * as the third. A slug the page was not given is skipped, and the rest of
  * the marketplace's own order fills what is left.
  */
-export const BROWSE_THEMES_FIRST = ["storelib-default", "clothing", "merch", "digital-products", "art-books", "templates-shop", "space-clothing", "posters", "print-on-demand"] as const
+/* Round 67, the owner: the Ebook in Clothing's place, and a fourth row of Notion creator, Digital studio and Fitness. */
+export const BROWSE_THEMES_FIRST = ["storelib-default", "author-book", "merch", "digital-products", "art-books", "templates-shop", "space-clothing", "posters", "print-on-demand", "notion-creator", "digital-studio", "fitness"] as const
 
 /** Browse themes' cards: BROWSE_THEMES_FIRST that are there, then the others in the marketplace's order, `count` in all. */
 export function browseThemes<T extends { slug: string }>(listings: readonly T[], count: number = ROW_THEME_CARDS): T[] {
@@ -1097,6 +1103,37 @@ export function WebsiteBuilderClient({
   const [incoming, setIncoming] = React.useState<Incoming | null>(null)
   /** How to make it again, for Try again. Kept beside the row rather than in it. */
   const retryRef = React.useRef<(() => void) | null>(null)
+  /*
+    ADD FROM THE MARKETPLACE: ADDING, THEN THE PAGE (round 67, the owner:
+    "Show Adding. Close the marketplace modal. Smooth scroll the website
+    builder page to the newly added theme"). The press says Adding on the
+    card or the preview for a beat (ADDING_BEAT_MS), then the preview and the
+    marketplace leave together, over one traversal of their history entries,
+    and the page scrolls to the row the website lands in (see the effect
+    after the incoming row's).
+  */
+  const closeMarketplaceForAdd = () => {
+    const previewing = !!previewStore.get()
+    const browsed = previewing ? framedSteps() : 0
+    let steps = 0
+    if (previewing) {
+      setPreviewSlug(null)
+      if (previewPushed.current) steps += 1
+      previewPushed.current = false
+      steps += browsed
+    }
+    setThemesOpen(false)
+    if (themesPushed.current) steps += 1
+    themesPushed.current = false
+    const clearAddress = () => {
+      const url = new URL(window.location.href)
+      if (![PREVIEW_PARAM, THEMES_PARAM, THEME_PARAM].some((k) => url.searchParams.has(k))) return
+      for (const k of [PREVIEW_PARAM, THEMES_PARAM, THEME_PARAM]) url.searchParams.delete(k)
+      window.history.replaceState({}, "", `${url.pathname}${url.search}`)
+    }
+    if (steps > 0) backThen(clearAddress, undefined, steps)
+    else clearAddress()
+  }
   /** The website that has just landed: scrolled to and ringed once. */
   const [arrived, setArrived] = React.useState<string | null>(null)
   /**
@@ -1413,13 +1450,18 @@ export function WebsiteBuilderClient({
     return () => window.clearTimeout(t)
   }, [incoming?.installId, refresh])
 
+  /** Set while an add pressed in the marketplace waits for it to leave: the page then scrolls to the new row. */
+  const scrollAfterMarket = React.useRef(false)
+  /** The new website's scroll and ring, when it landed while the marketplace was still leaving. */
+  const arrivalAfterMarket = React.useRef<(() => void) | null>(null)
   /* The placeholder is shown where it is, if that is off the screen: when it
      appears, and again when a failure makes it taller. */
   const incomingRow = React.useRef<HTMLTableRowElement>(null)
   const showingIncoming = !!incoming && !landed
   const incomingFailed = incoming?.phase === "error"
   React.useEffect(() => {
-    if (showingIncoming && incomingRow.current) void scrollToRow(incomingRow.current, "nearest")
+    /* Under the marketplace the row is scrolled to once the marketplace has left (scrollAfterMarket). */
+    if (showingIncoming && incomingRow.current && !scrollAfterMarket.current) void scrollToRow(incomingRow.current, "nearest")
   }, [showingIncoming, incomingFailed])
 
   /* The new website, to the middle of the screen, then its ring. */
@@ -1430,15 +1472,23 @@ export function WebsiteBuilderClient({
        scroll that follows is not cancelled by that change, only by leaving
        the page. */
     setArrived(null)
-    const row = document.querySelector<HTMLElement>(`[data-install-row="${CSS.escape(id)}"]`)
-    if (!row) return
-    void scrollToRow(row, "center").then(() => {
-      const card = libraryCard.current
-      if (!mounted.current || !card || !row.isConnected) return
-      const at = row.getBoundingClientRect()
-      const top = at.top - card.getBoundingClientRect().top - card.clientTop
-      setRinged({ top: Math.round(top), height: Math.round(at.height) })
-    })
+    const go = () => {
+      const row = document.querySelector<HTMLElement>(`[data-install-row="${CSS.escape(id)}"]`)
+      if (!row) return
+      void scrollToRow(row, "center").then(() => {
+        const card = libraryCard.current
+        if (!mounted.current || !card || !row.isConnected) return
+        const at = row.getBoundingClientRect()
+        const top = at.top - card.getBoundingClientRect().top - card.clientTop
+        setRinged({ top: Math.round(top), height: Math.round(at.height) })
+      })
+    }
+    /* Landed while the marketplace is still over the page: once it has left (addFromMarket), so the ring is seen. */
+    if (scrollAfterMarket.current) {
+      arrivalAfterMarket.current = go
+      return
+    }
+    go()
   }, [arrived])
   React.useEffect(() => {
     if (!ringed) return
@@ -1562,6 +1612,26 @@ export function WebsiteBuilderClient({
       () => void addListing(l),
       cover,
     )
+  }
+
+  const addFromMarket = (l: ThemeListing) => {
+    const started = addListing(l)
+    /* A full library (its sheet opens) or another website on its way: the marketplace stays where it is. */
+    if (!started) return
+    scrollAfterMarket.current = true
+    window.setTimeout(() => {
+      if (!mounted.current) return
+      closeMarketplaceForAdd()
+      /* Once the windows have left (their exit is 200ms), the row, to the middle of the screen. */
+      window.setTimeout(() => {
+        scrollAfterMarket.current = false
+        const landedNow = arrivalAfterMarket.current
+        arrivalAfterMarket.current = null
+        if (!mounted.current) return
+        if (landedNow) landedNow()
+        else if (incomingRow.current?.isConnected) void scrollToRow(incomingRow.current, "center")
+      }, MARKET_LEAVES_MS)
+    }, ADDING_BEAT_MS)
   }
 
   /* A template added on an earlier visit: the install remembers its listing (settings.compat.listing). */
@@ -1848,7 +1918,7 @@ export function WebsiteBuilderClient({
         }
       : null
 
-  /* Browse themes: nine of the marketplace's themes, the owner's choice first (browseThemes), then Show more, which opens all of them. */
+  /* Browse themes: twelve of the marketplace's themes, the owner's choice first (browseThemes), then Show more, which opens all of them. */
   const explore = browseThemes(listings, ROW_THEME_CARDS)
   /* The template a preview names, among the ones this page was given; a slug it does not know opens nothing. */
   /*
@@ -2523,7 +2593,7 @@ export function WebsiteBuilderClient({
         listings={listings}
         stateOf={templateState}
         waiting={making}
-        onAdd={(l) => void addListing(l)}
+        onAdd={addFromMarket}
         onPreview={openPreview}
         focusSlug={themeAsked}
         returnFocus={() => themesOpener.current ?? marketButton.current}
@@ -2535,7 +2605,7 @@ export function WebsiteBuilderClient({
         listings={listings}
         stateOf={templateState}
         waiting={making}
-        onAdd={(l) => void addListing(l)}
+        onAdd={addFromMarket}
         onBack={closePreview}
         /* Round 30, the owner: X closes the preview only, back onto the grid at the scroll it was left at (scripts/check-theme-preview-close.mjs). */
         onClose={closePreview}

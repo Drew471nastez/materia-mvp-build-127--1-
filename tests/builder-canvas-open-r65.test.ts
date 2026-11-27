@@ -40,7 +40,7 @@ import { GET as installGet } from "@/app/api/website-builder/themes/[installId]/
 import { GET as sectionsGet } from "@/app/api/website-builder/themes/[installId]/sections/route"
 import { GET as filesGet } from "@/app/api/website-builder/themes/[installId]/files/route"
 import { POST as publishPost } from "@/app/api/website-builder/themes/[installId]/publish/route"
-import { customSchemaLookup } from "@/lib/website-builder/custom-schemas"
+import { customSchemaLookup, forgetSectionFileMemo } from "@/lib/website-builder/custom-schemas"
 import { postAddTheme } from "@/lib/themes/add-attempt-client"
 import { compatHintKey, knownCompatInstall } from "@/lib/website-builder/compat-hint"
 
@@ -103,6 +103,8 @@ const paths = () => ({
  * clock), and until the canvas has its files.
  */
 async function editorOpen(deferCanvas: boolean): Promise<{ firstRead: number; canvas: number; db: number }> {
+  /* Changed on purpose (r67): a server keeps section files it has read (custom-schemas.ts); each open here is a first open, as it measured before. */
+  forgetSectionFileMemo()
   resetCounts()
   const p = paths()
   const t0 = performance.now()

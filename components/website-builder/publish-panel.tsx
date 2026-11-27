@@ -54,6 +54,15 @@ export interface PublishPanelProps {
   busy: boolean
   onPublish: () => void
   /**
+   * Not live yet (round 67): the name of the website that is live now and
+   * that Publish takes the place of; null when none is; undefined when it is
+   * not known. Said before the press, as the website builder's own Publish
+   * asks it.
+   */
+  replaces?: string | null
+  /** This website went live from the editor a moment ago: said, with the link to it. */
+  wentLive?: boolean
+  /**
    * Whether publishing will take a backup. Null while it is being asked.
    * See lib/website-builder/setup-state.ts: the backup is skipped silently
    * when its table has not been created, and the first anybody knew was the
@@ -278,6 +287,8 @@ function Body({
   websiteUrlDisplay,
   busy,
   onPublish,
+  replaces,
+  wentLive = false,
   pinActions = false,
   domains = { domains: null, canConnect: null },
   onDomain,
@@ -533,7 +544,28 @@ function Body({
           <h2 className="text-[20px] font-semibold leading-none">{tt("Publish")}</h2>
         </div>
         <p className="mt-2.5 text-[15px] text-white/60">{status}</p>
+        {/* What the press does, before it (round 67): the website builder's Publish asks the same. */}
+        {!live && websiteUrlDisplay ? (
+          <p data-publish-replaces={replaces ? "yes" : replaces === null ? "none" : "unknown"} className="mt-1.5 text-[14px] leading-snug text-white/60">
+            {replaces
+              ? tt("It replaces “{name}” at {site}. Nothing is deleted.", { name: replaces, site: websiteUrlDisplay })
+              : replaces === null
+                ? tt("It goes live at {site}.", { site: websiteUrlDisplay })
+                : tt("It goes live at {site}. Nothing is deleted.", { site: websiteUrlDisplay })}
+          </p>
+        ) : null}
       </div>
+
+      {/* Just published from here (round 67): said plainly, with the way to it. */}
+      {live && wentLive && websiteUrl ? (
+        <div data-publish-went-live="" className="wb-settings-swap flex items-center gap-3 rounded-xl border border-emerald-400/25 bg-emerald-400/10 px-4 py-3 text-[14px]">
+          <Check className="h-4 w-4 shrink-0 text-emerald-400" strokeWidth={2} />
+          <span className="min-w-0 flex-1 text-white/85">{tt("Your website is live.")}</span>
+          <a {...liveSiteLink(ownOpen(websiteUrl))} className="shrink-0 rounded-md px-2 py-1 font-medium text-white transition-colors hover:bg-white/10">
+            {tt("View site")}
+          </a>
+        </div>
+      ) : null}
 
       {/**
         * Said here because this is where it costs something. Publishing

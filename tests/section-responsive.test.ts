@@ -373,7 +373,8 @@ check(
 
 check(
   "and the editor wires it to the real publish action",
-  /<PublishPanel/.test(editor) && /onPublish=\{\(\) => \{ void handleSave\(\) \}\}/.test(editor),
+  /* Changed on purpose (r67): not live yet, publishChanges; live, handleSave as before. */
+  /<PublishPanel/.test(editor) && /onPublish=\{\(\) => \{ if \(live\) void handleSave\(\); else void publishChanges\(\) \}\}/.test(editor),
 )
 
 check(
@@ -457,7 +458,8 @@ check(
     /<FullScreenLock tone=\{chromeTone\} fromFirstPaint \/>/.test(editor) /* fromFirstPaint: the lock is set before the editor paints, in place of an html:has() */ &&
     /export function usePhoneChromeTone\(_phone: boolean\): ChromeTone \{\s*\n\s*return "dark"\s*\n\}/.test(nativeChromeSrc) &&
     /root\.style\.backgroundColor = tone === "light" \? "#ffffff" : "#171717"/.test(untt(readFileSync(join(root, "components/website-builder/full-screen-lock.tsx"), "utf8"), "components/website-builder/full-screen-lock.tsx")) &&
-    /live \? "bg-\[#8B56FA\] text-white hover:bg-\[#7b46ec\]"/.test(editor),
+    /* Changed on purpose (r67): asPublish is live, or a phone's one key for a website not live yet. */
+    /asPublish \? "bg-\[#8B56FA\] text-white hover:bg-\[#7b46ec\]"/.test(editor),
 )
 
 
