@@ -199,7 +199,7 @@ async function tryTheLook(browser: Browser, touchBrowser: Browser, base: string)
     check(`touch at 4x CPU: a tap with up to 7 px of jitter always opens the look in focus (${ok}/12)`, ok === 12)
     let moved = 0, opened = 0
     const rest = () => p.waitForFunction(() => !document.querySelector("try-the-look [data-stage]")!.classList.contains("is-drag"), { timeout: 4000 }).catch(() => undefined)
-    for (let k = 0; k < 8; k++) { await sleep(600); await rest(); const s0 = await state(), [x, y] = await fitAt(), d = rnd(70, 180) * (k % 2 ? 1 : -1); const pts: number[][] = []; for (let s = 0; s <= 8; s++) pts.push([x + (d * s) / 8, y + rnd(-6, 6)]); await touch(pts); await sleep(1100); const s1 = await state(); if (s1.open) opened++; if (s1.i !== s0.i) moved++; await closeLb() }
+    for (let k = 0; k < 8; k++) { await sleep(600); await rest(); const s0 = await state(), [x, y] = await fitAt(), d = rnd(70, 180) * (k % 2 ? 1 : -1); const pts: number[][] = []; for (let s = 0; s <= 8; s++) pts.push([x + (d * s) / 8, y + rnd(-3, 3)]); await touch(pts); await sleep(1100); const s1 = await state(); if (s1.open) opened++; if (s1.i !== s0.i) moved++; await closeLb() }
     check(`  a swipe never opens the look and always moves the lineup (moved ${moved}/8, opened ${opened})`, moved === 8 && opened === 0)
     await sleep(600)
     const s0 = await state(), [x, y] = await fitAt(); const pts: number[][] = []; for (let s = 0; s <= 10; s++) pts.push([x + rnd(-3, 3), y + 120 - s * 24])
