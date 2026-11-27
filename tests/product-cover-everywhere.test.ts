@@ -181,8 +181,8 @@ console.log("PLACES")
     /* Changed on purpose (storelib.com covers whole): however it was reached, not only from Explore. */
     check("the storelib.com product page always keeps Explore's 16:9 copy, every photo whole, and the trim leaves it alone", !/fromExplore|withOriginalCover/.test(page) && /data-cover-padded="keep"/.test(page) && /<ProductGallery[\s\S]{0,600}fit="contain"/.test(page))
     const gallery = read("components/product/product-gallery.tsx")
-    /* Changed on purpose (r65): whole unless a caller asks for cover (a product picture is never cut). */
-    check("  the gallery draws its main photos and thumbnails whole on the light grey when asked to", /fit\?: "cover" \| "contain"/.test(gallery) && /const whole = fit !== "cover"/.test(gallery) && /whole \? "object-contain" : "object-cover"/.test(gallery) && /fit === "contain" \? "bg-\[#f0f0f0\]" : "bg-muted"/.test(gallery) && /whole \? "object-contain bg-\[#f0f0f0\]" : "object-cover"/.test(gallery))
+    /* Changed on purpose (r68): whole when a caller asks for contain (storelib.com's own page does); a website's gallery covers its frame (the owner: cover fit). */
+    check("  the gallery draws its main photos and thumbnails whole on the light grey when asked to", /fit\?: "cover" \| "contain"/.test(gallery) && /const whole = fit === "contain"/.test(gallery) && /whole \? "object-contain" : "object-cover"/.test(gallery) && /fit === "contain" \? "bg-\[#f0f0f0\]" : "bg-muted"/.test(gallery) && /whole \? "object-contain bg-\[#f0f0f0\]" : "object-cover"/.test(gallery))
     check("  and only the product page asks: the store builder's product section keeps its own fit", !/fit="contain"/.test(read("components/store-builder/unified-section-renderer.tsx")))
   }
   /* Changed on purpose (storelib.com covers whole): the /p/ product page is no longer one of them. */

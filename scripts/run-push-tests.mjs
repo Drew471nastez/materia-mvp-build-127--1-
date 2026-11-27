@@ -570,6 +570,8 @@ const SUITES = [
   "tests/cards-universal-r66.test.ts",
   /* Round 67: the shop parts of every theme: Wishlist (N) in a header of words, a bubble's number from its fill, the theme's own Wishlist page everywhere, product pictures that fill their frames, Recently viewed never repeating related, an About page for a website built before round 66, Redline's product page on Materia's main product section. */
   "tests/commerce-r67.test.ts",
+  /* Round 68: a product picture covers its frame in every theme (cards, featured product, main product); only a cut out product of another shape sits whole. Browser half: scripts/check-product-pictures-r68.mjs. */
+  "tests/product-pictures-r68.test.ts",
   "tests/admin-logic.test.ts",
   "tests/cron-reachable.test.ts",
   "tests/theme-presets.test.ts",
