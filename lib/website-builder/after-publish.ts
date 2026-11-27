@@ -1,6 +1,7 @@
 import "server-only"
 
 import { fileCols, resolveRefs } from "@/lib/website-builder/theme-file-refs"
+import { afterEditorReads } from "@/lib/website-builder/editor-reads"
 
 /**
  * ===========================================================================
@@ -100,7 +101,9 @@ export const QUIET_AFTER_PUBLISH_MS = 4_000
 export function quietAfterPublish(): Promise<void> {
   const forced = (globalThis as { __PUSH_TEST_QUIET_MS__?: number }).__PUSH_TEST_QUIET_MS__
   const ms = typeof forced === "number" ? forced : QUIET_AFTER_PUBLISH_MS
-  return ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve()
+  if (ms <= 0) return Promise.resolve()
+  /* Round 68: and while this server is answering the editor's open (editor-reads.ts), at most EDITOR_FIRST_CAP_MS more. */
+  return new Promise<void>((r) => setTimeout(r, ms)).then(() => afterEditorReads())
 }
 
 /** How long the warm waits for the release before drawing the pages anyway (from the rows, as before round 66). */

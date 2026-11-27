@@ -2848,6 +2848,8 @@ const SOURCES_OPEN_MS = 45_000
 /** The rest of an imported theme's sections are asked at least this long after the page's, and once the browser is idle (at most SOURCES_REST_IDLE_MS more). */
 const SOURCES_REST_AFTER_MS = 400
 const SOURCES_REST_IDLE_MS = 2_000
+/** The open's read of the sources, asked again by itself after a failure: at once, then after these waits. */
+const SOURCES_AGAIN_MS = [0, 4_000, 12_000, 30_000]
 /**
  * One part of the sources as the editor opens (`&types=`, `&rest=`, or "" for all of them), headers and body
  * together within SOURCES_OPEN_MS, asked again after a failure or a 5xx (round 68). Null for an answer that says
@@ -3092,7 +3094,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /** Raised when config/settings_data.json was saved in the code editor: the values are read again. */
   const [settingsFileVersion, setSettingsFileVersion] = useState(0)
   /** Also hands back what it loaded, for a caller that needs it this tick: see handleWriteDone. */
-  const loadStorelibSources = useCallback(async (opts?: { hold?: boolean; first?: boolean; signal?: AbortSignal }): Promise<Record<string, string> | null> => {
+  const loadStorelibSources = useCallback(async (opts?: { hold?: boolean; first?: boolean; signal?: AbortSignal; keepTrying?: boolean }): Promise<Record<string, string> | null> => {
+    /* keepTrying: a failure is not yet "read" (firstSources asks again). */
+    let readOk = false
     try {
       /* Round 27: asked every time, but what the browser already has comes back as a 304 with no body (the route's ETag, lib/website-builder/revalidated-json.ts): 21 MB on a Materia theme. */
       /*
@@ -3107,6 +3111,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           return res.ok ? ((await res.json()) as SourcesAnswer) : null
         })()
       if (!d) return null
+      readOk = true
       const files = d.files ?? {}
       const schema = typeof d.settings_schema === "string" ? d.settings_schema : null
       heldSchema.current = schema
@@ -3121,9 +3126,25 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       return null
     } finally {
       /* Let go for the page's part (loadSourcesInParts): that read says when the sources are in. */
-      if (!opts?.signal?.aborted) setStorelibSourcesRead(true)
+      if (!opts?.signal?.aborted && !(opts?.keepTrying && !readOk)) setStorelibSourcesRead(true)
     }
   }, [installId])
+  /*
+    THE OPEN'S READ OF THE SOURCES NEVER ENDS IN A CANVAS WITHOUT THEM (round 68). A read that failed every try was
+    taken as "no sources", and an imported theme's canvas drew its page without its sections' files until the
+    editor was reloaded. Now it is asked again by itself, later each time (SOURCES_AGAIN_MS), and only the last
+    failure is taken as it was before.
+  */
+  const firstSources = useCallback(async (signal?: AbortSignal): Promise<Record<string, string> | null> => {
+    for (const wait of SOURCES_AGAIN_MS) {
+      if (wait) await new Promise((r) => window.setTimeout(r, wait))
+      if (signal?.aborted) return null
+      const last = wait === SOURCES_AGAIN_MS[SOURCES_AGAIN_MS.length - 1]
+      const files = await loadStorelibSources({ first: true, signal, keepTrying: !last })
+      if (files) return files
+    }
+    return null
+  }, [loadStorelibSources])
   /*
     AN IMPORTED THEME'S SOURCES, THE PAGE'S FIRST (round 68, lib/website-builder/source-parts.ts). The first open
     asks for what the page on screen draws from (7.8 MB of Materia's 22.8), and the canvas draws from that; the
@@ -3143,7 +3164,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const loadSourcesInParts = useCallback(async (types: string[]) => {
     const page = await readSourcesPart(installId, `&types=${types.join(",")}`).catch(() => null)
     if (!page || !page.files) {
-      await loadStorelibSources({ first: true })
+      await firstSources()
       return
     }
     const files = page.files
@@ -3159,7 +3180,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     })
     const rest = await readSourcesPart(installId, `&rest=${types.join(",")}`).catch(() => null)
     if (!rest || !rest.files) {
-      await loadStorelibSources({ first: true })
+      await firstSources()
       return
     }
     const restFiles = rest.files
@@ -3168,7 +3189,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setStorelibSources((prev) => withRest(prev, restFiles))
       setStorelibSourcesRead(true)
     })
-  }, [installId, loadStorelibSources])
+  }, [installId, firstSources])
   /*
     AN IMPORTED THEME, KNOWN FROM THE FIRST FRAME. Which installs are imported
     is remembered in this browser, from the marketplace's add as well as from
@@ -3191,10 +3212,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     /* Not known to be imported yet: read whole, and let go if the first read says it is (the effect below). */
     const ctl = new AbortController()
     wholeRead.current = ctl
-    void loadStorelibSources({ first: true, signal: ctl.signal }).finally(() => {
+    void firstSources(ctl.signal).finally(() => {
       if (wholeRead.current === ctl) wholeRead.current = null
     })
-  }, [installId, loadStorelibSources])
+  }, [installId, firstSources])
   useEffect(() => {
     if (!openSettled) return
     const imported = importedTheme.current || knownCompatInstall(installId)
@@ -3211,8 +3232,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     /* Round 68: an imported theme's page first, then the rest (loadSourcesInParts). */
     const types = sectionTypesOf(sectionsRef.current)
     if (imported && types.length > 0 && types.length <= MAX_PART_TYPES) void loadSourcesInParts(types)
-    else void loadStorelibSources({ first: true })
-  }, [openSettled, installId, loadStorelibSources, loadSourcesInParts])
+    else void firstSources()
+  }, [openSettled, installId, firstSources, loadSourcesInParts])
 
   /**
    * THE LIBRARY THIS INSTALL CAN ADD FROM: the theme's ten categories, plus

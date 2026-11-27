@@ -2779,12 +2779,38 @@ export function CompatCanvas(props: CompatCanvasProps) {
     setAttempt((n) => n + 1)
   }
 
+  /*
+    THE THEME'S FILES ASKED AGAIN BY THEMSELVES (round 68). A read that failed every try (compat-files.ts) waited for
+    Try again, under words about the connection, when most often the server had been slow a moment: right after a
+    Publish its database is busy for a while. It is asked again after FILES_AGAIN_MS, and at once when the browser is
+    back online, and said as a slow wait meanwhile. Only after the last is it said as a failure, with Try again.
+  */
+  const [filesAgain, setFilesAgain] = useState(0)
+  const retryRef = useRef(retry)
+  retryRef.current = retry
+  const againLeft = failure === "files" && filesAgain < FILES_AGAIN_MS.length
+  useEffect(() => {
+    if (!againLeft) return
+    const go = () => {
+      setFilesAgain((n) => n + 1)
+      retryRef.current()
+    }
+    const t = window.setTimeout(go, FILES_AGAIN_MS[filesAgain])
+    window.addEventListener("online", go)
+    return () => {
+      window.clearTimeout(t)
+      window.removeEventListener("online", go)
+    }
+  }, [againLeft, filesAgain])
+  useEffect(() => { if (shown) setFilesAgain(0) }, [shown])
+  const problem = themeUnreadable ? "draw" : failure === "files" && againLeft ? "slow" : failure
+
   const compat = compatOf(settings)
   return (
     <div ref={box} className="relative w-full" style={{ height }} data-compat-canvas={compat?.theme ?? ""}>
       {/* Until the theme's first page has painted: the shape of a page, still, never a blank sheet or a line of text. */}
       <CanvasPlaceholder hidden={shown} label={`Loading ${compat?.theme ?? "the theme"}`} />
-      {!shown && (failure || themeUnreadable) ? <CanvasProblem kind={themeUnreadable ? "draw" : failure!} {...PROBLEM_WORDS[themeUnreadable ? "draw" : failure!]} onRetry={retry} /> : null}
+      {!shown && problem ? <CanvasProblem kind={problem} {...PROBLEM_WORDS[problem]} onRetry={retry} /> : null}
       {slots.length === 0 ? null : (
         <div className="sticky top-0 h-full w-full" style={{ height }}>
           {/*
@@ -2896,6 +2922,9 @@ const MASSIVE_SWAP_MIN = 3
 /* Sections swapped into one page since it loaded before it is drawn fresh, once the edits stop for FRESH_SETTLE_MS. */
 const WORN_SWAPS = 40
 const FRESH_SETTLE_MS = 1_500
+
+/* The theme's files asked again by themselves after a failed read, after each of these (round 68). */
+const FILES_AGAIN_MS = [3_000, 10_000, 30_000]
 
 /* "slow" is not a failure yet: the page is still being asked for, and comes in under this if it arrives. */
 const PROBLEM_WORDS = {

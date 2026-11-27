@@ -1,4 +1,5 @@
 import { blogArticleSections, blogListingSections } from "@/lib/website-builder/blog-page"
+import { asEditorRead } from "@/lib/website-builder/editor-reads"
 import { websiteInstallCaller } from "@/lib/team/website"
 import { blockTreeProblem } from "@/lib/website-builder/block-tree"
 import { BlockInstanceSchema } from "@/lib/website-builder/block-tree-schema"
@@ -66,7 +67,12 @@ async function getCreatorInstall(installId: string, read = false, beside?: (user
 }
 
 // GET /api/website-builder/themes/[installId]/sections?page=home
-export async function GET(req: Request, { params }: Params) {
+/* Counted while it is answered: the work after a Publish waits for the editor's open on this server (round 68, lib/website-builder/editor-reads.ts). */
+export async function GET(req: Request, ctx: Params) {
+  return asEditorRead(() => readGET(req, ctx))
+}
+
+async function readGET(req: Request, { params }: Params) {
   const { installId } = await params
   /*
     THE LIMIT BESIDE THE CHECKS, NOT AFTER THEM (round 67). The editor's

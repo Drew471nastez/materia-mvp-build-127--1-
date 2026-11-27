@@ -19,6 +19,7 @@ import { createHash } from "node:crypto"
 import { fileCols, isRefRow, refsOn, resolveRef, resolveRefs, withRefColumn, type MaybeRef } from "@/lib/website-builder/theme-file-refs"
 import { partSectionPaths, partTypes, sectionTagNames } from "@/lib/website-builder/source-parts"
 import { PLAIN_SCRIPT, textVersion } from "@/lib/storelib-theme/compat/script-version"
+import { asEditorRead } from "@/lib/website-builder/editor-reads"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -569,7 +570,8 @@ export async function PATCH(req: Request, { params }: Params) {
 
 /* Timed on the server for /admin/performance (lib/perf/server-timing.ts). */
 export const GET = timed("builder", "/api/website-builder/themes/:id/files", async (req: Request, params: Params) => {
-  const res = await handleGET(req, params)
+  /* Counted while it is answered: the work after a Publish waits for the editor's open on this server (round 68, editor-reads.ts). */
+  const res = await asEditorRead(() => handleGET(req, params))
   /* A push just wrote these. A cached copy is the editor showing the old theme until a hard refresh. */
   /* Round 27: the two large reads may be kept by the browser only as "ask me first" (no-cache with their ETag, ./revalidated-json.ts), so it is never shown without the server saying it is still the theme. */
   if (res.headers.get("Cache-Control") !== REVALIDATED_CACHE) res.headers.set("Cache-Control", "no-store")
