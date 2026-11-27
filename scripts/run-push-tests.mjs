@@ -32,6 +32,8 @@ execFileSync(process.execPath, ["scripts/check-unbound-names.mjs"], { stdio: "in
 const SUITES = [
   /* Round 24: the hanging rail section (base/sections/hanging-rail.liquid): one file, no outside script, garments linked to products, back views loaded on demand, every setting labelled, the guide linked. */
   "tests/hanging-rail.test.ts",
+  /* Round 67: the Redline (Kurb Club) Boutique Rail's motion, measured frame by frame at 4x CPU: the focus view opens and closes with the garment flying from and back onto its hanger (no blank frame, no jump, no turn left stuck), Fleece and Jersey cross-fade without moving the section, the size pills always select, reduced motion moves nothing. */
+  "tests/redline-rail-motion-r67.test.ts",
   /* Round 24 integrations: the install window leaves smoothly, one scrolling row of category pills, one YouTube video per listing loaded on press, pictures of each app as connected, a floating Back. */
   "tests/integrations-r24.test.ts",
   /* Discord roles and Telegram chats for paying members (lib/community-roles, SQL parts 473 and 474): the install state, a purchase gives the role, a cancelled or past due membership and a refund take it back, one call per signal and one try per row, the role hierarchy error in words, retries, the Telegram webhook secret, /link codes, one use invites and removal by ban then unban, and nothing at all without the keys. Discord and Telegram are a stubbed fetch. */

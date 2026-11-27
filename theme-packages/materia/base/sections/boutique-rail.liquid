@@ -177,7 +177,8 @@
     padding: 0; border: 0; background: none; cursor: pointer; color: inherit; font: inherit;
     transform-origin: 50% 14px; -webkit-tap-highlight-color: transparent; outline: none;
   }
-  #shopify-section-{{ sid }} .brail__g:focus-visible .brail__pic { outline: 2px solid currentColor; outline-offset: 4px; border-radius: 8px; }
+  /* Storelib (r67): the keyboard ring hugs the garment's own place on the rail, not the wider box its front view turns into. */
+  #shopify-section-{{ sid }} .brail__g:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 6px; }
   #shopify-section-{{ sid }} .brail__hook { position: absolute; top: 4px; left: 50%; width: 22px; height: 30px; translate: -50% 0; color: #8c8c8c; }
   #shopify-section-{{ sid }} .brail__tag {
     position: absolute; top: 30px; left: 50%; z-index: 3; translate: calc(-50% + 10px) 0; rotate: -4deg;
@@ -986,8 +987,8 @@
         // Storelib (r67): the lock takes away exactly the scroll bar's width and gives it back as padding, so the page
         // keeps its width (a reserved gutter made it 15 px narrower where scroll bars overlay, re-laid out every
         // carousel on the page and shifted the rail sideways when the view closed).
-        await this.motion();
         const sb = innerWidth - document.documentElement.clientWidth;
+        await this.motion();
         if (this.dialog.open && !this.dialog.classList.contains('is-closing')) document.documentElement.classList.add('brail-lock');
         if (sb > 0 && document.documentElement.classList.contains('brail-lock')) document.documentElement.style.paddingRight = sb + 'px';
       }
