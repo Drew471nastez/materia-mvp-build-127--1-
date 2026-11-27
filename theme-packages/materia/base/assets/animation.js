@@ -171,7 +171,8 @@ function markParts(section, type) {
   });
   section.classList.add('reveal-parts');
   section.__mtParts = picked;
-  markZoom(section, img => (type === 'mask_reveal' || type === 'editorial') && !!img.closest('[data-reveal-part="media"]'));
+  // A picture in a card of the section never zooms: the card rises (round 68).
+  markZoom(section, img => img.closest(SCROLL_ANIMATION_TRIGGER_CLASSNAME) !== section || ((type === 'mask_reveal' || type === 'editorial') && !!img.closest('[data-reveal-part="media"]')));
   return true;
 }
 function clearParts(el) {

@@ -62,7 +62,8 @@ const WATCH = () => {
     }
     const a = t.getAnimations().find((x) => (x as CSSAnimation).animationName === e.animationName)
     const timing = a?.effect?.getComputedTiming()
-    const kind = t.matches(".shopify-section") ? "section" : t.hasAttribute("data-reveal-zoom") || t.closest("[data-reveal-zoom]") ? (t.closest(".shopify-section.reveal-parts") && !t.closest(".scroll-trigger:not(.shopify-section)") ? "part" : "card") : t.matches(".mt-word") ? "word" : t.hasAttribute("data-reveal-part") ? "part" : "card"
+    const inCard = !!t.closest(".scroll-trigger:not(.shopify-section)")
+    const kind = t.matches(".shopify-section") ? "section" : !inCard && t.closest("[data-reveal-part], [data-reveal-zoom]") ? "part" : t.matches(".mt-word") ? "word" : t.hasAttribute("data-reveal-part") ? "part" : "card"
     /* A section's box carries a colour of its own (or its first child does, the section's band). */
     const box = t.getBoundingClientRect()
     const bgOf = (el: Element) => { if (/rgba\(0, 0, 0, 0\)|transparent/.test(getComputedStyle(el).backgroundColor) && getComputedStyle(el).backgroundImage === "none") return false; const r = el.getBoundingClientRect(); return r.width >= box.width * 0.9 && r.height >= box.height * 0.5 }
@@ -132,6 +133,7 @@ void (async () => {
       const starts = (await page.evaluate(() => (window as unknown as { __rv: Start[] }).__rv)) as Start[]
       /* Stagger: within a section, how much later each card starts than the first of the cards that started with it. */
       const cards = starts.filter((s) => s.kind === "card")
+      if (process.env.DEBUG) console.log(cards.filter((s) => Math.abs(s.scale - 1) > 0.001 || s.ms > 450).map((s) => `${s.name} ${s.id} ${s.ms}`).join("\n"))
       const sections = starts.filter((s) => s.kind === "section")
       const parts = starts.filter((s) => s.kind === "part" || s.kind === "word")
       const max = (l: Start[], f: (s: Start) => number) => (l.length ? Math.max(...l.map(f)) : 0)
