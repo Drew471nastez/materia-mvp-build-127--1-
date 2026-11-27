@@ -50,6 +50,11 @@
  *     the footer never move; a section's parts rise 12px at most. New files
  *     (data-mt-reveal="2" on <html>, set by animation.js) are left to their
  *     own, identical rules.
+ *
+ *  6. A SHADE FOLLOWS ITS PANEL. A phone's full-width menu darkened the page
+ *     before its panel covered it (and stayed dark as it left): the backdrop
+ *     now eases the other way round from the panel. Promotion popup (Code)'s
+ *     ::backdrop fades in and out with its card instead of appearing at full.
  */
 
 const MOTION_FIX_CSS = [
@@ -196,6 +201,9 @@ const REVEAL_FIX_CSS = [
   ":is(.s-promotion-popup,#_) .pp__dialog[open][open]{animation:none}",
   ":is(.s-promotion-popup,#_) .pp__dialog:not([open]){opacity:0;transform:translateY(12px)}:is(.s-promotion-popup,#_) .pp__dialog:not([open])::backdrop{opacity:0}",
   "@media (prefers-reduced-motion:reduce){:is(.s-promotion-popup,#_) .pp__dialog,:is(.s-promotion-popup,#_) .pp__dialog::backdrop{transition:none!important}}",
+  /* A drawer's backdrop follows its panel (theme.css, round 68): clears fast as the panel leaves, darkens after it comes. */
+  ".overlay.overlay::after{transition-timing-function:var(--mt-panel-ease-in,cubic-bezier(.22,1,.36,1))}",
+  ":is(.open-drawer,.nav-open,.open-sidebar) .open.overlay.overlay::after{transition-timing-function:var(--mt-panel-ease-out,cubic-bezier(.4,0,.7,.2))}",
   "[data-sl-noshade]{background-color:transparent!important}[data-sl-noshade]::before,[data-sl-noshade]::after{visibility:hidden!important}",
 ].join("")
 
