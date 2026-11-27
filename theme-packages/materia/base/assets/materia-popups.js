@@ -305,7 +305,14 @@
         p.card.style.willChange = 'transform, opacity';
         anims[0].play(); anims[1].play();
         if (old && old.motion && old.motion.release) old.motion.release();
-        anims[0].finished.then(function () { if (entry.motion === m) settle(entry); }, function () {});
+        // Settled once the card and the shade have both arrived (a shade that
+        // took over late is still on its way when the card is in).
+        var done = function () {
+          if (entry.motion !== m) return;
+          if (m.shadeAnim && m.shadeAnim.playState !== 'finished') { m.shadeAnim.finished.then(done, function () {}); return; }
+          settle(entry);
+        };
+        anims[0].finished.then(done, function () {});
       });
     };
     var om = old && old.motion;

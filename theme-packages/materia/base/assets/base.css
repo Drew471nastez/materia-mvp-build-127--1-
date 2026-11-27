@@ -4148,7 +4148,7 @@ nav.mobile {
   to { opacity: 1; transform: none; }
 }
 @keyframes revealSlideUp {
-  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, var(--reveal-shift, 56px), 0); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, var(--reveal-shift, 12px), 0); }
   to { opacity: 1; transform: none; }
 }
 @keyframes revealZoom {
@@ -4172,7 +4172,7 @@ nav.mobile {
   to { opacity: 1; transform: none; filter: none; }
 }
 @keyframes revealSlideSide {
-  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(calc(var(--reveal-shift, 56px) * -1 * var(--reveal-dir, 1)), 0, 0); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(calc(var(--reveal-shift, 12px) * -1 * var(--reveal-dir, 1)), 0, 0); }
   to { opacity: 1; transform: none; }
 }
 @keyframes revealCard {

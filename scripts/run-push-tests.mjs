@@ -1350,6 +1350,8 @@ const SUITES = [
   "tests/editor-open-r67.test.ts",
   /* Round 67: an edit in the canvas never replays an entrance, popups fade to their own opacity, the header menu is never held unseen for its font, Hero Image 1 blocks arrive with content. Browser halves: scripts/check-canvas-edit-motion-r67.ts, check-popup-flash-r67.ts, check-header-text-r67.ts, check-reveal-types-r67.ts, check-hero-image1-blocks-r67.ts. */
   "tests/theme-motion-r67.test.ts",
+  /* Round 68: popups never flash (the builder's overlay group hands the shade over in stacking order, a closing shade fades on the page, Promotion popup (Code)'s backdrop fades, the previews drawn again), card reveals on a fine line (10px, 300 to 450ms, 40ms apart), a section's box and the footer never move, the same for installed themes through the head. Chromium on Octavo, Redline and Outward. Browser halves: scripts/check-overlay-flash-r68.ts, scripts/check-reveal-r68.ts. */
+  "tests/theme-motion-r68.test.ts",
   /* Round 27: the cover's browser traced into the folded /api/website-builder entry and Add (matched with Next's own picomatch), no browser remembered with the template's picture instead and the page backing off, and one press of Add one website (a press key: replayed, waited for, the older kept) */
   "tests/cover-and-add-r27.test.ts",
   /* Round 27: a website's unchanged theme files kept once in theme_file_blobs behind STORELIB_THEME_FILE_REFS and RUN_PENDING_ROUND_27.sql: an old full-copy website and a new referencing one read the same through the storefront, the builder and the asset reads, copy on write, and the list of readers still to convert before new websites use it */
