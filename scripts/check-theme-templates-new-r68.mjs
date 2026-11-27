@@ -83,7 +83,7 @@ for (const slug of SLUGS) {
         const comps = []
         for (const t of tiles) comps.push({ input: t.cut > 0 ? await sharp(t.buf).extract({ left: 0, top: t.cut * 2, width: width * 2, height: (vh - t.cut) * 2 }).toBuffer() : t.buf, left: 0, top: (t.top + t.cut) * 2 })
         const name = path.replace(`/theme-previews/${slug}/`, "").replace(/\.html$/, "").replace(/\//g, "-")
-        await sharp({ create: { width: width * 2, height: total * 2, channels: 3, background: "#ffffff" } }).composite(comps).webp({ quality: 82 }).toFile(join(SHOTS, slug, `${name}-${width}.webp`))
+        await sharp({ create: { width: width * 2, height: total * 2, channels: 3, background: "#ffffff" } }).composite(comps).jpeg({ quality: 80 }).toFile(join(SHOTS, slug, `${name}-${width}.jpg`))
       }
       await page.close()
     }
