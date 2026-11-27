@@ -1290,6 +1290,8 @@ const SUITES = [
   "tests/round-bc-aiagent.test.ts",
   /* Round 50: which section Storelib AI changes, or what it adds where, decided before the run (lib/website-builder/agent/targeting.ts): 55 requests plus 24 held out, selected and not, edit and new, ambiguous, several sections, six languages, scored against what decided before; "Edited: Hero" and "Added: Testimonials, after Hero" from what the run did. */
   "tests/agent-targeting-r50.test.ts",
+  /* Round 69: Storelib AI tells a new section from an edit and says which before Enter ("Editing: Hero" or "New section below Hero", one tap to switch, the place flips); the router and the run honour it, a Materia site's new section is one of Materia's own, recorded answers show an edit changing only what was asked and a new section landing where the chip said; Keep and Discard, code included. */
+  "tests/section-ai-r69.test.ts",
   /* Round 50: no "ran out of time before it changed anything": the run's own clock (lib/website-builder/agent/run-clock.ts), the smallest change first, a per call limit with one retry for a call that hung, `working` lines through a long call, no doubled output room late in a part, and a part that kept nothing pausing with a checkpoint the chat sends back with the next part. */
   "tests/agent-deadline-r50.test.ts",
   /* Wave 5 (aifix): no thinking block replayed after an edit (drop_block + one stripped retry), a stop keeps the work, slow saves and reads retried, partial said as partial, restyle never deletes, no invented proof, every offered font weight loads, Auto model routing, build_page reviewed. */
