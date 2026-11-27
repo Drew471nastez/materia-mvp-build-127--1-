@@ -1020,6 +1020,13 @@ export interface ThemeAgentInput {
    */
   lockToSelection?: boolean
   /**
+   * ROUND 69: WHAT THE BOX SAID ENTER DOES, honoured over the words
+   * (lib/website-builder/section-aim.ts). "New section below Hero" adds one at
+   * `index` and leaves the hero alone; "Replacing: Hero" puts one in its
+   * place. An edit is the lock, above.
+   */
+  selectionAim?: { kind: "edit" | "new" | "replace"; index?: number }
+  /**
    * Reads what the store sells. Injected for the same reason everything else
    * is: the loop has no database, and a test needs a store it can write.
    * Absent means the agent is told it cannot see the catalogue rather than
@@ -1577,6 +1584,12 @@ export async function* themeAgent(
   const selectionRead = selected && !follow && !locked && !input.codeFocus ? (() => {
     const shape = selectedShapeOf(state.sections, selected.id, blockTypesOf)
     const read = shape ? readSelection(prompt, shape) : null
+    /* The box's word wins: what it said is what the person agreed to by pressing Enter. */
+    const aim = input.selectionAim
+    if (shape && aim && aim.kind !== "edit") {
+      const index = aim.kind === "replace" ? shape.position : Math.max(1, Math.min(shape.total, aim.index ?? shape.position + 1))
+      return { aim: aim.kind, index, named: read?.named, reason: "the box said so" }
+    }
     /*
       A DOUBT IS SETTLED, NOT ASKED (./targeting.ts): "add testimonials" with the FAQ open was a question back. The
       target decided before the run is the likeliest reading, and the reply says it was one.
@@ -1649,6 +1662,10 @@ export async function* themeAgent(
                 `${describeSection(selected, schemas)}${selectedContext ? `\n\n${describeSelectedCode(selectedContext)}` : ""}`,
               )
             : "",
+        /* Round 69: nothing open, and the box said "New section at the top of the page" (or the end): there. */
+        !selected && input.selectionAim?.kind === "new" && input.selectionAim.index != null
+          ? `THE CREATOR ASKED FOR A NEW SECTION, and the box told them where it goes: index ${input.selectionAim.index} in the page's section list. Add it there with add_section or create_section, fill it completely with real content for this business, and leave every other section as it is.`
+          : "",
         selected && input.codeFocus
           ? attachSource
             ? "THE CREATOR CHOSE CODE A SECTION. Make this change in this section's CODE. Its whole file is below as it is now: change it with edit_section_code, exact find and replace for only the lines that change (write_section_code only for a new layout). Do not read it again. Keep every setting id and block it has, and give anything new a setting."

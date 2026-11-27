@@ -26,6 +26,8 @@ import { rateLimit } from "@/lib/api/rate-limit"
 import { SECTION_TYPE } from "@/lib/website-builder/agent/selected-section"
 import { ADDABLE_SECTIONS, SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
+import { isMateriaType, MATERIA_INSTALL_MIN, materiaSection } from "@/lib/storelib-ai/materia"
+import { readSelection, selectedShapeOf } from "@/lib/website-builder/agent/selection-intent"
 import { isConfigured } from "@/lib/sites/agent/provider"
 import { readKeys } from "@/lib/ai-keys/store"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
@@ -46,6 +48,8 @@ const BodySchema = z.object({
   /** The chip is on. */
   scoped: z.boolean().optional(),
   hasHistory: z.boolean().optional(),
+  /** Round 69: what the box said Enter does (lib/website-builder/section-aim.ts). */
+  aim: z.object({ kind: z.enum(["edit", "new", "replace"]), by: z.enum(["words", "choice"]).optional() }).optional(),
 })
 
 export async function POST(request: NextRequest, context: { params: Promise<{ installId: string }> }) {
@@ -105,6 +109,19 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
     ...ADDABLE_SECTIONS.map((type) => ({ type, name: SECTION_SCHEMAS[type]?.name })),
     ...[...own].map((path) => ({ type: path.slice("sections/".length, -".storelib".length) })),
   ]
+  /*
+    ROUND 69: A SITE MADE FROM ONE OF STORELIB'S TEMPLATES. Its own files are Materia sections; the purposes they cover
+    are what a new section is made from, rather than a file written from nothing (agent/router.ts materiaHas).
+  */
+  const materiaOwn = [...own].map((path) => path.slice("sections/".length, -".storelib".length)).filter(isMateriaType)
+  const materiaPurposes = materiaOwn.length >= MATERIA_INSTALL_MIN ? [...new Set(materiaOwn.map((t) => materiaSection(t)).filter((s) => !!s && s.addable).map((s) => s!.purpose))] : undefined
+  /* An older browser sends no aim: the words are read here, the same way the box reads them. */
+  let aim = body.aim
+  if (!aim && found && body.scoped === true) {
+    const shape = selectedShapeOf(body.sections as never, found.id, (type) => (SECTION_SCHEMAS[type]?.blocks ?? []).map((b) => String((b as { type?: unknown }).type ?? "")))
+    const read = shape ? readSelection(body.prompt, shape) : null
+    if (read?.aim === "new" || read?.aim === "replace") aim = { kind: read.aim, by: "words" }
+  }
   const keys = await readKeys(creatorId).catch(() => ({}) as Awaited<ReturnType<typeof readKeys>>)
   const canClassify = isConfigured("anthropic") || !!keys.anthropic
 
@@ -118,6 +135,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
       addable,
       onPage: body.sections.filter((s) => !s.group && s.type !== "header" && s.type !== "footer").map((s) => ({ type: s.type, name: s.name || undefined })),
       hasHistory: body.hasHistory,
+      aim,
+      materiaPurposes,
     },
     /* Counted only when the rules cannot tell and the model would be asked; over the limit the rules decide (router-model.ts limitedClassifier, round AW). */
     canClassify
