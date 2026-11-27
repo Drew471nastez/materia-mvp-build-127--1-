@@ -117,7 +117,9 @@ const AUDIT = () => {
       const cx = Math.min(innerWidth - 1, Math.max(0, b.left + b.width / 2)), cy = Math.min(innerHeight - 1, Math.max(0, b.top + b.height / 2))
       const hit = document.elementFromPoint(cx, cy)
       const onTop = !hit || s.contains(hit) || !!hit.closest("header, .shopify-section-group-header-group, [data-sl], [data-sl-ui]") || (() => { for (let x: Element | null = hit; x; x = x.parentElement) { const p = getComputedStyle(x).position; if (p === "fixed" || p === "sticky") return true } return false })()
-      if (o > 0.5 && !hiddenBy(e) && onTop) seen++
+      /* Faint on purpose (a picture at 20% behind the text, a caption at 85%): drawn faint with nothing waiting to bring it up. */
+      const waiting = !!e.closest(".scroll-trigger--armed, .scroll-trigger--offscreen, [data-faq-armed], [data-xp-armed], [data-r98-armed], [data-vsl-armed], [data-faq7-armed]")
+      if ((o > 0.5 || (o >= 0.1 && !waiting)) && !hiddenBy(e) && onTop) seen++
       else if (faint.length < 2) faint.push(`${e.tagName.toLowerCase()}.${String(e.className).split(" ")[0]} ${o.toFixed(2)}`)
     }
     const visibleArea = Math.min(r.bottom, innerHeight) - Math.max(r.top, 0)
