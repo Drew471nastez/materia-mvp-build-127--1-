@@ -1,4 +1,4 @@
-/* Templates round 25: an ebook site (Windowsill) with the book on its own dark hero. Round 26: Sit, Stay, Settle, a puppy training ebook. Round 28: Known For It, a LinkedIn playbook. Round 30: Say It Plainly, a copywriting handbook by Hanna Reyes (a sample author), in ink, paper and editor's red, set in Libre Baskerville and Helvetica (round 67: Manrope at 800 for headings and the logo, Manrope for text, so the book no longer shares the serif the other templates use), with a typographic cover drawn for the template (a struck out word) and one Unsplash session of the author: the book on a dark hero, a promise, who it is for, why now and who it is not for beside three open spreads, early reader quotes, what is inside, who it is for, the author, the numbers and questions. */
+/* Templates round 25: an ebook site (Windowsill) with the book on its own dark hero. Round 26: Sit, Stay, Settle, a puppy training ebook. Round 28: Known For It, a LinkedIn playbook. Round 30: Say It Plainly, a copywriting handbook by Hanna Reyes (a sample author), in ink, paper and editor's red, set in Libre Baskerville and Helvetica (round 67: Manrope at 800 for headings and the logo, Manrope for text, so the book no longer shares the serif the other templates use), with a typographic cover drawn for the template (a struck out word) and one Unsplash session of the author: the book on a dark hero, a promise, who it is for, why now and who it is not for beside three open spreads, early reader quotes, what is inside, who it is for, the author, the numbers and questions. Round 68: a bold black and white typographic cover (SAY IT PLAINLY. set to the full measure, a before and after line), the paperback drawn in 3D with its spine and shadow, a logo with a speech mark that ends in a full stop, a shorter heading in Manrope 800, and straight edges in place of the waves. */
 {
   "sections": {
     "hero": {
@@ -13,7 +13,7 @@
         "media_radius": 0,
         "media_radius_mobile": 0,
         "body_bg_image": "shopify://shop_images/authorbook-book.webp",
-        "image_alt": "Say It Plainly by Hanna Reyes, the book, with a cream typographic cover",
+        "image_alt": "Say It Plainly by Hanna Reyes, the paperback, with a bold black and white cover",
         "content_align_desktop": "left",
         "content_align_mobile": "left",
         "content_gap": 26,
@@ -33,20 +33,20 @@
         "section_heading_1": {
           "type": "section_heading",
           "settings": {
-            "heading_text": "Write words that sell without sounding like an ad",
+            "heading_text": "Write words people read to the end",
             "enable_custom_style": true,
-            "heading_font_size": 58,
-            "heading_font_size_mobile": 38,
+            "heading_font_size": 66,
+            "heading_font_size_mobile": 40,
             "heading_weight": "800",
             "text_case": "none",
-            "line_height": 1.08,
-            "letter_spacing": 0
+            "line_height": 1.02,
+            "letter_spacing": -2
           }
         },
         "section_para_2": {
           "type": "section_para",
           "settings": {
-            "p_text": "A copywriting handbook for people who write their own website, product pages and emails. Twelve short chapters and sixty templates. Read one tonight and fix one page tomorrow.",
+            "p_text": "The copywriting handbook for people who write their own website, product pages and emails. Twelve short chapters, sixty templates and a ten minute edit you can use tonight.",
             "enable_custom_style": true,
             "p_font_size": 19,
             "p_font_size_mobile": 17,
@@ -68,21 +68,6 @@
         "section_para_2",
         "button_3"
       ]
-    },
-    "hero_edge": {
-      "type": "waves-divider",
-      "settings": {
-        "color_scheme": "default",
-        "section_width": "full_width",
-        "wave_variant": "clouds",
-        "wave_rotate": true,
-        "wave_height": 90,
-        "wave_height_mobile": 40,
-        "enable_custom_style": true,
-        "wave_color": "#1a1817",
-        "background_color": "#ffffff",
-        "full_width": true
-      }
     },
     "promise": {
       "type": "titleandsubtitle",
@@ -270,21 +255,6 @@
         "heading_1",
         "subheading_2"
       ]
-    },
-    "reviews_edge": {
-      "type": "waves-divider",
-      "settings": {
-        "color_scheme": "default",
-        "section_width": "full_width",
-        "wave_variant": "clouds",
-        "wave_rotate": false,
-        "wave_height": 80,
-        "wave_height_mobile": 36,
-        "enable_custom_style": true,
-        "wave_color": "#ece8df",
-        "background_color": "#ffffff",
-        "full_width": true
-      }
     },
     "reviews": {
       "type": "testimonials",
@@ -557,21 +527,6 @@
         "footnote_11"
       ]
     },
-    "fit_edge": {
-      "type": "waves-divider",
-      "settings": {
-        "color_scheme": "default",
-        "section_width": "full_width",
-        "wave_variant": "wave-slope",
-        "wave_rotate": false,
-        "wave_height": 80,
-        "wave_height_mobile": 36,
-        "enable_custom_style": true,
-        "wave_color": "#f4f1ea",
-        "background_color": "#ffffff",
-        "full_width": true
-      }
-    },
     "fit": {
       "type": "benefits-icons2",
       "settings": {
@@ -599,7 +554,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "This book is for you if...",
+            "text": "This book is for you if",
             "heading_alignment": "center",
             "heading_size": 46,
             "heading_size_mobile": 32,
@@ -878,15 +833,12 @@
   },
   "order": [
     "hero",
-    "hero_edge",
     "promise",
     "who",
     "why",
     "not_for",
-    "reviews_edge",
     "reviews",
     "inside",
-    "fit_edge",
     "fit",
     "fit_cta",
     "author",

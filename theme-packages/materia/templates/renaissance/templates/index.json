@@ -13,7 +13,7 @@
         "content_gap": 22,
         "min_height_desktop": 620,
         "image": "shopify://shop_images/renaissance-hero.webp",
-        "image_alt": "A shop owner in a white work coat packing orders at the bench in her studio",
+        "image_alt": "A man working late at his desk, headphones on, a project open on the screen",
         "image_position_x": 50,
         "image_position_y": 40,
         "image_radius": 10,
@@ -569,7 +569,7 @@
       "type": "renaissance-curriculum",
       "settings": {
         "background": "#0e0e0f",
-        "accent": "#e3a63a",
+        "accent": "#b45309",
         "gold": "#e3a63a",
         "text_color": "#aeaaa2",
         "anchor": "curriculum",
@@ -581,7 +581,7 @@
         "button_link": "/#shopify-section-pricing",
         "note": "Start the day you join. One module a week works well.",
         "caps": true,
-        "button_text": "#15130f"
+        "button_text": "#ffffff"
       },
       "blocks": {
         "module_1": {

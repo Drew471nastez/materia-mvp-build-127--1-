@@ -555,7 +555,7 @@ export const THEME_SEO: readonly ThemeSeo[] = [
     title: "VSL Funnel Template for an Online Course | Storelib",
     description: "A video sales funnel for one course: the free lesson with your own cover picture, who it is for, the weeks, the teacher, reviews, prices, refund and FAQ.",
     h1: "Video course funnel template",
-    intro: "VSL funnel is a sales page that opens with your video and your own cover picture, shown here as Hablo, an eight week Spanish course for adults, in black, white and yellow. Under it come who it is for, the eight weeks, the teacher, student quotes, two prices with a refund, questions and a book a call page.",
+    intro: "VSL funnel is a sales page that opens with your video and your own cover picture, shown here as Kitty, an eight week money course for adults, in black, white and yellow. Under it come who it is for, the eight weeks, the teacher, student quotes, two prices with a refund, questions and a book a call page.",
     primaryCategory: "courses",
     primaryKeyword: "video course funnel template",
     secondaryKeywords: ["light vsl landing page", "course sales funnel template", "sales video landing page"],

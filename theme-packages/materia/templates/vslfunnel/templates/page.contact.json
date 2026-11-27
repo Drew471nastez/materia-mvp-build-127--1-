@@ -32,7 +32,7 @@
       "settings": {
         "color_scheme": "default",
         "btn_text": "Send message",
-        "ph_website": "A question about the course, your level or a place for two",
+        "ph_website": "A question about the course, the live calls or a place for two",
         "label_website": "Subject",
         "success_text": "Thank you. Daniel or Sam reads every message and replies within two working days."
       },
@@ -46,7 +46,7 @@
         "description_2": {
           "type": "description",
           "settings": {
-            "text": "<p>Questions about the course, your level, a refund or places for two. Every message is read by a person.</p>"
+            "text": "<p>Questions about the course, the live calls, a refund or places for two. Every message is read by a person.</p>"
           }
         },
         "info_3": {
@@ -98,7 +98,7 @@
           "type": "faq_item",
           "settings": {
             "question": "Who is it for?",
-            "answer": "<p>Adults who know a little Spanish from school, an app or a holiday and want to talk.</p>"
+            "answer": "<p>Adults with a regular income who were never taught how to run it.</p>"
           }
         },
         "faq_item_4": {

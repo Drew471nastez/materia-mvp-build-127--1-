@@ -28,6 +28,8 @@
   #shopify-section-{{ sid }} .wsh__btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 30px; }
   #shopify-section-{{ sid }} .wsh__btn { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 24px; border-radius: 10px; font-size: 15px; font-weight: 600; text-decoration: none; transition: background-color .2s ease, border-color .2s ease, transform .2s ease; }
   #shopify-section-{{ sid }} .wsh__btn--a { background: {{ st.accent }}; color: {{ st.ink }}; }
+  /* Round 68: the label is white on a deep accent and black on a light one, so it reads on whichever accent is picked (the owner: dark text on an orange button looked wrong). */
+  @supports (color: lch(from red l c h)) { #shopify-section-{{ sid }} .wsh__btn--a { color: lch(from {{ st.accent }} clamp(0, (64 - l) * 1000, 100) 0 0); } }
   #shopify-section-{{ sid }} .wsh__btn--a:hover { background: {{ st.accent_hover }}; }
   #shopify-section-{{ sid }} .wsh__btn--b { background: #fff; color: {{ st.ink }}; border: 1px solid {{ st.line_color }}; }
   #shopify-section-{{ sid }} .wsh__btn--b:hover { border-color: {{ st.ink }}; }

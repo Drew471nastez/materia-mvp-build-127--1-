@@ -32,7 +32,7 @@
       "settings": {
         "form": "",
         "heading": "",
-        "text": "<p>Tell Daniel how much Spanish you have and what you need it for, and he tells you whether the course fits. Pick a time and you get the video link by email.</p>",
+        "text": "<p>Tell Daniel where things stand and what you want to change, and he tells you whether the course fits. Pick a time and you get the video link by email.</p>",
         "text_align": "center",
         "color_scheme": "default",
         "max_width": 760,
@@ -81,7 +81,7 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Fifteen minutes, partly in Spanish",
+            "text": "Fifteen minutes, no numbers needed",
             "tag": "h2",
             "weight": "700",
             "size_desktop": 36,
@@ -91,15 +91,15 @@
         "step_3": {
           "type": "step",
           "settings": {
-            "title": "Say hello in Spanish",
-            "description": "<p>Whatever you have. Daniel starts slowly and switches to English whenever you want.</p>"
+            "title": "Say where you are",
+            "description": "<p>In your own words. You do not need statements or figures, and nothing is written down.</p>"
           }
         },
         "step_4": {
           "type": "step",
           "settings": {
-            "title": "Talk about your plans",
-            "description": "<p>Where you want to use it, how much time you have and what you tried before.</p>"
+            "title": "Talk about what you want",
+            "description": "<p>A budget that lasts, a debt plan, a buffer, or getting ready for a change.</p>"
           }
         },
         "step_5": {

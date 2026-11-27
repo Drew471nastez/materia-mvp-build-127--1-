@@ -17,7 +17,7 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "heading": "This page went quiet",
+            "heading": "This page has gone",
             "font_size": 36,
             "uppercase": false,
             "font_weight": "heading_weight",
@@ -66,14 +66,14 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Hablo",
+            "text": "Kitty",
             "transform": "uppercase"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Hold a conversation by March",
+            "text": "Know where your money goes by March",
             "transform": "none",
             "lineheight": "1.25"
           }
@@ -81,7 +81,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "Eight weeks, six live conversation calls and a 30 day refund."
+            "text": "Eight weeks, six live calls and a 30 day refund."
           }
         },
         "button_4": {

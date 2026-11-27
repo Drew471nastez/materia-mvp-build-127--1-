@@ -103,12 +103,14 @@ function main() {
   console.log("\nVSL")
   const vslCopy = copyOf("vslfunnel")
   check("no page of the funnel is about clients, referrals or Fullbook", !/Fullbook|referral|freelancer|outreach|proposal/i.test(vslCopy), (vslCopy.match(/.{30}(Fullbook|referral|freelancer|outreach|proposal).{30}/i) ?? [])[0])
-  check("the funnel is Hablo, a Spanish course", /Speak Spanish with real people in eight weeks/.test(vslCopy) && SAMPLE_SHOPS.vslfunnel.name === "Hablo")
+  /* Changed on purpose (r68): the owner asked for a topic popular online now; the funnel is Kitty, a money course (tests/theme-templates-r68.test.ts). */
+  check("the funnel is Kitty, a money course", /Get your money in order in eight weeks/.test(vslCopy) && SAMPLE_SHOPS.vslfunnel.name === "Kitty")
   const vshop = JSON.stringify(SAMPLE_SHOPS.vslfunnel)
   check("its sample shop's products and posts are the course's", !/Fullbook|referral|freelancer|outreach|proposal|client/i.test(vshop), vshop.match(/.{30}(Fullbook|referral|freelancer|outreach|proposal|client).{30}/i)?.[0])
   const seo = read(join(ROOT, "lib", "themes", "theme-seo.ts"))
   const vslSeo = seo.slice(seo.indexOf('slug: "vsl-funnel"'), seo.indexOf("  },", seo.indexOf('slug: "vsl-funnel"')))
-  check("its marketplace text is the course's", /Hablo, an eight week Spanish course/.test(vslSeo) && !/client acquisition|freelancer|referral/i.test(vslSeo))
+  /* Changed on purpose (r68): Kitty, an eight week money course. */
+  check("its marketplace text is the course's", /Kitty, an eight week money course/.test(vslSeo) && !/client acquisition|freelancer|referral/i.test(vslSeo))
 
   console.log("\nSTUDIO")
   const banned = /\bW?ren Studio\b|wrenstudio/i

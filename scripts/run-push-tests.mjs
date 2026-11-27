@@ -1754,6 +1754,8 @@ const SUITES = [
   "tests/theme-r30.test.ts",
   /* Round 67, templates after the owner's notes: Octavo's buttons a deep orange with white text (5.18:1), Schibsted Grotesk and Albert Sans, a folded page logo, how it works and product pages from the theme's own sections (Image with text steps, Testimonial wall, FAQ pro); the ebook in Manrope 800; the VSL funnel is Hablo, a Spanish course; Digital studio's brand is Halfmoon; no heading font is every template's. Measured by scripts/check-theme-templates-r67.mjs. */
   "tests/theme-templates-r67.test.ts",
+  /* Round 68, templates after the owner's notes: every button label reads on its fill in every template, and installed themes are fixed as they draw (lib/storelib-theme/compat/button-label.ts); the ebook's cover, book, logo and heading; Digital products' black announcement bar; the VSL funnel is Kitty, a money course; Digital Renaissance's new hero; Halfmoon in Inter; Digital products eleventh in Browse themes. Measured by scripts/check-button-labels-r68.mjs. */
+  "tests/theme-templates-r68.test.ts",
 ]
 
 /**

@@ -9,7 +9,7 @@
         "reset_spacing": true,
         "heading": "Search",
         "sorting": true,
-        "empty_text": "Nothing matched. Try course, phrases or lessons.",
+        "empty_text": "Nothing matched. Try course, workbook or lessons.",
         "empty_link_label": "See everything",
         "empty_link_url": "/collections/all",
         "enable_filtering": false,
@@ -31,7 +31,7 @@
       "settings": {
         "color_scheme": "default",
         "heading": "The course and the extras",
-        "text": "<p>The full course, the phrase cards on their own, and private lessons.</p>",
+        "text": "<p>The full course, the money workbook on its own, and one to one sessions.</p>",
         "items_to_show": 4,
         "items_per_row": 4,
         "show_add_to_cart": true,
@@ -50,22 +50,22 @@
         "image_ratio": "landscape",
         "image_width": 50,
         "form_layout": "horizontal",
-        "btn_text": "Send me the phrases",
+        "btn_text": "Send me the plan",
         "email_placeholder": "Your email",
         "note": "One email a month at most. Leave whenever you like.",
-        "success_text": "Done. The 100 phrase starter is on its way to your inbox."
+        "success_text": "Done. The one page money plan is on its way to your inbox."
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Get the 100 phrase starter free"
+            "text": "Get the one page money plan free"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>The hundred phrases from week one as a printable PDF with an audio file for each, so you can say them before you read them.</p>"
+            "text": "<p>The page from week one as a printable PDF and a spreadsheet: what comes in, what goes out and the three pots, filled in with an example.</p>"
           }
         }
       },

@@ -142,6 +142,7 @@ import { BUSY_BUTTON_FIX } from "./busy-buttons"
 import { SHOP_CALM_HEAD, headerWishlistOn } from "./shop-calm"
 import { SHOP_ROWS_HEAD } from "./shop-rows"
 import { THEME_MOTION_FIX_HEAD } from "./theme-motion-fix"
+import { fixButtonLabels } from "./button-label"
 import { SEALED_NOTE, sealMarkup } from "./seal"
 import { hideAsked, poweredByLink } from "./powered-by"
 
@@ -1821,6 +1822,8 @@ export class CompatTheme {
     html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${SHOP_CALM_HEAD}${SHOP_ROWS_HEAD}</head>`) : `${SHOP_CALM_HEAD}${SHOP_ROWS_HEAD}${html}`
     /* Round 67's theme fixes for the theme files a store already has: the header menu never held unseen, the verified badge's check stands out, a popup fades to its own opacity (./theme-motion-fix.ts). */
     html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${THEME_MOTION_FIX_HEAD}</head>`) : `${THEME_MOTION_FIX_HEAD}${html}`
+    /* A filled button's label reads on its fill: a template's old orange with a dark label becomes its new pair, a label under 4.5:1 is fixed (./button-label.ts, round 68). */
+    html = fixButtonLabels(html)
     if (ctx.registers.slWishlistOff) html = html.replace(/<html\b/i, '<html data-sl-wishlist="off"')
     /* A layout without a </head> (or without a </body>) still gets what goes there: at the top of the body, at the end of the page. */
     if (head.extraHead) html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${head.extraHead}</head>`) : /<body\b[^>]*>/i.test(html) ? html.replace(/<body\b[^>]*>/i, (m) => `${m}${head.extraHead}`) : `${head.extraHead}${html}`

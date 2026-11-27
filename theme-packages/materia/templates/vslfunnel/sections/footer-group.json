@@ -22,13 +22,13 @@
           "type": "store_info",
           "settings": {
             "show_logo": false,
-            "store_heading": "Hablo",
+            "store_heading": "Kitty",
             "image_width": 110,
             "store_email": true,
             "store_phone": false,
             "store_address": false,
             "content_width": "33%",
-            "store_description": "<p>An eight week Spanish course for adults who gave up at school, taught by Daniel Brandt. A new group starts every January and September.</p>"
+            "store_description": "<p>An eight week money course for adults who never learned it at school, taught by Daniel Brandt. A new group starts every January and September.</p>"
           }
         },
         "link_list_2": {
@@ -51,7 +51,7 @@
           "type": "newsletter",
           "settings": {
             "note": "",
-            "heading": "The 100 phrase starter",
+            "heading": "The one page money plan",
             "description": "Free by email, with a short note when the next group opens.",
             "button_label": "Send it",
             "content_width": "33%",
