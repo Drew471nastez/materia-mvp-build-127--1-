@@ -1348,6 +1348,8 @@ const SUITES = [
   "tests/builder-canvas-stable-r66.test.ts",
   /* Round 67: the first open after Add or Publish. The sections read asks the person's limit and the section files' times beside its checks and the page (7 asks one after another to 3), a section file is read once per change on a server (kept by its updated_at, read again and cleaned by what it says once it changes), and the open measured beside an added website's cover draw and a publish's work after the answer over one shared link and ten connections. Real routes over an in-memory Supabase, on the Materia clothing template. */
   "tests/editor-open-r67.test.ts",
+  /* Round 67: an edit in the canvas never replays an entrance, popups fade to their own opacity, the header menu is never held unseen for its font, Hero Image 1 blocks arrive with content. Browser halves: scripts/check-canvas-edit-motion-r67.ts, check-popup-flash-r67.ts, check-header-text-r67.ts, check-reveal-types-r67.ts, check-hero-image1-blocks-r67.ts. */
+  "tests/theme-motion-r67.test.ts",
   /* Round 27: the cover's browser traced into the folded /api/website-builder entry and Add (matched with Next's own picomatch), no browser remembered with the template's picture instead and the page backing off, and one press of Add one website (a press key: replayed, waited for, the older kept) */
   "tests/cover-and-add-r27.test.ts",
   /* Round 27: a website's unchanged theme files kept once in theme_file_blobs behind STORELIB_THEME_FILE_REFS and RUN_PENDING_ROUND_27.sql: an old full-copy website and a new referencing one read the same through the storefront, the builder and the asset reads, copy on write, and the list of readers still to convert before new websites use it */

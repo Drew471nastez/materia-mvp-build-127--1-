@@ -23,21 +23,13 @@
         }
         return hi > lo ? hi - lo : 0;
       };
-      var patient = true;
-      setTimeout(function () { patient = false; all(); }, 1500);
-      var ready = function (ul) {
-        var a = ul.querySelector(':scope > li[data-hs-i] > menu-item > a');
-        if (!a || !document.fonts || !document.fonts.check) return true;
-        try { return document.fonts.check(getComputedStyle(a).font); } catch (e) { return true; }
-      };
       var fit = function (nav) {
         var ul = nav.querySelector('.horizontal-list');
         if (!ul) return;
         var more = ul.querySelector(':scope > [data-hs-more]');
         if (!more) { ul.removeAttribute('data-hs-wait'); return; }
-        /* Until the menu's own font has arrived the links are measured in a stand-in font of another width, so they wait unseen (at most 1.5s, only on a first visit, and never again once shown) rather than fold or unfold in front of the visitor. */
-        if (!ul.__hsShown && wide.matches && patient && !ready(ul)) ul.setAttribute('data-hs-wait', '');
-        else { ul.removeAttribute('data-hs-wait'); if (wide.matches) ul.__hsShown = true; }
+        /* Never held unseen (round 67): waiting for the menu's font hid the links on every page load and change, then they popped in. Measured in the size-matched stand-in font now, and again when the font arrives (loadingdone, below). An older header's markup may still carry the wait: it goes. */
+        ul.removeAttribute('data-hs-wait');
         var items = ul.querySelectorAll(':scope > li[data-hs-i]');
         var rows = more.querySelectorAll('[data-hs-more-i]');
         var i;

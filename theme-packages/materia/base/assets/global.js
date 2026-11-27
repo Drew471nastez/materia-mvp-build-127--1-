@@ -351,6 +351,7 @@ class MotionElement extends HTMLElement {
       !!this.closest('.product-detail__information, .product-single__information') ||
       !!this.closest('.scroll-trigger') ||
       !!this._editorRedraw ||
+      !!this.closest('[data-mt-redrawn]') ||
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }
 

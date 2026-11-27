@@ -76,7 +76,8 @@
   }
 
   function arrive(el, t0) {
-    var fade = !rm && painted && (Date.now() - t0) >= CACHED_MS && onScreen(el);
+    // A section the builder drew again after an edit (data-mt-redrawn) shows its pictures as they were, with no fade (round 67).
+    var fade = !rm && painted && (Date.now() - t0) >= CACHED_MS && !(el.closest && el.closest('[data-mt-redrawn]')) && onScreen(el);
     if (!fade || el.tagName !== 'IMG') { el.classList.remove('media-fade-wait'); return; }
     // Held for its decode only (a few frames), then faded in from the tint it stands on.
     el.classList.add('media-fade-hold');

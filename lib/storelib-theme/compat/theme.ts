@@ -141,6 +141,7 @@ import { COVER_TRIM_HEAD } from "@/lib/images/cover-trim"
 import { BUSY_BUTTON_FIX } from "./busy-buttons"
 import { SHOP_CALM_HEAD, headerWishlistOn } from "./shop-calm"
 import { SHOP_ROWS_HEAD } from "./shop-rows"
+import { THEME_MOTION_FIX_HEAD } from "./theme-motion-fix"
 import { SEALED_NOTE, sealMarkup } from "./seal"
 import { hideAsked, poweredByLink } from "./powered-by"
 
@@ -1760,7 +1761,7 @@ export class CompatTheme {
     /* `{% layout 'alternate' %}` in a template: that layout when the theme has it, the theme's own otherwise. */
     const path = (head.layout && head.layout !== "theme" ? this.fileFor("layout", head.layout) : null) ?? this.fileFor("layout", "theme")
     const tree = path ? this.tree(path) : null
-    if (!tree) return `<!doctype html><html><head><meta charset="utf-8">${MISSING_IMAGE_HEAD}${BUSY_BUTTON_FIX}${COVER_TRIM_HEAD}${SHOP_CALM_HEAD}${SHOP_ROWS_HEAD}${head.extraHead ?? ""}</head><body>${content}${head.extraBodyEnd ?? ""}</body></html>`
+    if (!tree) return `<!doctype html><html><head><meta charset="utf-8">${MISSING_IMAGE_HEAD}${BUSY_BUTTON_FIX}${COVER_TRIM_HEAD}${SHOP_CALM_HEAD}${SHOP_ROWS_HEAD}${THEME_MOTION_FIX_HEAD}${head.extraHead ?? ""}</head><body>${content}${head.extraBodyEnd ?? ""}</body></html>`
     ctx.globals.content_for_layout = content
     const drawnIds = new Set<string>()
     ctx.registers.drawnIds = drawnIds
@@ -1808,6 +1809,8 @@ export class CompatTheme {
     html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${COVER_TRIM_HEAD}</head>`) : `${COVER_TRIM_HEAD}${html}`
     /* Cards a sensible size, a product picture that fits the window, nothing that moves under the pointer, a logo in its own shape (./shop-calm.ts, round 66). */
     html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${SHOP_CALM_HEAD}${SHOP_ROWS_HEAD}</head>`) : `${SHOP_CALM_HEAD}${SHOP_ROWS_HEAD}${html}`
+    /* Round 67's theme fixes for the theme files a store already has: the header menu never held unseen, the verified badge's check stands out, a popup fades to its own opacity (./theme-motion-fix.ts). */
+    html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${THEME_MOTION_FIX_HEAD}</head>`) : `${THEME_MOTION_FIX_HEAD}${html}`
     if (ctx.registers.slWishlistOff) html = html.replace(/<html\b/i, '<html data-sl-wishlist="off"')
     /* A layout without a </head> (or without a </body>) still gets what goes there: at the top of the body, at the end of the page. */
     if (head.extraHead) html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${head.extraHead}</head>`) : /<body\b[^>]*>/i.test(html) ? html.replace(/<body\b[^>]*>/i, (m) => `${m}${head.extraHead}`) : `${head.extraHead}${html}`

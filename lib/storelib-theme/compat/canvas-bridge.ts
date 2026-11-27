@@ -1197,6 +1197,66 @@ export const CANVAS_BRIDGE = `
     });
   };
   /*
+    ═══════════════════════════════════════════════════════════════════════
+     AN EDIT NEVER PLAYS AN ENTRANCE AGAIN (round 67)
+    ═══════════════════════════════════════════════════════════════════════
+    The owner: "when I select something in the hero to edit it, the whole
+    section's animation plays again, like a reinitialization. Replacing a
+    heading's text replays the animations." A heading's words are in a data-
+    attribute too in Materia's Hero Image 1 (its script reads its blocks'
+    settings once), so the section was put back fresh when the typing
+    stopped, and its script, starting again on new markup, played its
+    entrance: the whole hero from opacity 0.1, rising, on every edit
+    (scripts/check-canvas-edit-motion-r67.ts).
+
+    A section that was seen (on screen or above it when it is drawn again,
+    or one whose reveal already played) is drawn again as it was left:
+
+      MARKED. It carries data-mt-redrawn, the theme's own sign (Materia's
+      layout defines window.mtIsRedraw; it set the mark only under
+      request.design_mode, which the canvas does not use): its section
+      scripts and its reveals show it at once instead of playing.
+
+      STILL. Any entrance that starts inside it anyway in the next moment (a
+      section's own CSS keyframes, a script that does not read the mark, an
+      inline script run again) is put where it ends. Only a finite one, up
+      to 4s, that has just started: a marquee, a slideshow's timer or a
+      sky's twinkle keeps running. The theme's scroll reveal (animation.js,
+      reveal* keyframes) decides for itself and is left alone.
+  */
+  var seenBefore = function (el) {
+    if (!el || !el.getBoundingClientRect) return false;
+    if (el.hasAttribute("data-mt-redrawn")) return true;
+    try { if (el.matches("[data-animation-done]") || el.querySelector("[data-animation-done], [animation-end]")) return true; } catch (e) {}
+    return el.getBoundingClientRect().top < innerHeight;
+  };
+  var entranceUntil = typeof WeakMap === "function" ? new WeakMap() : null;
+  var keepStill = function (root) {
+    if (!root || !root.getAnimations || !entranceUntil) return;
+    var fresh = !entranceUntil.has(root);
+    entranceUntil.set(root, performance.now() + 1500);
+    if (!fresh) return;
+    var settleEntrances = function () {
+      if (!root.isConnected) { entranceUntil.delete(root); return; }
+      try {
+        root.getAnimations({ subtree: true }).forEach(function (x) {
+          if (x.playState === "finished" || x.__slStill) return;
+          x.__slStill = true;
+          var t = x.effect && x.effect.getComputedTiming && x.effect.getComputedTiming();
+          if (!t || !isFinite(t.endTime) || t.endTime > 4000) return;
+          if ((x.currentTime || 0) > 300) return;
+          if (/^reveal/i.test(x.animationName || "")) return;
+          var target = x.effect.target;
+          if (target && target.closest && target.closest(".scroll-trigger--armed")) return;
+          x.finish();
+        });
+      } catch (e) {}
+      if (performance.now() < entranceUntil.get(root)) requestAnimationFrame(settleEntrances);
+      else entranceUntil.delete(root);
+    };
+    settleEntrances();
+  };
+  /*
     A SELECTED BLOCK IN A ROW THAT SCROLLS SIDEWAYS (a slideshow, a carousel
     of cards) is brought into that row, as Dawn's theme-editor.js did when
     the theme was told it was in the editor (the canvas no longer loads it:
@@ -1755,8 +1815,12 @@ export const CANVAS_BRIDGE = `
         editor runs a section drawn again: the theme's script reads the value
         there, once, as it starts.
       */
+      /* AN EDIT NEVER PLAYS AN ENTRANCE AGAIN: marked before it connects, so the scripts that start on it read the mark. */
+      var seen = seenBefore(el);
+      if (seen) next.setAttribute("data-mt-redrawn", "");
       el.replaceWith(next);
       runScripts(next, true);
+      if (seen) keepStill(next);
       next.style.minHeight = held + "px";
       var pending = Array.prototype.filter.call(next.querySelectorAll("img"), function (i) { return !i.complete; });
       var release = function () { next.style.minHeight = ""; };
@@ -1936,9 +2000,12 @@ export const CANVAS_BRIDGE = `
       pairs.push([roots[i], c]);
     }
     var y = scrollY;
+    var seen = seenBefore(sec);
+    if (seen) sec.setAttribute("data-mt-redrawn", "");
     pairs.forEach(function (p) {
       var fresh = document.importNode(p[1], true);
       p[0].replaceWith(fresh);
+      if (seen) keepStill(fresh);
       if (fresh.querySelector("script")) runScripts(fresh, true);
     });
     if (watcher) watcher.takeRecords();
