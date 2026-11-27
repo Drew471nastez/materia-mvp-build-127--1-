@@ -1111,7 +1111,7 @@ Sound packs (round 25, redrawn in rounds 26 and 28): Lowmoth, a sample label mad
 | --- | --- | --- | --- |
 | challenge | assets/challenge-logo.webp, assets/challenge-mark.webp | Drawn for this template | Storelib |
 | challenge | assets/challenge-video-poster.webp, assets/challenge-host-square.webp | https://images.unsplash.com/photo-1768875848964-63e9073adc53, cropped | Unsplash License |
-| challenge | assets/challenge-host.webp, assets/challenge-host-wide.webp | https://images.unsplash.com/photo-1783094269325-4ba186e8e01b, cropped | Unsplash License |
+| challenge | assets/challenge-host.webp, assets/challenge-host-wide.webp, assets/challenge-oto-poster.webp | https://images.unsplash.com/photo-1783094269325-4ba186e8e01b, cropped | Unsplash License |
 | challenge | assets/challenge-day-1.webp | https://images.unsplash.com/photo-1501618669935-18b6ecb13d6d | Unsplash License |
 | challenge | assets/challenge-day-2.webp | https://images.unsplash.com/photo-1506784983877-45594efa4cbe | Unsplash License |
 | challenge | assets/challenge-day-3.webp | https://images.unsplash.com/photo-1783118975868-5c746e0480e8 | Unsplash License |

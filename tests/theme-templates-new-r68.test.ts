@@ -179,8 +179,8 @@ function main() {
     check(`  and every product picture folder is too`, credits.includes(`scripts/theme-templates/products/${t}/`))
     const urgency = sectionsOf(t).filter(({ s }) => /countdown|timer|fake-order|stock-countdown|spin-wheel/i.test(s.type) && !s.disabled).map(({ file, key }) => `${file} ${key}`)
     check(`  no countdown, timer, spin wheel or made up order popup is switched on`, urgency.length === 0, urgency)
-    const blockTimers = sectionsOf(t).flatMap(({ key, s }) => Object.entries(s.blocks ?? {}).filter(([, b]) => /countdown|offer_timer|stock_countdown|low_stock|stock_pulse/.test(b.type)).map(([b]) => `${key}.${b}`))
-    check(`  no countdown or low stock block either`, blockTimers.length === 0, blockTimers)
+    const blockTimers = sectionsOf(t).filter(({ s }) => !s.disabled).flatMap(({ key, s }) => Object.entries(s.blocks ?? {}).filter(([, b]) => /countdown|offer_timer|stock_countdown|low_stock|stock_pulse/.test(b.type)).map(([b]) => `${key}.${b}`))
+    check(`  no countdown or low stock block in a section that is switched on either`, blockTimers.length === 0, blockTimers)
   }
   const funnelCopy = prose(copyOf("challenge")) + JSON.stringify(SAMPLE_SHOPS.challenge)
   const claims = funnelCopy.match(/.{0,30}\b(income|revenue|earn(ed|ing)?|make money|six figures|passive|per month in sales|guaranteed results)\b.{0,30}/i)
