@@ -109,7 +109,8 @@ const AUDIT = () => {
     const faint: string[] = []
     for (const e of content.slice(0, 120)) {
       const b = e.getBoundingClientRect()
-      if (b.width < 3 || b.height < 3 || b.bottom <= 0 || b.top >= innerHeight || b.right <= 0 || b.left >= innerWidth) continue
+      /* The bottom tenth of the screen is where a reveal is still waiting to start (6 to 8% in): not counted. */
+      if (b.width < 3 || b.height < 3 || b.bottom <= 0 || b.top >= innerHeight * 0.9 || b.right <= 0 || b.left >= innerWidth) continue
       if (b.bottom < r.top || b.top > r.bottom) continue
       onScreen++
       const o = opacityOf(e)
