@@ -4,7 +4,8 @@
 const SCROLL_ANIMATION_TRIGGER_CLASSNAME = '.scroll-trigger';
 const SCROLL_ANIMATION_OFFSCREEN_CLASSNAME = 'scroll-trigger--offscreen';
 const SCROLL_ANIMATION_DONE_ATTR = 'data-animation-done';
-const REVEAL_MAX_STAGGER = 6;
+// Round 68: a card starts at most four steps after the first of its row (animation.css caps the step at 40ms).
+const REVEAL_MAX_STAGGER = 4;
 // Types whose section stays put while its parts arrive one after another.
 const PART_TYPES = ['stagger_up', 'mask_reveal', 'split_text', 'editorial'];
 const MAX_PARTS = 14;
@@ -69,6 +70,18 @@ function typeOf(el) {
   const list = el.classList;
   for (const t of PART_TYPES) if (list.contains(t)) return t;
   return '';
+}
+// Round 68: the reveal of this file (animation.css SCROLL REVEAL, the fine
+// line). The head fix for older theme files (theme-motion-fix.ts) stands aside.
+document.documentElement.setAttribute('data-mt-reveal', '2');
+// The footer is never revealed: like the header it is simply there.
+const FOOTER = '[id*="footer"], footer, .footer';
+// A picture that fills its section is the section's background, not a part:
+// it is there when the section is scrolled to, never late over a blank band.
+function backdropOf(section, el, box) {
+  if (!el.matches(MEDIA_PART) && !el.querySelector('img, video, picture')) return false;
+  const r = el.getBoundingClientRect();
+  return r.width >= box.width * 0.8 && r.height >= box.height * 0.6;
 }
 
 // A heading whose words can be wrapped for the reveal: short, plain text and
@@ -136,6 +149,7 @@ function markZoom(el, skip) {
 function markParts(section, type) {
   const picked = [];
   const width = window.innerWidth;
+  const box = section.getBoundingClientRect();
   const candidates = section.querySelectorAll(PART_SELECTOR);
   for (let i = 0; i < candidates.length && i < 400 && picked.length < MAX_PARTS; i++) {
     const el = candidates[i];
@@ -144,6 +158,7 @@ function markParts(section, type) {
     if (el.style.transform || el.style.opacity || el.classList.contains('swiper-slide') || el.closest('.secondary-image, [aria-hidden="true"], [hidden]')) continue;
     const r = el.getBoundingClientRect();
     if (r.width < 1 || r.height < 1 || r.right <= 0 || r.left >= width) continue;
+    if (backdropOf(section, el, box)) continue;
     picked.push(el);
   }
   if (picked.length < 2) return false;
@@ -156,7 +171,8 @@ function markParts(section, type) {
   });
   section.classList.add('reveal-parts');
   section.__mtParts = picked;
-  markZoom(section, img => (type === 'mask_reveal' || type === 'editorial') && !!img.closest('[data-reveal-part="media"]'));
+  // A picture in a card of the section never zooms: the card rises (round 68).
+  markZoom(section, img => img.closest(SCROLL_ANIMATION_TRIGGER_CLASSNAME) !== section || ((type === 'mask_reveal' || type === 'editorial') && !!img.closest('[data-reveal-part="media"]')));
   return true;
 }
 function clearParts(el) {
@@ -172,12 +188,18 @@ function clearParts(el) {
 
 // Armed: waits at its first frame. Its parts (a parts type on a section) and
 // the pictures that zoom are marked now, once.
+// A section never moves as one (round 68): its parts arrive, whatever the
+// type, or, with fewer than two parts, nothing waits and it simply shows.
 function arm(el) {
-  // A motion element that gave way to this reveal pinned itself visible.
-  if (el.tagName === 'MOTION-ELEMENT') el.style.removeProperty('opacity');
-  const type = typeOf(el);
-  if (!(type && el.classList.contains('shopify-section') && markParts(el, type))) markZoom(el);
+  if (el.classList.contains('shopify-section')) {
+    if (el.matches(FOOTER) || !markParts(el, typeOf(el))) return false;
+  } else {
+    // A motion element that gave way to this reveal pinned itself visible.
+    // A card's picture does not zoom (round 68): the card rises, nothing more.
+    if (el.tagName === 'MOTION-ELEMENT') el.style.removeProperty('opacity');
+  }
   el.classList.add('scroll-trigger--offscreen', 'scroll-trigger--armed');
+  return true;
 }
 
 function markDone(el) {
@@ -205,8 +227,7 @@ function armReveal(entries) {
     if (!el.isConnected || el.hasAttribute(SCROLL_ANIMATION_DONE_ATTR)) { revealObserver.unobserve(el); return false; }
     // In view now, or already scrolled past: shown at once. Further down: armed for its reveal.
     // Nothing to see (a section of styles only, an empty one): never waits.
-    if (entry.isIntersecting || entry.boundingClientRect.bottom <= 0 || entry.boundingClientRect.height < 2 || inFirstScreen(entry)) { revealObserver.unobserve(el); markDone(el); return false; }
-    arm(el);
+    if (entry.isIntersecting || entry.boundingClientRect.bottom <= 0 || entry.boundingClientRect.height < 2 || inFirstScreen(entry) || !arm(el)) { revealObserver.unobserve(el); markDone(el); return false; }
     return entry.isIntersecting;
   });
 }
@@ -285,6 +306,20 @@ const revealObserver = makeObserver((entries) => {
     if (waiting) waiting.then(() => requestAnimationFrame(() => reveal([target])));
     else now.push(target);
   });
+  // A row that slides sideways (a carousel) comes in as one: a card peeking
+  // in at the screen's edge plays with the row, never left faint there, and
+  // the cards beyond the edge simply show (round 68).
+  const rows = new Set();
+  entering.forEach(({target}) => { const row = target.closest('.swiper-wrapper, [class*="slider"], [class*="carousel"]'); if (row) rows.add(row); });
+  rows.forEach(row => row.querySelectorAll('.scroll-trigger--armed').forEach(el => {
+    if (now.includes(el) || el.closest('.shopify-section') === el) return;
+    const r = el.getBoundingClientRect();
+    if (r.bottom <= 0 || r.top >= window.innerHeight) return;
+    revealObserver.unobserve(el);
+    if (r.left >= window.innerWidth || r.right <= 0) { markDone(el); return; }
+    el.style.setProperty('--reveal-order', String(REVEAL_MAX_STAGGER));
+    now.push(el);
+  }));
   if (now.length) reveal(now);
 // It starts once its top edge is 6% into the screen, so the movement is seen
 // rather than spent below the edge.
@@ -327,7 +362,8 @@ function initializeScrollAnimationTrigger(root = document, editorEvent = false) 
     // already revealed (data-mt-redrawn, set by the canvas): shown as it was
     // left, never played again (round 67).
     const redrawn = !!el.closest('[data-mt-redrawn]');
-    if (essentialProductContent || container || ownReveal || editor || redrawn || reducedMotion() || !revealObserver || el.hasAttribute(SCROLL_ANIMATION_DONE_ATTR)) {
+    const footer = !!el.closest('.shopify-section')?.matches(FOOTER) || el.matches(FOOTER);
+    if (footer || essentialProductContent || container || ownReveal || editor || redrawn || reducedMotion() || !revealObserver || el.hasAttribute(SCROLL_ANIMATION_DONE_ATTR)) {
       revealObserver?.unobserve(el);
       revealArming.delete(el);
       markDone(el);
@@ -368,10 +404,11 @@ function replayInView() {
     el.removeAttribute('animation-end');
     clearParts(el);
     if (i) el.style.setProperty('--reveal-order', String(Math.min(i, REVEAL_MAX_STAGGER)));
-    arm(el);
+    if (!arm(el)) markDone(el);
   });
   // The first frame is drawn before anything moves.
-  requestAnimationFrame(() => requestAnimationFrame(() => reveal(list)));
+  const armed = list.filter(el => el.classList.contains('scroll-trigger--armed'));
+  if (armed.length) requestAnimationFrame(() => requestAnimationFrame(() => reveal(armed)));
 }
 document.addEventListener('storelib:theme-change', event => {
   const changed = event.detail && event.detail.settings;

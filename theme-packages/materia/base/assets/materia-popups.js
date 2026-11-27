@@ -142,7 +142,7 @@
   try {
     var motionCss = document.createElement('style');
     motionCss.setAttribute('data-materia-motion', '');
-    motionCss.textContent = '[data-mp-motion],[data-mp-motion] *{transition:none!important}';
+    motionCss.textContent = '[data-mp-motion],[data-mp-motion] *{transition:none!important}[data-mp-noshade]{background-color:transparent!important}[data-mp-noshade]::before,[data-mp-noshade]::after{visibility:hidden!important}';
     (document.head || document.documentElement).appendChild(motionCss);
   } catch (e) {}
   function parts(entry) {
@@ -164,6 +164,7 @@
     entry.motion = null;
     m.anims.forEach(function (a) { try { a.cancel(); } catch (e) {} });
     m.els.forEach(function (el) { el.style.removeProperty('will-change'); });
+    unhide(m);
     if (m.finish) m.finish();
     clearTimeout(entry.motionOff);
     entry.root.removeAttribute('data-mp-motion');
@@ -177,7 +178,83 @@
     if (!jobs.length) return Promise.resolve();
     return Promise.race([Promise.all(jobs), new Promise(function (r) { setTimeout(r, ms); })]);
   }
-  function moveIn(entry) {
+  // What an element draws right now, its motion included (not its resting value).
+  function drawn(el) {
+    if (!el) return 0;
+    var v = parseFloat(getComputedStyle(el).opacity);
+    return isFinite(v) ? Math.max(0, Math.min(1, v)) : 0;
+  }
+  // How dark a shade draws: its colour's own alpha, with a full-screen
+  // ::before or ::after it draws its dark with (a shade is often
+  // rgba(0,0,0,.5) at opacity 1, black at .5, or a black ::after at .5).
+  function colorAlpha(c) {
+    var m = String(c || '').match(/rgba?\(([^)]+)\)/);
+    if (!m) return 0;
+    var n = m[1].split(/[\s,\/]+/).filter(Boolean);
+    var a = n.length > 3 ? parseFloat(n[3]) * (/%$/.test(n[3]) ? 0.01 : 1) : 1;
+    return isFinite(a) ? Math.max(0, Math.min(1, a)) : 0;
+  }
+  function alphaOf(el) {
+    if (!el) return 0;
+    var clear = 1 - colorAlpha(getComputedStyle(el).backgroundColor);
+    ['::before', '::after'].forEach(function (pe) {
+      var cs = getComputedStyle(el, pe);
+      if (!cs || cs.content === 'none' || cs.content === 'normal' || cs.display === 'none') return;
+      if (cs.position !== 'fixed' && cs.position !== 'absolute') return;
+      if (!(parseFloat(cs.width) >= window.innerWidth * 0.9)) return;
+      clear *= 1 - colorAlpha(cs.backgroundColor) * (parseFloat(cs.opacity) || 0);
+    });
+    return 1 - clear;
+  }
+  function shadeLight(el) { return drawn(el) * alphaOf(el); }
+  // A popup's shade when it draws one.
+  function shadeOf(entry) {
+    var sh = entry ? parts(entry).shade : null;
+    return sh && alphaOf(sh) > 0.01 ? sh : null;
+  }
+  // A popup on its way out: one opened now takes the shade over from it.
+  var leaving = null;
+  // Held unseen without its motion: a shade that is a layer of its own is
+  // hidden, a shade that is the box its card sits in only loses its dark
+  // (its colour and its ::before/::after), so a card in it still shows.
+  function hideShade(m, shade, card) {
+    if (card && shade.contains(card)) {
+      shade.setAttribute('data-mp-noshade', '');
+      m.unhide = (m.unhide || []).concat([[shade, null]]);
+    } else {
+      shade.style.setProperty('visibility', 'hidden', 'important');
+      m.unhide = (m.unhide || []).concat([[shade, 'visibility']]);
+    }
+  }
+  function unhide(m) {
+    (m.unhide || []).forEach(function (u) { if (u[1]) u[0].style.removeProperty(u[1]); else u[0].removeAttribute('data-mp-noshade'); });
+    m.unhide = null;
+  }
+  // The last popup's shade gives way to the next one's in one frame, so the
+  // two together draw as dark as the last one did: it goes when the next one
+  // can be as dark (that one starts there); when the next one rests lighter,
+  // the last one is thinned to what the next lacks and fades out after.
+  // Returns how long the last one must stay to finish that (ms).
+  function takeOver(old, c, next) {
+    var m = old.motion, sh = shadeOf(old), card = parts(old).card;
+    if (!m || !sh) return 0;
+    if (m.shadeAnim) { try { m.shadeAnim.cancel(); } catch (e) {} m.shadeAnim = null; }
+    var box = card && sh.contains(card);
+    if (box || c <= next + 0.005 || next >= 0.999) { hideShade(m, sh, card); return 0; }
+    var rest = 1 - (1 - c) / (1 - next), a = alphaOf(sh);
+    try { m.anims.push(sh.animate([{ opacity: Math.min(1, rest / (a || 1)), '--mp-fade': '0' }, { opacity: 0, '--mp-fade': '1' }], { duration: OPEN_MS, easing: 'ease-out', fill: 'forwards' })); } catch (e) { return 0; }
+    return OPEN_MS;
+  }
+  // Round 68 (scripts/check-overlay-flash-r68.ts). A popup that replaces
+  // another (the builder's overlay group, one picked after another; an
+  // opener clicked while one shows) never lets the screen go light and dark
+  // again, and never lays its shade over the last card: the last card fades
+  // out on its own shade first, then the shades change places in one frame
+  // (takeOver) and the new card comes in. One reopened while it was still
+  // closing starts from what it had kept, and one closed while it was still
+  // opening fades out from what it had reached, never from full.
+  function moveIn(entry, from) {
+    from = from || {};
     settle(entry);
     var p = parts(entry);
     if (!canAnimate(p.card)) return;
@@ -185,34 +262,91 @@
     root.setAttribute('data-mp-motion', 'in');
     var r = p.card.getBoundingClientRect();
     var sheet = window.innerWidth <= 640 && r.height > 0 && window.innerHeight - r.bottom < 4;
-    var from = sheet ? 'translate3d(0,100%,0)' : 'translate3d(0,16px,0) scale(.98)';
+    var start = sheet ? 'translate3d(0,100%,0)' : 'translate3d(0,16px,0) scale(.98)';
     var to = sheet ? 'translate3d(0,0,0)' : 'translate3d(0,0,0) scale(1)';
+    // A card that was still showing (reopened while closing) does not drop back down first.
+    if (from.card > 0.5) start = to;
     var o = { duration: OPEN_MS, easing: EASE_OUT, fill: 'both' };
     // Each fades to the opacity its section gives it, never past it: a shade
     // drawn at 0.5 that faded to 1 went near black and then jumped back
     // lighter as the motion ended (round 67, scripts/check-popup-flash-r67.ts).
     var cardTo = restOpacity(p.card), shadeTo = restOpacity(p.shade);
+    var cardFrom = Math.min(cardTo, from.card || 0);
+    var own = shadeOf(entry) ? alphaOf(p.shade) : 0, most = own * shadeTo;
+    var old = from.old && from.old !== entry && from.old.motion && from.old.motion.after && from.old.root.isConnected ? from.old : null;
+    // A card in its shade's box fades with the box; a fade of its own as well
+    // made it come and go twice as fast as the shade (a dark dip over the card).
+    var boxed = !!(p.shade && p.shade.contains(p.card)) && !old;
     var anims = [
-      p.card.animate([{ transform: from, composite: 'add' }, { transform: to, composite: 'add' }], o),
-      p.card.animate([{ opacity: 0 }, { opacity: cardTo }], { duration: sheet ? OPEN_MS : 220, easing: 'ease-out', fill: 'both' })
+      p.card.animate([{ transform: start, composite: 'add' }, { transform: to, composite: 'add' }], o),
+      p.card.animate([{ opacity: boxed ? cardTo : cardFrom }, { opacity: cardTo }], { duration: sheet ? OPEN_MS : 220, easing: 'ease-out', fill: 'both' })
     ];
-    if (p.shade) anims.push(p.shade.animate([{ opacity: 0 }, { opacity: shadeTo }], { duration: OPEN_MS, easing: 'ease-out', fill: 'both' }));
     anims.forEach(function (a) { a.pause(); });
     var els = [p.card].concat(p.shade ? [p.shade] : []);
-    var m = entry.motion = { anims: anims, els: els };
-    decodeIn(p.card, 250).then(function () {
-      if (entry.motion !== m) return;
+    var m = entry.motion = { anims: anims, els: els, shadeAnim: null };
+    // The shade starts at the opacity that draws it as dark as the screen
+    // was (c: opacity times colour alpha), in the frame it is asked to.
+    var shadeGo = function (c) {
+      if (entry.motion !== m || !p.shade) return;
+      unhide(m);
+      var f = c > 0 && own > 0 ? (c <= most ? c / own : shadeTo) : 0;
+      // Drawn by the page like the fade out (see moveOut), so a shade taking over lands in the same frame as the last one goes.
+      m.shadeAnim = p.shade.animate([{ opacity: f, '--mp-fade': '0' }, { opacity: shadeTo, '--mp-fade': '1' }], { duration: OPEN_MS, easing: 'ease-out', fill: 'both' });
+      m.anims.push(m.shadeAnim);
+      p.shade.style.willChange = 'opacity';
+    };
+    // The card comes in over the last card as that one goes (this card lies
+    // above it; only this shade would dim it, and that waits).
+    var decoded = false;
+    var cardGo = function () {
+      if (entry.motion !== m || !decoded) return;
       requestAnimationFrame(function () {
         if (entry.motion !== m) return;
-        els.forEach(function (el) { el.style.willChange = 'transform, opacity'; });
-        anims.forEach(function (a) { a.play(); });
-        anims[0].finished.then(function () { if (entry.motion === m) settle(entry); }, function () {});
+        p.card.style.willChange = 'transform, opacity';
+        anims[0].play(); anims[1].play();
+        if (old && old.motion && old.motion.release) old.motion.release();
+        // Settled once the card and the shade have both arrived (a shade that
+        // took over late is still on its way when the card is in).
+        var done = function () {
+          if (entry.motion !== m) return;
+          if (m.shadeAnim && m.shadeAnim.playState !== 'finished') { m.shadeAnim.finished.then(done, function () {}); return; }
+          settle(entry);
+        };
+        anims[0].finished.then(done, function () {});
       });
-    });
+    };
+    var om = old && old.motion;
+    // Which one lies above: the later one on the page (both are drawn at the same height).
+    var over = old && !!(old.root.compareDocumentPosition(entry.root) & 4);
+    if (old && !over) {
+      // The last one lies above this one, its shade over this card: the
+      // shades change places now, and the last card goes over this shade.
+      var c0 = shadeLight(shadeOf(old));
+      var hold0 = own > 0 ? takeOver(old, c0, most) : 0;
+      shadeGo(c0);
+      if (hold0) om.after.push(function () { return Math.max(0, hold0 - CLOSE_MS); });
+    } else if (old) {
+      // This one lies above: its shade is unseen until the last card has
+      // gone (it would lie over that card), and the last shade holds.
+      if (p.shade) hideShade(m, p.shade, p.card);
+      if (om.shadeAnim) { try { om.shadeAnim.pause(); } catch (e) {} }
+      om.after.push(function () {
+        if (entry.motion !== m) return 0;
+        var c = shadeLight(shadeOf(old));
+        var hold = own > 0 ? takeOver(old, c, most) : 0;
+        shadeGo(c);
+        return hold;
+      });
+    } else shadeGo(from.shade || 0);
+    decodeIn(p.card, 250).then(function () { decoded = true; cardGo(); });
   }
-  function moveOut(entry, done) {
-    settle(entry);
+  function moveOut(entry, done, opts) {
+    opts = opts || {};
     var p = parts(entry);
+    // Closed while it was still opening: it fades from what it had reached.
+    var mid = !!entry.motion;
+    var nowCard = mid ? drawn(p.card) : 0, nowShade = mid ? drawn(p.shade) : 0;
+    settle(entry);
     if (!canAnimate(p.card)) { done(); return; }
     var root = entry.root;
     root.setAttribute('data-mp-motion', 'out');
@@ -221,24 +355,51 @@
     var to = sheet ? 'translate3d(0,100%,0)' : 'translate3d(0,16px,0) scale(.98)';
     var o = { duration: CLOSE_MS, easing: EASE_IN, fill: 'forwards' };
     var els = [p.card].concat(p.shade ? [p.shade] : []);
-    var cardFrom = restOpacity(p.card), shadeFrom = restOpacity(p.shade);
-    els.forEach(function (el) { el.style.willChange = 'transform, opacity'; });
+    var cardFrom = mid ? Math.min(restOpacity(p.card), nowCard) : restOpacity(p.card);
+    var shadeFrom = mid ? Math.min(restOpacity(p.shade), nowShade) : restOpacity(p.shade);
+    p.card.style.willChange = 'transform, opacity';
+    var boxed = !!(p.shade && p.shade.contains(p.card)) && !opts.keepShade;
     var anims = [
       p.card.animate([{ transform: 'translate3d(0,0,0) scale(1)', composite: 'add' }, { transform: to, composite: 'add' }], o),
-      p.card.animate([{ opacity: cardFrom }, { opacity: 0 }], o)
+      p.card.animate([{ opacity: cardFrom }, { opacity: boxed ? cardFrom : 0 }], o)
     ];
-    if (p.shade) anims.push(p.shade.animate([{ opacity: shadeFrom }, { opacity: 0 }], o));
-    var m = entry.motion = { anims: anims, els: els, finish: null };
+    // Handed over (opts.keepShade): the shade holds while the card goes, and
+    // the next popup takes it over as this one ends (moveIn, takeOver).
+    // Otherwise it fades out drawn by the page, not the compositor (the
+    // custom property keeps it there): a popup opened while this one closes
+    // takes it over in the same frame, where a compositor fade kept going on
+    // its own while that opening ran and showed the page light for a few
+    // frames.
+    var kept = opts.keepShade && shadeOf(entry);
+    // The shade clears quickly as the card starts to leave (an ease out where
+    // the card eases in), so the page is never darker for a moment than both.
+    var shadeAnim = p.shade && !kept ? p.shade.animate([{ opacity: shadeFrom, '--mp-fade': '0' }, { opacity: 0, '--mp-fade': '1' }], { duration: CLOSE_MS, easing: 'cubic-bezier(.2,.6,.4,1)', fill: 'forwards' }) : null;
+    if (shadeAnim) anims.push(shadeAnim);
+    var m = entry.motion = { anims: anims, els: els, finish: null, shadeAnim: shadeAnim, after: [] };
+    leaving = entry;
+    if (kept) {
+      // Its card waits for the next card, which comes in over it as it goes,
+      // so the two cross and the screen never shows the bare shade between.
+      anims.forEach(function (a) { a.pause(); });
+      m.release = function () { m.release = null; clearTimeout(m.wait); anims.forEach(function (a) { try { a.play(); } catch (e) {} }); };
+      m.wait = setTimeout(function () { if (m.release) m.release(); }, 400);
+    }
     var finished = false;
-    var end = function () {
-      if (finished) return; finished = true;
+    var close = function () {
       done();
       // The section is shut now; the end frame holds until its closed style
       // is in place, then the hold on its own transitions is lifted.
       entry.motionOff = setTimeout(function () {
-        if (entry.motion === m) { entry.motion = null; anims.forEach(function (a) { try { a.cancel(); } catch (e) {} }); els.forEach(function (el) { el.style.removeProperty('will-change'); }); }
+        if (entry.motion === m) { entry.motion = null; anims.forEach(function (a) { try { a.cancel(); } catch (e) {} }); els.forEach(function (el) { el.style.removeProperty('will-change'); }); unhide(m); }
         if (!entry.motion) root.removeAttribute('data-mp-motion');
       }, 60);
+    };
+    var end = function () {
+      if (finished) return; finished = true;
+      if (leaving === entry) leaving = null;
+      var hold = 0;
+      m.after.splice(0).forEach(function (fn) { try { hold = Math.max(hold, fn() || 0); } catch (e) {} });
+      if (hold) setTimeout(close, hold); else close();
     };
     m.finish = end;
     anims[0].finished.then(end, function () {});
@@ -281,11 +442,28 @@
     if (!entry || !entry.root || !entry.root.isConnected) return false;
     if (current === entry) return true;
     if (!opts.force && (suppressed(entry) || entry.shownThisPage)) return false;
+    // What the screen shows now, for the new popup to start from (see moveIn).
+    // Only a popup with a shade of its own takes one over; one without lets the last shade fade out as usual.
+    var from = { shade: 0, card: 0 }, takes = !opts.instant && !!shadeOf(entry);
     if (current) {
-      if (opts.force) hide(current, { reason: 'replaced', instant: true });
-      else { if (queue.indexOf(entry) < 0) queue.push(entry); return false; }
+      if (!opts.force) { if (queue.indexOf(entry) < 0) queue.push(entry); return false; }
+      if (opts.instant || reduced()) hide(current, { reason: 'replaced', instant: true });
+      else {
+        if (takes && shadeOf(current)) { from.shade = shadeLight(shadeOf(current)); from.old = current; }
+        hide(current, { reason: 'replaced', handoff: !!from.old });
+      }
+    } else if (!opts.force && blocked()) { if (queue.indexOf(entry) < 0) queue.push(entry); return false; }
+    if (takes && !from.old && leaving && leaving !== entry && leaving.motion && shadeOf(leaving)) {
+      // Another one still closing: its shade gives way to this one's (moveIn).
+      from.shade = shadeLight(shadeOf(leaving));
+      from.old = leaving;
     }
-    if (!opts.force && blocked()) { if (queue.indexOf(entry) < 0) queue.push(entry); return false; }
+    if (entry.motion && entry.root.getAttribute('data-mp-motion') === 'out' && !opts.instant) {
+      // This one, reopened before its close ended.
+      var pe = parts(entry);
+      from.shade = Math.max(from.shade, shadeLight(shadeOf(entry)));
+      from.card = drawn(pe.card);
+    }
     current = entry;
     entry.shownThisPage = true;
     if (!opts.force && !design) remember(entry);
@@ -309,7 +487,15 @@
       });
     }
     emit('materia:popup-open', { id: entry.id });
-    if (!opts.instant) moveIn(entry); else entry.root.removeAttribute('data-mp-motion');
+    if (!opts.instant) moveIn(entry, from);
+    else {
+      // Drawn open at once (the builder draws a selected popup again after an
+      // edit): its own transitions stay held for this style pass, so its shade
+      // does not fade in again from nothing.
+      entry.root.setAttribute('data-mp-motion', 'still');
+      try { void getComputedStyle(entry.root).opacity; void entry.root.offsetWidth; } catch (e) {}
+      entry.root.removeAttribute('data-mp-motion');
+    }
     return true;
   }
 
@@ -336,8 +522,8 @@
       if (!current) unlockScroll();
       emit('materia:popup-close', { id: entry.id, reason: opts.reason || 'close' });
     };
-    if (opts.instant || opts.reason === 'replaced' || opts.reason === 'unload') { settle(entry); shut(); }
-    else moveOut(entry, shut);
+    if (opts.instant || (opts.reason === 'replaced' && !opts.handoff) || opts.reason === 'unload') { settle(entry); shut(); }
+    else moveOut(entry, shut, { keepShade: !!opts.handoff });
     if (opts.reason !== 'replaced') setTimeout(flush, (entry.gap != null ? entry.gap : 600) + CLOSE_MS);
   }
 
@@ -507,7 +693,8 @@
   function stepAway(id) {
     if (!design || !current || current.id === id || current.preview) return;
     current.selected = false;
-    hide(current, { reason: 'deselect', instant: true });
+    // It fades out (a popup picked next takes its shade over), never cut away.
+    hide(current, { reason: 'deselect' });
   }
   function onSelect(e) {
     var id = sectionOf(e);
@@ -655,7 +842,8 @@
   }
 
   window.MateriaPopups = {
-    version: 1,
+    // 2: popups hand the shade over (round 68); the head fix for older files (theme-motion-fix.ts) stands aside.
+    version: 2,
     posted: posted,
     register: register,
     unregister: unregister,

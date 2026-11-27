@@ -382,7 +382,7 @@ class MotionElement extends HTMLElement {
     // Never blank while it waits (round 27): its first frame is partly visible.
     this.style.opacity = String(MOTION_FROM_OPACITY);
     this.style.transform = this.animationType.startsWith('zoom') ? 'scale(0.985)' :
-      this.animationType === 'fade-in' ? 'none' : 'translateY(12px)';
+      this.animationType === 'fade-in' ? 'none' : 'translateY(10px)';
   }
 
   async initialize() {
@@ -394,7 +394,8 @@ class MotionElement extends HTMLElement {
     if (!this.isConnected || generation !== this._motionGeneration) return;
     if (this.motionDisabled || !this.animate) { this.finishMotion(); return; }
     const css = getComputedStyle(this);
-    const duration = parseFloat(css.getPropertyValue('--animation-duration')) || 700;
+    // Round 68: the fine line, as animation.css's cards: 300 to 500ms whatever the theme's long duration.
+    const duration = Math.min(500, Math.max(300, (parseFloat(css.getPropertyValue('--animation-duration')) || 700) * 0.6));
     const delay = parseFloat(css.getPropertyValue('--animation-delay-base')) || 0;
     const animation = this._animation = this.animate([
       {opacity: MOTION_FROM_OPACITY, transform: this.style.transform || 'none'},
