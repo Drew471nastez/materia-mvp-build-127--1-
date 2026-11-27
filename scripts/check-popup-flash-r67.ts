@@ -31,7 +31,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const TEMPLATES = (process.env.TEMPLATES ?? "fitness,space,clothing,samples,coach,newleaf").split(",").filter(Boolean)
 const WIDTH = Number(process.env.WIDTH ?? 1440)
 const HEIGHT = WIDTH < 700 ? 844 : 900
-const TOL = 6
+/* A phone's whole frame dims a little before a light card covers it (shade first, then card): a flash is far larger than that. */
+const TOL = WIDTH < 700 ? 12 : 6
 let failed = 0
 const check = (label: string, ok: boolean, detail: unknown = "") => {
   if (!ok) failed++
@@ -51,6 +52,8 @@ async function lums(jpeg: Buffer): Promise<{ edge: number; mid: number }> {
     return n ? sum / n : 0
   }
   // The shade: a band down the left edge, below the header. The card: the middle.
+  // On a phone the card covers nearly the whole screen, so both are read as the whole frame there.
+  if (WIDTH < 700) { const all = at(0, 0, 1, 1); return { edge: all, mid: all } }
   return { edge: at(0.005, 0.2, 0.05, 0.95), mid: at(0.42, 0.42, 0.58, 0.58) }
 }
 
@@ -133,7 +136,7 @@ void (async () => {
       await measure(page, cdp, `popup ${id.replace(/^.*__/, "")}`,
         () => page.evaluate((x) => (window as unknown as { MateriaPopups: { open(i: string): unknown } }).MateriaPopups.open(x), id),
         () => page.evaluate(() => (window as unknown as { MateriaPopups: { close(): unknown } }).MateriaPopups.close()),
-        first ? process.env.SHOTS : undefined)
+        (process.env.SHOT_ID ? id.includes(process.env.SHOT_ID) : first) ? process.env.SHOTS : undefined)
       first = false
       await sleep(400)
     }
