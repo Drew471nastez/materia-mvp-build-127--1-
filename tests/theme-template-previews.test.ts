@@ -86,7 +86,8 @@ function main() {
   check("every file a page, a stylesheet or a script names is there", dead.length === 0, [...new Set(dead)].slice(0, 12))
   /* Changed on purpose (round 28 integration): the cover trim script (lib/images/cover-trim.ts, round 64) reads a CROSS ORIGIN picture through the page's own /_next/image; a static preview's pictures are all on its own origin, so that guarded branch never runs. Only that exact guarded line is set aside. */
   /* Changed on purpose (round 29): pic-fit (lib/images/pic-fit.ts, round 65) reads another host's picture's colours the same guarded way, returning early when the picture is on the page's own origin, which a preview's always is. */
-  const COVER_TRIM_GUARD = /(?:readFrom|small\.src) = here \+ "\/_next\/image\?url="/g
+  /* Changed on purpose (r67): the same guard with or without spaces, as a build whose transform drops the whitespace in installPicFit's source writes it (readFrom=here+"/_next/image?url="). */
+  const COVER_TRIM_GUARD = /(?:readFrom|small\.src)\s*=\s*here\s*\+\s*"\/_next\/image\?url="/g
   const engine = texts.filter((f) => /["'(\s]\/(?:__asset|__media|__product)\/|\/_next\/image\?url=/.test(body.get(f)!.replace(COVER_TRIM_GUARD, "")))
   check("nothing still asks the engine or the image optimizer", engine.length === 0, engine.slice(0, 8))
   const hosts = texts.filter((f) => /127\.0\.0\.1|preview\.invalid/.test(body.get(f)!) || (!f.endsWith(".js") && /fonts\.googleapis\.com|fonts\.gstatic\.com/.test(body.get(f)!)))
