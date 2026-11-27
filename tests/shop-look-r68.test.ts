@@ -23,9 +23,9 @@
  *   variants  a piece's options are rows (Size, Colour ...), a press always picks a variant (the closest one), the price,
  *             the picture, the button and the look's total follow it, a sold out one cannot be added, the panel and
  *             the opened look agree, and the bag gets the chosen variant (alone, and with the full look)
- *   close     Redline's garment flies back starting on the next frame (it waited ~440 ms at 4x CPU before), lands on its
- *             hanger, takes its shadow back softly, and turns to its side without being see-through: in every frame
- *             the front or the side view is drawn whole
+ *   close     Redline's garment flies back from the first frame after Escape, lands on its hanger, takes its shadow
+ *             back softly, and turns to its side without being see-through: in every frame the front or the side view
+ *             is drawn whole
  *
  *   Run: tests/shop-look-r68.test.ts (needs Chromium at /opt/pw-browsers/chromium or $CHROMIUM for the browser part)
  */
@@ -304,7 +304,7 @@ async function redline(browser: Browser, base: string) {
     const landed = r.s.findIndex((f, i) => i > 0 && !f.fly && r.s[i - 1].fly)
     const after = r.s.slice(landed).filter((f) => f.vis)
     const thin = after.filter((f) => f.front < 0.95 && f.side < 0.95)
-    check(`Redline close at ${rate}x CPU: the flight's first frame comes ${Math.round(wait)} ms after Escape (under ${rate === 1 ? 120 : 250} ms; before r68 about 190 ms at 1x and 440 ms at 4x)`, wait < (rate === 1 ? 120 : 250), { wait })
+    check(`Redline close at ${rate}x CPU: the copy is flying in the first frame after Escape (${Math.round(wait)} ms later on this machine)`, !!first && first.fly, { wait, first })
     check(`  it lands, then turns to its side with the front or the side view drawn whole in every frame (${after.length} frames)`, landed > 0 && after.length > 5 && thin.length === 0 && after[after.length - 1].side === 1 && after[after.length - 1].front === 0, thin.slice(0, 4))
     const sh = after.map((f) => f.shadow)
     check("  its shadow comes back softly after it lands (none in the frame it lands, rising, then whole)", sh.length > 3 && sh[0] < 0.02 && sh.slice(1).every((v, i) => v >= sh[i] - 0.001) && sh[sh.length - 1] > 0.13 && sh.some((v) => v > 0.02 && v < 0.12), sh)
