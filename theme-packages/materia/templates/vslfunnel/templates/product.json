@@ -71,7 +71,7 @@
           "type": "text",
           "settings": {
             "heading": "",
-            "content": "<p>An eight week Spanish course for adults who gave up at school, taught by Daniel Brandt.</p>"
+            "content": "<p>An eight week money course for adults who never learned it at school, taught by Daniel Brandt.</p>"
           }
         },
         "price_4": {
@@ -170,7 +170,7 @@
           "type": "whats_included",
           "settings": {
             "heading": "What you get",
-            "items": "40 video lessons in eight weeks\nSix live conversation calls\nPhrase cards with audio\nLessons yours to keep",
+            "items": "40 video lessons in eight weeks\nSix live group calls\nThe money workbook\nLessons yours to keep",
             "two_columns": false,
             "boxed": true
           }
@@ -188,7 +188,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "Options",
-            "content": "<p><strong>Course:</strong> the full eight weeks with the live calls. <strong>Course and private lessons:</strong> adds four 45 minute video lessons with Daniel, booked when it suits you, with written notes after each. Either can be paid in full or in three monthly parts.</p>",
+            "content": "<p><strong>Course:</strong> the full eight weeks with the live calls. <strong>Course and one to one:</strong> adds four 45 minute video sessions with Daniel, booked when it suits you, with written notes after each. Either can be paid in full or in three monthly parts.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -200,9 +200,9 @@
             "use_product_faqs": false,
             "first_open": false,
             "q_1": "When does the group start?",
-            "a_1": "<p>12 January. Week one opens the day you join, so you can have the first phrases ready before the first live call.</p>",
+            "a_1": "<p>12 January. Week one opens the day you join, so your one page plan can be ready before the first live call.</p>",
             "q_2": "Who is it for?",
-            "a_2": "<p>Adults who know a little Spanish from school, an app or a holiday and want to talk.</p>",
+            "a_2": "<p>Adults with a regular income who were never taught how to run it.</p>",
             "q_3": "What if I miss a live call?",
             "a_3": "<p>Every call is recorded and added the same day. Send your question beforehand and Daniel answers it on the recording.</p>",
             "q_4": "What if it is not for me?",
@@ -299,13 +299,13 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Short lessons, out loud every day"
+            "text": "Short lessons, one task a week"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Each week is five lessons of ten to fifteen minutes and one conversation to practise. About two hours a week.</p>"
+            "text": "<p>Each week is five lessons of ten to fifteen minutes and one thing to set up with your own accounts. About two hours a week.</p>"
           }
         },
         "button_4": {
@@ -389,17 +389,17 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I had not said a word of Spanish since school. By week three I ordered dinner in Málaga without pointing at the menu.</p>",
+            "quote": "<p>I opened my banking app for the first time in months without dreading it. Week one showed me exactly where the money was going.</p>",
             "rating": 0,
             "name": "Naomi B.",
-            "role": "Started at 41",
+            "role": "Teacher, two kids",
             "avatar": "shopify://shop_images/vslfunnel-student-1.webp"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The ten minute lessons fit my commute. I said the phrases out loud on the platform and stopped caring who heard.</p>",
+            "quote": "<p>The three pots finally stuck. Bills leave on one date now and I stopped checking my balance before every shop.</p>",
             "rating": 0,
             "name": "Rafael O.",
             "role": "Nurse, night shifts",
@@ -409,7 +409,7 @@
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Each week has one thing to practise, so I never felt behind. On the live call Daniel fixed the one mistake I made every time.</p>",
+            "quote": "<p>My partner and I did it together. The lesson on shared money ended an argument we had been having for years.</p>",
             "rating": 0,
             "name": "Chloe L.",
             "role": "Learning with her partner",
@@ -419,17 +419,17 @@
         "testimonial_7": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I had three apps and a streak of 400 days and still froze on the phone. Six conversation calls did what the apps did not.</p>",
+            "quote": "<p>I had four cards and no idea of the total. Now there is one list, an order to pay them in and a date it ends.</p>",
             "rating": 0,
             "name": "Tomas K.",
-            "role": "Moving to Valencia",
+            "role": "Self employed",
             "avatar": "shopify://shop_images/vslfunnel-student-4.webp"
           }
         },
         "testimonial_8": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Short, clear lessons. I watched them on the train and used the phrases with my neighbours that evening.</p>",
+            "quote": "<p>Short lessons and nothing to sell me. Daniel never once told me to stop buying coffee.</p>",
             "rating": 0,
             "name": "Elif M.",
             "role": "Retired teacher",
@@ -454,7 +454,7 @@
         "color_scheme": "default",
         "section_width": "container",
         "reset_spacing": true,
-        "heading": "Also from Hablo",
+        "heading": "Also from Kitty",
         "description": "",
         "header_size": "small",
         "header_alignment": "left",

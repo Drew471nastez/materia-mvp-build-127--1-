@@ -30,7 +30,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Daniel moved to Valencia at thirty four with school Spanish and an app on his phone. For six months he understood the neighbours and answered in English. Then he learned the phrases people really use and booked a conversation every week.</p><p>He has taught adults online for seven years. Hablo is that way of learning, filmed. This is sample text; replace it with your own story.</p>"
+            "text": "<p>Daniel spent nine years at a bank. The people across his desk were nurses, builders, designers and shop owners, and almost none of them had been shown how to run a household's money. He started drawing the same one page plan for each of them.</p><p>He has taught adults online for six years. Kitty is that page and the eight weeks around it, filmed. This is sample text; replace it with your own story.</p>"
           }
         },
         "button_4": {
@@ -69,13 +69,13 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Most courses teach grammar first and talking last"
+            "text": "Most money advice starts with investing and skips the basics"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Verb tables make good tests and rarely help in a café. The adults Daniel taught stalled in the same places: they understood more than they could say, and nobody gave them time to say it. The course fixes those first.</p>"
+            "text": "<p>Stock tips make good videos and rarely help on the 20th of the month. The people Daniel taught got stuck in the same places: no idea of their real number, bills on the wrong dates and debts in five apps. The course fixes those first.</p>"
           }
         }
       },
@@ -103,24 +103,24 @@
           "type": "column",
           "settings": {
             "label": "01",
-            "heading": "Phrases before rules",
-            "text": "<p>You learn what people say first. The grammar makes sense once you have used it.</p>"
+            "heading": "Basics before investing",
+            "text": "<p>A budget you keep and a buffer for bad months come first. Everything else is easier after.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
             "label": "02",
-            "heading": "Out loud every day",
-            "text": "<p>Five minutes said out loud beats an hour read in silence. Every lesson ends with something to say.</p>"
+            "heading": "One task a week",
+            "text": "<p>Twenty minutes done beats a weekend planned. Every lesson ends with something to set up.</p>"
           }
         },
         "column_4": {
           "type": "column",
           "settings": {
             "label": "03",
-            "heading": "Real people early",
-            "text": "<p>The first live call is in week two, at your level, in a group of four.</p>"
+            "heading": "No shame, no tips",
+            "text": "<p>Nobody is told off for a coffee, and nobody is sold a product. The course sells nothing else.</p>"
           }
         }
       },
@@ -162,16 +162,16 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "body": "I had not said a word of Spanish since school. By week three I ordered dinner in Málaga without pointing at the menu.",
+            "body": "I opened my banking app for the first time in months without dreading it. Week one showed me exactly where the money was going.",
             "name": "Naomi B.",
-            "role": "Started at 41",
+            "role": "Teacher, two kids",
             "rating": 0
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "body": "The ten minute lessons fit my commute. I said the phrases out loud on the platform and stopped caring who heard.",
+            "body": "The three pots finally stuck. Bills leave on one date now and I stopped checking my balance before every shop.",
             "name": "Rafael O.",
             "role": "Nurse, night shifts",
             "rating": 0
@@ -180,7 +180,7 @@
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "body": "Each week has one thing to practise, so I never felt behind. On the live call Daniel fixed the one mistake I made every time.",
+            "body": "My partner and I did it together. The lesson on shared money ended an argument we had been having for years.",
             "name": "Chloe L.",
             "role": "Learning with her partner",
             "rating": 0
@@ -206,22 +206,22 @@
         "image_ratio": "landscape",
         "image_width": 50,
         "form_layout": "horizontal",
-        "btn_text": "Send me the phrases",
+        "btn_text": "Send me the plan",
         "email_placeholder": "Your email",
         "note": "One email a month at most. Leave whenever you like.",
-        "success_text": "Done. The 100 phrase starter is on its way to your inbox."
+        "success_text": "Done. The one page money plan is on its way to your inbox."
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Get the 100 phrase starter free"
+            "text": "Get the one page money plan free"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>The hundred phrases from week one as a printable PDF with an audio file for each, so you can say them before you read them.</p>"
+            "text": "<p>The page from week one as a printable PDF and a spreadsheet: what comes in, what goes out and the three pots, filled in with an example.</p>"
           }
         }
       },

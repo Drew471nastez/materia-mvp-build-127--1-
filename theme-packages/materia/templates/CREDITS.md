@@ -514,11 +514,11 @@ Coach creator (round 21, remade in round 26): the coach, Marcus Hale, is a sampl
 | coachpro | assets/coachpro-client-5.webp | Drawn for this template | Storelib |
 | coachpro | assets/coachpro-client-6.webp | Drawn for this template | Storelib |
 
-Digital Renaissance (round 22): the instructor, Karim Nassar, is two photographs from one session by one photographer (Khaled Elshamy). The hero (round 30, replacing the earlier one at the owner's request) is a shop owner in a white work coat packing orders at the bench in her studio, cropped. The other photographs are separate Unsplash photographs, cropped; the skill cards sit under a dark overlay set in the section. The logo and its compass mark are drawn for the template.
+Digital Renaissance (round 22): the instructor, Karim Nassar, is two photographs from one session by one photographer (Khaled Elshamy). The hero (round 68, replacing the shop owner at the bench at the owner's request: "a cinematic guy working on a computer") is a man working late at his desk in a dark room, headphones on, lit by his screen and a strip light, cropped; the same Unsplash photograph is the Landing page template's starter picture. The other photographs are separate Unsplash photographs, cropped; the skill cards sit under a dark overlay set in the section. The logo and its compass mark are drawn for the template.
 
 | renaissance | assets/renaissance-instructor.webp | https://images.unsplash.com/photo-1764545973653-94c40d993495 | Unsplash License |
 | renaissance | assets/renaissance-instructor-about.webp | https://images.unsplash.com/photo-1764546373114-2d7a87221733 | Unsplash License |
-| renaissance | assets/renaissance-hero.webp | https://images.unsplash.com/photo-1773146916231-e6aeae932080 | Unsplash License |
+| renaissance | assets/renaissance-hero.webp | https://images.unsplash.com/photo-1627244714766-94dab62ed964 | Unsplash License |
 | renaissance | assets/renaissance-calls.webp | https://images.unsplash.com/photo-1616587226960-4a03badbe8bf | Unsplash License |
 | renaissance | assets/renaissance-workshop.webp | https://images.unsplash.com/photo-1591115765373-5207764f72e7 | Unsplash License |
 | renaissance | assets/renaissance-shop.webp | https://images.unsplash.com/photo-1753161618037-e6a8f740fd47 | Unsplash License |
