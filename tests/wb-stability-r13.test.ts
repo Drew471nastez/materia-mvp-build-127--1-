@@ -49,7 +49,7 @@ console.log("\nTheme code that changed (a push)\n")
   check("a file's address carries what it holds", v1 === assetVersionIn(files, "theme.css") && v1 !== assetVersionIn({ ...files, "shopify/assets/theme.css": "a{color:red}" }, "theme.css"))
   check("  a .liquid asset is read by its source", assetVersionIn({ "shopify/assets/x.css.liquid": "b{}" }, "x.css") !== assetVersionIn({}, "x.css"))
   /* Changed on purpose (round rel-sites): the draft version carries the install's pass (lib/storelib-theme/compat/draft-version.ts), still named by what the file holds. */
-  check("  the canvas names the theme's files by it", /assetUrl: \(name\) => media\[name\] \?\? `\/api\/site-theme\/assets\/\$\{installId\}\/\$\{draftAssetVersion\(installId\)\}\/\$\{encodeURIComponent\(name\)\}\?v=\$\{assetVersionIn\(files, name\)\}`/.test(canvas))
+  check("  the canvas names the theme's files by it", /assetUrl: \(name\) => media\[name\] \?\? `\/api\/site-theme\/assets\/\$\{installId\}\/\$\{draftAssetVersion\(installId\)\}\/\$\{encodeURIComponent\(name\)\}\?v=\$\{assetVersionIn\(files, name(, installId)?\)\}`/.test(canvas)) /* Changed on purpose (r68): with the install, for a script named by its version alone */
   check("the same script at another version is theme code that changed", scriptFileChanged(["/x/theme.js?v=a"], ["/x/theme.js?v=b"]))
   check("  a script added or kept is not", !scriptFileChanged(["/x/theme.js?v=a"], ["/x/theme.js?v=a", "/x/search.js?v=c"]) && !scriptFileChanged([], ["/x/a.js?v=1"]))
   check("  such a page is loaded again (never the new script run over the old one)", planPatch(shape(), shape({ srcs: ["/api/site-theme/assets/i/edit/theme.js?v=b2"] })) === null)
