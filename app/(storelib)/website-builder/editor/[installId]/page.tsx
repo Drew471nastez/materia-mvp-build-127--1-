@@ -2983,6 +2983,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /** A publish is on its way: a second press waits for it rather than starting another. */
   const publishingRef = useRef(false)
   const [publishOpen, setPublishOpen] = useState(false)
+  /** The store's website live now when it is another one (what Publish replaces); null when none is; undefined until read (round 67). */
+  const [liveElsewhere, setLiveElsewhere] = useState<string | null | undefined>(undefined)
+  /** This website went live from here a moment ago: the publish panel says so, with the link (round 67). */
+  const [wentLive, setWentLive] = useState(false)
+  /* Said while the panel is open; closed, it is said no more. */
+  useEffect(() => {
+    if (!publishOpen) setWentLive(false)
+  }, [publishOpen])
   /** Set the instant Exit is pressed. Going back can take a second or more
    *  on a phone, and a button that does nothing for that second is a button
    *  somebody presses again. */
@@ -4844,6 +4852,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setBuilderForms(data.forms && typeof data.forms === "object" ? (data.forms as BuilderForms) : null)
     setBuilderCollections(data.collections && typeof data.collections === "object" ? (data.collections as BuilderCollections) : null)
     setSiteHandle(typeof data.siteHandle === "string" && data.siteHandle ? data.siteHandle : null)
+    setLiveElsewhere(typeof data.liveName === "string" ? data.liveName : data.liveName === null ? null : undefined)
 
     /**
      * ═════════════════════════════════════════════════════════════════════
@@ -7747,8 +7756,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
 
       // Update local install status so subsequent saves also publish
+      const wasLive = install?.status === "published"
       if (install) {
         setInstall({ ...install, status: "published", published_at: new Date().toISOString() })
+      }
+      /* Went live from here (round 67): the panel says so with the link, and nothing else is live now. */
+      if (!wasLive) {
+        setWentLive(true)
+        setLiveElsewhere(null)
       }
 
       /* An edit made while it published is not live and not saved: it stays unsaved, and autosave writes it. */
@@ -7761,7 +7776,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       noteActivity("editor.publish")
       setAgentNote(null)
       snapshotAfterSave()
-      showNotification("Changes saved and published")
+      showNotification(wasLive ? "Changes saved and published" : "Your website is live")
       /* Nothing left to publish now; the server says so, and the GitHub line goes with it. */
       void refreshSync()
     } catch {
@@ -12164,28 +12179,47 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             const live = install?.status === "published"
             const pending = live ? unpublished : isDirty
             const busyNow = saving || publishing
+            /*
+              PUBLISH FROM THE EDITOR, FOR A WEBSITE THAT IS NOT LIVE YET (round
+              67, the owner: "I want to publish the website live from the editor,
+              next to Save"). On a computer Save stays as it was and Publish sits
+              beside it, in the live Publish's purple, opening the same panel,
+              which says what goes live and what it replaces before the press.
+              A phone has room for one key: it is Publish, and autosave keeps
+              the draft saved as it does on a computer.
+            */
+            const firstOnPhone = !live && isMobileView
+            const asPublish = live || firstOnPhone
+            const publishWords = publishing ? (publishSlow ? "Still publishing" : "Publishing") : "Publish"
+            const togglePanel = () => {
+              hapticTap("light")
+              setPublishOpen((v) => !v)
+              if (isMobileView) { setMobileSidebarOpen(false); setAiOpen(false) }
+            }
             return (
-              <div ref={publishBtnRef} className="relative">
+              <div ref={publishBtnRef} className="relative flex items-center gap-2">
                 <Button
                   size="sm"
-                  aria-label={isMobileView ? (busyNow ? (live ? (publishSlow ? "Still publishing" : "Publishing") : "Saving") : live ? "Publish" : pending ? "Save" : "Saved") : undefined}
+                  aria-label={isMobileView ? (busyNow ? (asPublish ? publishWords : "Saving") : asPublish ? "Publish" : pending ? "Save" : "Saved") : undefined}
                   className={cn(
                     "h-8 cursor-pointer min-w-[92px] rounded-full transition-all duration-200 gap-2",
                     /* On a phone an icon in a 40px round key (round 24): the word was a third of the bar. */
                     isMobileView && "h-10 w-10 min-w-0 px-0 gap-0",
                     // White on purple whatever the chrome's tone; the chrome's
                     // own text only on the chrome's own surface.
-                    live ? "bg-[#8B56FA] text-white hover:bg-[#7b46ec]" : "bg-[var(--wb-chrome-hover)] text-[var(--wb-chrome-fg)] hover:bg-[var(--wb-chrome-active)]",
+                    asPublish ? "bg-[#8B56FA] text-white hover:bg-[#7b46ec]" : "bg-[var(--wb-chrome-hover)] text-[var(--wb-chrome-fg)] hover:bg-[var(--wb-chrome-active)]",
                   )}
                   onClick={() => {
+                    if (firstOnPhone) { togglePanel(); return }
                     hapticTap("light")
                     if (!live) { void handleSave(); return }
                     setPublishOpen((v) => !v)
                     if (isMobileView) { setMobileSidebarOpen(false); setAiOpen(false) }
                   }}
-                  disabled={busyNow || (!live && !pending)}
+                  /* Not live, on a computer: Save, busy while it saves and off while a publish from beside it runs. */
+                  disabled={asPublish ? busyNow : saving || publishing || !pending}
                 >
-                  {busyNow ? (
+                  {(asPublish ? busyNow : saving) ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : isMobileView ? (
                     <span className="relative">
@@ -12195,8 +12229,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   ) : live ? (
                     <span className={cn("h-2 w-2 rounded-full", pending ? "bg-white" : "bg-white/50")} />
                   ) : null}
-                  <span className={cn(isMobileView && "sr-only")}>{busyNow ? (live ? (publishSlow ? "Still publishing" : "Publishing") : "Saving") : live ? "Publish" : pending ? "Save" : "Saved"}</span>
+                  <span className={cn(isMobileView && "sr-only")}>{asPublish ? (busyNow ? publishWords : "Publish") : saving ? "Saving" : pending ? "Save" : "Saved"}</span>
                 </Button>
+                {!live && !isMobileView && (
+                  <Button
+                    size="sm"
+                    data-editor-first-publish=""
+                    aria-haspopup="dialog"
+                    aria-expanded={publishOpen}
+                    className="h-8 cursor-pointer min-w-[92px] rounded-full gap-2 bg-[#8B56FA] text-white transition-colors duration-200 hover:bg-[#7b46ec]"
+                    onClick={togglePanel}
+                    disabled={publishing}
+                  >
+                    {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <span aria-hidden className="h-2 w-2 rounded-full bg-white/50" />}
+                    <span>{publishWords}</span>
+                  </Button>
+                )}
                 <PublishPanel
                   open={publishOpen}
                   installId={installId}
@@ -12210,7 +12258,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   websiteUrl={websiteUrl}
                   websiteUrlDisplay={websiteUrlDisplay}
                   busy={busyNow}
-                  onPublish={() => { void handleSave() }}
+                  replaces={liveElsewhere}
+                  wentLive={wentLive}
+                  /* Live: Publish changes, as before. Not live: saved first, then published through the same route (publishChanges). */
+                  onPublish={() => { if (live) void handleSave(); else void publishChanges() }}
                   /* The phone's sheet ends with what is connected, from the
                      same read as the bar's mark. Something connected opens
                      where the mark does; nothing yet opens Connections on

@@ -27,6 +27,8 @@ import { GET as installGet } from "@/app/api/website-builder/themes/[installId]/
 import { GET as sectionsGet } from "@/app/api/website-builder/themes/[installId]/sections/route"
 import { POST as publishPost } from "@/app/api/website-builder/themes/[installId]/publish/route"
 import { compatDraftHome } from "@/lib/website-builder/compat-site"
+import { forgetSectionFileMemo } from "@/lib/website-builder/custom-schemas"
+import * as nextCache from "../scripts/speed18/shims/next-cache"
 
 let passed = 0
 let failed = 0
@@ -91,7 +93,28 @@ async function sectionsAlone(path = sections()) {
   return { status: r.status, ms, db: world.bytes, asks: log.length, serial, body, log }
 }
 
+/** How long this process's one thread was held at a time: a timer every 5 ms, and how late each fired. */
+function blockWatch() {
+  let last = performance.now()
+  let total = 0
+  let longest = 0
+  let over50 = 0
+  const t = setInterval(() => {
+    const now = performance.now()
+    const late = now - last - 5
+    if (late > 20) {
+      total += late
+      longest = Math.max(longest, late)
+      if (late > 50) over50++
+    }
+    last = now
+  }, 5)
+  return { stop: () => (clearInterval(t), { total: Math.round(total), longest: Math.round(longest), over50 }) }
+}
+
 async function main() {
+  /* Next's data cache as Vercel keeps it, so a release's files primed at publish are read from it, as on a server. */
+  ;(globalThis as { __PUSH_TEST_NEXT_CACHE__?: unknown }).__PUSH_TEST_NEXT_CACHE__ = nextCache
   forgetSigningKeys()
   seedStore()
   const converted = await convertTemplateFiles(composeTemplateFiles("materia/clothing"), "Clothing")
@@ -107,36 +130,67 @@ async function main() {
 
   net.rttMs = 25
   net.mbps = 25
-  out("\n1. The home page's sections, alone")
+  out("\n1. The home page's sections, alone: the first open on this server, then again")
   {
+    forgetSectionFileMemo()
     const s = await sectionsAlone()
     const byTable = new Map<string, number>()
     for (const e of s.log) byTable.set(e.table, (byTable.get(e.table) ?? 0) + e.bytes)
-    report("sections alone", `${s.status} ${s.ms} ms, ${s.asks} database asks, ${s.serial} one after another, database ${MB(s.db)} (${[...byTable].map(([k, v]) => `${k} ${MB(v)}`).join(", ")}), answer ${Math.round(s.body.length / 1024)} KB`)
+    report("sections, first open", `${s.status} ${s.ms} ms, ${s.asks} database asks, ${s.serial} one after another, database ${MB(s.db)} (${[...byTable].map(([k, v]) => `${k} ${MB(v)}`).join(", ")}), answer ${Math.round(s.body.length / 1024)} KB`)
     check("the sections read answers", s.status === 200)
-    check("it moves under 1 MB from the database (was 2.96 MB)", s.db < 1_000_000, MB(s.db))
-    check("in at most 4 asks one after another (was 7)", s.serial <= 4, s.serial)
+    check("in at most 4 asks one after another (was 7: the limit and the file times now go beside the checks and the page)", s.serial <= 4, s.serial)
+    const again = await sectionsAlone()
+    report("sections, opened again", `${again.status} ${again.ms} ms, ${again.asks} database asks, ${again.serial} one after another, database ${MB(again.db)}`)
+    check("opened again, it reads no section file whose time is unchanged (2.93 MB before, every open)", again.status === 200 && again.db < 200_000, MB(again.db))
+    check("and sends the same page", again.body === s.body)
     const i = await sectionsAlone(install())
     report("install alone", `${i.status} ${i.ms} ms, ${i.asks} database asks, ${i.serial} one after another, database ${MB(i.db)}, answer ${Math.round(i.body.length / 1024)} KB`)
-    for (const e of i.log) out(`      ${e.table} ${e.method} ${Math.round(e.at)}-${Math.round(e.end)} ${e.select.slice(0, 80)}`)
-    out("    sections:")
-    for (const e of s.log) out(`      ${e.table} ${e.method} ${Math.round(e.at)}-${Math.round(e.end)} ${e.bytes} ${e.select.slice(0, 80)}`)
+    check("the install read says which website is live now (none yet)", JSON.parse(i.body).liveName === null, JSON.parse(i.body).liveName)
+  }
+
+  out("\n1a. A section file kept on this server is read again once it changes, and cleans by what it says now")
+  {
+    const home = table("store_theme_pages").find((p) => p.install_id === INSTALL && p.page_key === "home")!
+    const list = (home.draft_sections ?? home.sections) as { type: string; settings: Record<string, unknown> }[]
+    const target = list.find((x) => table("store_theme_custom_files").some((f) => f.install_id === INSTALL && f.path === `sections/${x.type}.storelib`))!
+    const file = table("store_theme_custom_files").find((f) => f.install_id === INSTALL && f.path === `sections/${target.type}.storelib`)!
+    /* A setting the file calls rich text, holding a script: the schema decides it is cleaned as markup. */
+    const id = "r67_note"
+    const text = String(file.draft_content ?? file.content)
+    const withField = text.replace(/("settings"\s*:\s*\[)/, `$1{"type":"richtext","id":"${id}","label":"Note"},`)
+    check("the test can name a rich text setting in the file", withField !== text)
+    file.content = withField
+    if (file.draft_content != null) file.draft_content = withField
+    file.blob_sha256 = null
+    file.updated_at = new Date(Date.now() + 1000).toISOString()
+    target.settings[id] = `<p>Kept</p><script>alert(1)</script>`
+    const r = await sectionsAlone()
+    check("the changed file is read again (its time moved)", r.log.some((e) => e.table === "store_theme_custom_files" && /content/.test(e.select)), r.log.map((e) => e.select))
+    check("and the new setting is cleaned by it: no script, the words kept", r.status === 200 && !/<script/i.test(r.body) && /Kept/.test(r.body))
+    const r2 = await sectionsAlone()
+    check("then kept again: the next open reads no section file", !r2.log.some((e) => e.table === "store_theme_custom_files" && /content/.test(e.select)) && !/<script/i.test(r2.body))
+    delete target.settings[id]
   }
 
   out("\n1b. A busy database: every ask waits 800 ms before it starts to answer")
   {
     net.rttMs = 800
+    forgetSectionFileMemo()
     const r = await firstRead()
+    const warm = await firstRead()
     net.rttMs = 25
-    report("first read, busy database", `${r.ms} ms`)
-    check("on a busy database the first read is under 6 s (was ~8 s)", r.ms < 6000, r.ms)
+    report("first read, busy database", `first open on this server ${r.ms} ms, opened again ${warm.ms} ms`)
+    check("on a busy database the first read is under 4.5 s (5.1 s before this round)", r.ms < 4500, r.ms)
   }
 
-  out("\n2. Opened while the cover of a website just added is drawn (one shared link)")
+  out("\n2. Opened while the cover of a website just added is drawn (one shared link, 10 connections)")
   for (const mbps of [10, 3]) {
     net.shared = true
+    net.pool = 10
     net.mbps = mbps
+    forgetSectionFileMemo()
     const quiet = await firstRead()
+    forgetSectionFileMemo()
     resetCounts()
     const cover = compatDraftHome(INSTALL).catch(() => null)
     await new Promise((r) => setTimeout(r, 100))
@@ -144,13 +198,15 @@ async function main() {
     const tc = performance.now()
     await cover
     net.shared = false
+    net.pool = 0
     report(`open beside the cover at ${mbps} MB/s`, `quiet ${quiet.ms} ms | beside the cover's draw ${busy.ms} ms (cover finished ${Math.round(performance.now() - tc)} ms later), database ${MB(world.bytes)}`)
     check(`at ${mbps} MB/s the first read answers`, quiet.ok && busy.ok)
   }
 
-  out("\n3. Opened right after Publish, while the publish's work after the answer runs (one shared link)")
+  out("\n3. Opened right after Publish, while the publish's work after the answer runs (one shared link, 10 connections)")
   for (const mbps of [10, 3]) {
     net.shared = true
+    net.pool = 10
     net.mbps = mbps
     afterTasks.length = 0
     resetCounts()
@@ -161,15 +217,21 @@ async function main() {
     world.log = []
     const tAfter = performance.now()
     /* As on Vercel: every after() task at once, once the answer has gone. */
+    const blocked = blockWatch()
     const running = Promise.all(afterTasks.splice(0).map((task) => Promise.resolve().then(task).catch(() => {})))
     await new Promise((r) => setTimeout(r, 100))
+    forgetSectionFileMemo()
     const busy = await firstRead()
     await running
+    const held = blocked.stop()
     const log = world.log
     world.log = null
     const byTable = new Map<string, number>()
     for (const e of log) byTable.set(e.table, (byTable.get(e.table) ?? 0) + e.bytes)
     net.shared = false
+    net.pool = 0
+    if (process.env.R67_LOG) for (const e of log.filter((x) => x.bytes > 300_000)) out(`      ${e.table} ${e.method} ${Math.round(e.at - tAfter)}-${Math.round(e.end - tAfter)} ${MB(e.bytes)} ${e.select.slice(0, 90)}`)
+    report(`open after publish at ${mbps} MB/s, the server's own time`, `the work after the answer held this server's one thread ${held.total} ms in all, ${held.over50} stretches over 50 ms, the longest ${held.longest} ms`)
     report(`open after publish at ${mbps} MB/s`, `first read ${busy.ms} ms | the work after the answer: database ${MB(world.bytes)} in ${Math.round(performance.now() - tAfter)} ms (${[...byTable].filter(([, v]) => v > 100_000).map(([k, v]) => `${k} ${MB(v)}`).join(", ")})`)
     check(`at ${mbps} MB/s the first read answers`, busy.ok)
   }

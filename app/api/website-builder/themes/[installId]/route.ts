@@ -77,6 +77,23 @@ async function creatorCollectionsForBuilder(creatorId: string) {
   }
 }
 
+/**
+ * The name of the store's website that is live now, when it is not this one;
+ * null when none is, or this one is; undefined when it could not be read.
+ * Read as the caller (row level security), by the store's id.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function liveWebsiteName(db: { from(table: string): any }, creatorId: string, installId: string): Promise<string | null | undefined> {
+  try {
+    const { data, error } = await db.from("store_theme_installs").select("id, name").eq("creator_id", creatorId).eq("status", "published").limit(1)
+    if (error) return undefined
+    const row = ((data ?? []) as { id: string; name: string | null }[])[0]
+    return row && row.id !== installId ? String(row.name ?? "") : null
+  } catch {
+    return undefined
+  }
+}
+
 // ── Auth helper ──────────────────────────────────────────────
 /* The owner, or a team member with Website working in the store (lib/team/website): the site in the URL must be the store's. */
 /* Round 50: a GET takes the request's read answer (lib/auth/route-user readerForRequest: Supabase Auth, or the token's verified signature when Auth is slow), as every other read does since round 49. A change still needs Auth itself. Row level security applies to every query either way. */
@@ -114,6 +131,8 @@ export async function GET(_req: Request, { params }: Params) {
     creatorFormsForBuilder(creator!.id, ownerUserId ?? null),
     /* The store's menus, which every theme shares (lib/website-builder/store-menus-server.ts). */
     builderStoreMenus(creator!.id, installId),
+    /* The website live now, when it is another one: what the editor's Publish says it replaces (round 67). Its name only. */
+    liveWebsiteName(supabase!, creator!.id, installId),
   ])
   /* Handled at once, so a read that fails while the row is still on its way is never an unhandled rejection; awaited below as before. */
   besides.catch(() => {})
@@ -176,7 +195,7 @@ export async function GET(_req: Request, { params }: Params) {
   }
 
   /* The creator's public profile comes along for the canvas to fill `{{ creator.name }}` the way the live site will: the same four public facts, nothing else. */
-  const [{ data: profile }, { data: creatorData }, siteHandle, facts, communities, collections, forms, storeMenus] = await besides
+  const [{ data: profile }, { data: creatorData }, siteHandle, facts, communities, collections, forms, storeMenus, liveName] = await besides
 
   // Username for URL display
   const username = profile?.username || creatorData?.slug || ""
@@ -189,7 +208,7 @@ export async function GET(_req: Request, { params }: Params) {
     no sections here (round 65), so only the settings have anything to clean.
   */
   /* storeOwner: for a team member, the account whose folder the editor's pictures go into (lib/website-builder/team-upload-owner); null for the owner. */
-  return NextResponse.json({ install: sanitizeInstallRow(data), username, siteHandle, creatorFacts: facts, communities, collections, forms, storeMenus, storeOwner: isOwner ? null : ownerUserId })
+  return NextResponse.json({ install: sanitizeInstallRow(data), username, siteHandle, creatorFacts: facts, communities, collections, forms, storeMenus, liveName, storeOwner: isOwner ? null : ownerUserId })
 }
 
 // PATCH /api/website-builder/themes/[installId]

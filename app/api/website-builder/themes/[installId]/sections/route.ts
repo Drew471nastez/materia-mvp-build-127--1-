@@ -3,7 +3,8 @@ import { websiteInstallCaller } from "@/lib/team/website"
 import { blockTreeProblem } from "@/lib/website-builder/block-tree"
 import { BlockInstanceSchema } from "@/lib/website-builder/block-tree-schema"
 import { readOwnSectionFields, sanitizeSections } from "@/lib/website-builder/sanitize-sections"
-import { customSchemaLookup } from "@/lib/website-builder/custom-schemas"
+import { customSchemaLookup, sectionFileStamps } from "@/lib/website-builder/custom-schemas"
+import { fileCols } from "@/lib/website-builder/theme-file-refs"
 import { withOverlayFilledIn } from "@/lib/website-builder/compat-overlay-repair"
 import { GENERATED_PAGE_KEYS, isPageKey } from "@/lib/website-builder/site-pages"
 import { collectionSections, collectionsPageSections, notFoundSections, searchSections, shopSections } from "@/lib/website-builder/shop-page"
@@ -55,8 +56,8 @@ const PutBodySchema = z.object({
 
 /* The owner, or a team member with Website working in the store (lib/team/website): the site in the URL must be the store's. */
 /* Round 50: a GET takes the request's read answer (lib/auth/route-user readerForRequest: Supabase Auth, or the token's verified signature when Auth is slow), as every other read does since round 49. A change still needs Auth itself. Row level security applies to every query either way. */
-async function getCreatorInstall(installId: string, read = false) {
-  const c = await websiteInstallCaller(installId, "id, creator_id", { read })
+async function getCreatorInstall(installId: string, read = false, beside?: (userId: string) => void) {
+  const c = await websiteInstallCaller(installId, "id, creator_id", { read, beside })
   if (c.error !== null) return { error: c.error, status: c.status, supabase: null }
   // The creator id comes back too: a write that lands on the LIVE columns
   // has to throw away the cached published site, and that cache is keyed by
@@ -67,11 +68,32 @@ async function getCreatorInstall(installId: string, read = false) {
 // GET /api/website-builder/themes/[installId]/sections?page=home
 export async function GET(req: Request, { params }: Params) {
   const { installId } = await params
-  const { error, status, supabase, userId, creatorId } = await getCreatorInstall(installId, true)
-  if (error || !supabase) return NextResponse.json({ error }, { status })
+  /*
+    THE LIMIT BESIDE THE CHECKS, NOT AFTER THEM (round 67). The editor's
+    first open waits on this read, and on a busy database each ask one after
+    another is a wait of its own: the person's read limit is asked as soon
+    as they are known, beside the checks that the store is theirs and this
+    website the store's. Both are waited for before anything of the website
+    is read, and a limited read is refused as before (counted whether or not
+    the website turns out to be theirs, which only counts more).
+  */
+  let limitAsked: Promise<Response | null> | null = null
+  const { error, status, supabase, userId, creatorId } = await getCreatorInstall(installId, true, (who) => {
+    limitAsked = rateLimit({ bucket: "site-sections-read", subjects: [`user:${who}`], windows: RATE_LIMITS.siteRead })
+    limitAsked.catch(() => {})
+  })
+  if (error || !supabase) {
+    if (limitAsked) await (limitAsked as Promise<Response | null>).catch(() => null)
+    return NextResponse.json({ error }, { status })
+  }
 
-  const limited = await rateLimit({ bucket: "site-sections-read", subjects: [`user:${userId}`], windows: RATE_LIMITS.siteRead })
+  const limited = await (limitAsked ?? rateLimit({ bucket: "site-sections-read", subjects: [`user:${userId}`], windows: RATE_LIMITS.siteRead }))
   if (limited) return limited
+  /* The times of the website's section files, beside the page: a file this server read at its time is not read again (custom-schemas.ts). */
+  const stamps = sectionFileStamps(supabase, installId)
+  stamps.catch(() => {})
+  /* Whether the files carry references (theme-file-refs.ts), asked once per server: beside the page too, not after it. */
+  void fileCols("path").catch(() => "")
 
   const { searchParams } = new URL(req.url)
   const pageKey = searchParams.get("page") ?? "home"
@@ -175,7 +197,7 @@ export async function GET(req: Request, { params }: Params) {
   const lookup = await customSchemaLookup(supabase as never, installId, [
     ...((data?.sections as SectionInstance[] | null) ?? []),
     ...((data?.draft_sections as SectionInstance[] | null) ?? []),
-  ], { draft: true })
+  ], { draft: true, stamps })
   const clean = sanitizeSections(sections ?? [], lookup)
   const page = data
     ? {

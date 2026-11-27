@@ -40,7 +40,26 @@ const cookie = "base64-" + Buffer.from(JSON.stringify({ access_token: token, ref
  * those in flight (a database that has so much reading to do a second), so a
  * large read slows a small one beside it.
  */
-export const net = { rttMs: 25, mbps: 25, authMs: 40, shared: false }
+export const net = { rttMs: 25, mbps: 25, authMs: 40, shared: false, pool: 0 }
+
+/*
+  THE DATABASE'S CONNECTIONS (round 67, `pool`): at most this many asks are
+  answered at once, the rest wait their turn in order, as PostgREST's pool
+  holds a connection for the whole of an ask. 0: no limit (as before).
+*/
+let inPool = 0
+const poolQueue: (() => void)[] = []
+async function poolSlot(): Promise<() => void> {
+  if (net.pool > 0 && inPool >= net.pool) await new Promise<void>((r) => poolQueue.push(r))
+  inPool++
+  let freed = false
+  return () => {
+    if (freed) return
+    freed = true
+    inPool--
+    poolQueue.shift()?.()
+  }
+}
 
 type Flow = { left: number; done: () => void }
 const flows = new Set<Flow>()
@@ -74,9 +93,14 @@ function sharedTransfer(bytes: number): Promise<void> {
   })
 }
 async function transfer(bytes: number): Promise<void> {
-  await new Promise((r) => setTimeout(r, net.rttMs))
-  if (net.shared) await sharedTransfer(bytes)
-  else await new Promise((r) => setTimeout(r, (bytes / (net.mbps * 1e6)) * 1000))
+  const free = await poolSlot()
+  try {
+    await new Promise((r) => setTimeout(r, net.rttMs))
+    if (net.shared) await sharedTransfer(bytes)
+    else await new Promise((r) => setTimeout(r, (bytes / (net.mbps * 1e6)) * 1000))
+  } finally {
+    free()
+  }
 }
 
 export const world = {
