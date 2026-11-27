@@ -33,6 +33,16 @@ const RECORD = (match: string) => {
   const w = window as unknown as { __em: { starts: string[]; dips: string[]; on: boolean } }
   const sec = () => [...document.querySelectorAll<HTMLElement>(".shopify-section")].find((s) => s.id.includes(match)) ?? null
   w.__em = { starts: [], dips: [], on: true }
+  const anyW = window as unknown as { __emAnimate?: boolean }
+  if (!anyW.__emAnimate) {
+    anyW.__emAnimate = true
+    const orig = Element.prototype.animate
+    Element.prototype.animate = function (this: Element, ...args: Parameters<Element["animate"]>) {
+      const a = orig.apply(this, args)
+      try { (a as unknown as { __stack: string }).__stack = (new Error().stack ?? "").split("\n").slice(2, 4).map((l) => l.trim().slice(0, 90)).join(" < ") } catch {}
+      return a
+    }
+  }
   const seen = new WeakSet<Animation>()
   const tick = () => {
     if (!w.__em.on) return
@@ -50,7 +60,7 @@ const RECORD = (match: string) => {
         try { for (const k of eff!.getKeyframes()) for (const p of Object.keys(k)) if (!["offset", "easing", "composite", "computedOffset"].includes(p)) props.add(p) } catch {}
         if (![...props].some((p) => /opacity|transform|translate|scale|filter|clip/i.test(p))) continue
         const name = (a as CSSAnimation).animationName ?? (a.constructor.name)
-        w.__em.starts.push(`${t.tagName.toLowerCase()}.${String(t.className).slice(0, 40)} ${name} [${[...props].join(",")}] ${Math.round(Number(timing.endTime))}ms state=${a.playState}`)
+        w.__em.starts.push(`${t.tagName.toLowerCase()}.${String(t.className).slice(0, 40)} ${name} [${[...props].join(",")}] ${Math.round(Number(timing.endTime))}ms state=${a.playState}${(a as unknown as { __stack?: string }).__stack ? " @ " + (a as unknown as { __stack: string }).__stack : ""}`)
       }
       const r = s.getBoundingClientRect()
       if (r.bottom > 0 && r.top < innerHeight) {
@@ -68,57 +78,72 @@ const RECORD = (match: string) => {
   requestAnimationFrame(tick)
 }
 
+async function editOne(ed: Awaited<ReturnType<typeof editorFor>>, id: string) {
+  let f: Frame = await ed.frame()
+  const fb = (await (await ed.page.$("[data-compat-frame='front']"))!.boundingBox())!
+  const short = id.replace("shopify-section-", "")
+  await f.evaluate((sid) => document.getElementById(sid)?.scrollIntoView({ block: "start" }), id)
+  await sleep(1400)
+  await f.evaluate(RECORD, short)
+  // 1. Select it by a click in the canvas, on its heading or else its middle.
+  const at = await f.evaluate((sid) => {
+    const s = document.getElementById(sid)
+    if (!s) return null
+    const free = (x: number, y: number) => { const e = document.elementFromPoint(x, y); return !!e && s.contains(e) && !e.closest("a, button, input, select, textarea, label, summary, [role='button'], [role='tab']") }
+    const h = s.querySelector<HTMLElement>("h1, h2, h3, [class*='heading']")
+    if (h) { const r = h.getBoundingClientRect(); const p = { x: r.left + Math.min(40, r.width / 2), y: r.top + r.height / 2 }; if (r.height > 2 && p.y > 0 && p.y < innerHeight && free(p.x, p.y)) return p }
+    const r = s.getBoundingClientRect()
+    for (let y = Math.max(r.top + 10, 10); y < Math.min(r.bottom, innerHeight) - 4; y += 23) for (let x = r.left + 10; x < r.right - 4; x += 37) if (free(x, y)) return { x, y }
+    return null
+  }, id)
+  if (!at) { console.log(`  --    ${short}: nothing to click`); return }
+  await ed.page.mouse.click(fb.x + at.x, fb.y + at.y)
+  await sleep(1600)
+  const sel = await f.evaluate(() => { const w = window as unknown as { __em: { starts: string[]; dips: string[] } }; const r = { starts: [...w.__em.starts], dips: [...new Set(w.__em.dips)] }; w.__em.starts = []; w.__em.dips = []; return r })
+  check(`${short}: selecting it starts no entrance`, sel.starts.length === 0, sel.starts.slice(0, 4))
+  check(`${short}: selecting it dims nothing`, sel.dips.length === 0, sel.dips.slice(0, 4))
+  // 2. The first text of the selected thing changed in the sidebar.
+  const typed = await ed.page.evaluate(() => {
+    const aside = document.querySelector("aside, [data-wb-sidebar]") ?? document.body
+    const fields = [...aside.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input[type='text'], input:not([type]), textarea")].filter((i) => { const r = i.getBoundingClientRect(); return r.width > 60 && r.left < 320 && i.value.trim().length > 1 && !/^#|^https?:|^\/|^\d/.test(i.value.trim()) })
+    const i = fields[0]
+    if (!i) return null
+    const proto = i instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
+    Object.getOwnPropertyDescriptor(proto, "value")!.set!.call(i, i.value + " Now")
+    i.dispatchEvent(new Event("input", { bubbles: true }))
+    i.dispatchEvent(new Event("change", { bubbles: true }))
+    return i.value
+  })
+  await sleep(2600)
+  f = await ed.frame()
+  const ed2 = await f.evaluate((sid) => { const w = window as unknown as { __em?: { starts: string[]; dips: string[] } }; return w.__em ? { starts: [...w.__em.starts], dips: [...new Set(w.__em.dips)], has: (document.getElementById(sid)?.textContent ?? "").includes("Now") } : null }, id)
+  if (!typed) { console.log(`  --    ${short}: no text field to change`); return }
+  if (!ed2) { check(`${short}: the page stays (no reload)`, false); return }
+  check(`${short}: the new text is drawn`, ed2.has, typed.slice(0, 40))
+  check(`${short}: changing its text starts no entrance`, ed2.starts.length === 0, ed2.starts.slice(0, 4))
+  check(`${short}: changing its text dims nothing`, ed2.dips.length === 0, ed2.dips.slice(0, 4))
+  await ed.page.keyboard.press("Escape")
+  await sleep(300)
+}
+
 void (async () => {
   const browser = await puppeteer.launch({ executablePath: "/opt/pw-browsers/chromium", headless: true, args: ["--no-sandbox"] })
   const zip = await JSZip.loadAsync(await composeTemplateZip(`materia/${TEMPLATE}`))
+  if (process.env.ANIM) {
+    const data = JSON.parse(await zip.file("config/settings_data.json")!.async("string")) as { current: Record<string, unknown> }
+    data.current.scroll_animation = process.env.ANIM
+    zip.file("config/settings_data.json", JSON.stringify(data))
+  }
   const ed = await editorFor(browser, 1440, 900, false, undefined, zip)
   let f: Frame = await ed.frame()
   await sleep(3500)
   f = await ed.frame()
-  const id = await f.evaluate((m) => [...document.querySelectorAll(".shopify-section")].find((s) => s.id.includes(m))?.id ?? null, SECTION)
-  console.log(`${TEMPLATE}: section ${id}`)
-  if (!id) { await browser.close(); process.exit(1) }
-  const fb = (await (await ed.page.$("[data-compat-frame='front']"))!.boundingBox())!
-  const heading = await f.evaluate((sid) => {
-    const s = document.getElementById(sid)!
-    s.scrollIntoView({ block: "start" })
-    const h = s.querySelector<HTMLElement>("h1, h2, [class*='heading']")
-    if (!h) return null
-    const r = h.getBoundingClientRect()
-    return { x: r.left + Math.min(40, r.width / 2), y: r.top + r.height / 2, text: (h.textContent ?? "").trim() }
-  }, id)
-  await sleep(1200)
-  await f.evaluate(RECORD, SECTION)
-  // 1. Select it by a click in the canvas.
-  const at = await f.evaluate((sid) => { const h = document.getElementById(sid)!.querySelector<HTMLElement>("h1, h2, [class*='heading']")!; const r = h.getBoundingClientRect(); return { x: r.left + Math.min(40, r.width / 2), y: r.top + r.height / 2 } }, id)
-  await ed.page.mouse.click(fb.x + at.x, fb.y + at.y)
-  await sleep(1800)
-  await ed.page.screenshot({ path: `${OUT}/edit-${TEMPLATE}-selected.png` })
-  const sel = await f.evaluate(() => { const w = window as unknown as { __em: { starts: string[]; dips: string[] } }; const r = { starts: [...w.__em.starts], dips: [...new Set(w.__em.dips)] }; w.__em.starts = []; w.__em.dips = []; return r })
-  check("selecting it starts no entrance", sel.starts.length === 0, sel.starts.slice(0, 6))
-  check("selecting it dims nothing", sel.dips.length === 0, sel.dips.slice(0, 6))
-  // 2. Its heading's words changed in the sidebar.
-  const typed = await ed.page.evaluate((text: string) => {
-    const fields = [...document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input, textarea")].filter((i) => i.getClientRects().length && i.value.trim() === text)
-    const editable = [...document.querySelectorAll<HTMLElement>("[contenteditable='true']")].filter((e) => e.getClientRects().length && (e.textContent ?? "").trim() === text)
-    const i = fields[0]
-    if (i) {
-      const proto = i instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
-      Object.getOwnPropertyDescriptor(proto, "value")!.set!.call(i, text + " Now")
-      i.dispatchEvent(new Event("input", { bubbles: true }))
-      i.dispatchEvent(new Event("change", { bubbles: true }))
-      return "input"
-    }
-    if (editable[0]) { editable[0].focus(); document.execCommand("insertText", false, " Now"); return "rich" }
-    return null
-  }, heading?.text ?? "")
-  console.log("  heading field:", typed)
-  await sleep(2500)
-  const ed2 = await f.evaluate((sid) => { const w = window as unknown as { __em: { starts: string[]; dips: string[] } }; return { starts: [...w.__em.starts], dips: [...new Set(w.__em.dips)], text: document.getElementById(sid)?.querySelector("h1, h2, [class*='heading']")?.textContent?.trim() } }, id)
-  await ed.page.screenshot({ path: `${OUT}/edit-${TEMPLATE}-typed.png` })
-  check("the new heading is drawn", !!typed && !!ed2.text?.endsWith("Now"), ed2.text)
-  check("changing the heading starts no entrance", ed2.starts.length === 0, ed2.starts.slice(0, 8))
-  check("changing the heading dims nothing", ed2.dips.length === 0, ed2.dips.slice(0, 8))
+  const ids = await f.evaluate((m) => [...document.querySelectorAll(".shopify-section")].filter((s) => !/header|footer|announcement|popup|drawer|overlay/i.test(s.id) && s.getBoundingClientRect().height > 40 && (m === "all" || s.id.includes(m))).map((s) => s.id), SECTION)
+  console.log(`${TEMPLATE}: ${ids.length} sections`)
+  for (const id of SECTION === "all" ? ids : ids.slice(0, 1)) {
+    try { await editOne(ed, id) } catch (e) { check(`${id}: probe ran`, false, String(e).slice(0, 120)) }
+  }
+  await ed.page.screenshot({ path: `${OUT}/edit-${TEMPLATE}-last.png` })
   ed.close()
   await browser.close()
   console.log(failed ? `\n${failed} failed` : "\nall ok")

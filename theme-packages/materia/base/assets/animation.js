@@ -323,7 +323,11 @@ function initializeScrollAnimationTrigger(root = document, editorEvent = false) 
     // A section that plays a reveal style of its own (picked in the section)
     // keeps that one: its wrapper and the cards inside it do not move as well.
     const ownReveal = !!(el.closest(OWN_REVEAL) || el.querySelector(OWN_REVEAL));
-    if (essentialProductContent || container || ownReveal || editor || reducedMotion() || !revealObserver || el.hasAttribute(SCROLL_ANIMATION_DONE_ATTR)) {
+    // A section the builder drew again after an edit, that was seen or had
+    // already revealed (data-mt-redrawn, set by the canvas): shown as it was
+    // left, never played again (round 67).
+    const redrawn = !!el.closest('[data-mt-redrawn]');
+    if (essentialProductContent || container || ownReveal || editor || redrawn || reducedMotion() || !revealObserver || el.hasAttribute(SCROLL_ANIMATION_DONE_ATTR)) {
       revealObserver?.unobserve(el);
       revealArming.delete(el);
       markDone(el);

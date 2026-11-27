@@ -151,6 +151,12 @@
     if (shade === card) shade = null;
     return { card: card, shade: shade };
   }
+  // The opacity the section itself gives an element when it is open (no motion of ours on it).
+  function restOpacity(el) {
+    if (!el) return 1;
+    var v = parseFloat(getComputedStyle(el).opacity);
+    return v > 0.02 && v <= 1 ? v : 1;
+  }
   function canAnimate(el) { return !!(el && typeof el.animate === 'function') && !reduced(); }
   function settle(entry) {
     var m = entry.motion;
@@ -182,11 +188,15 @@
     var from = sheet ? 'translate3d(0,100%,0)' : 'translate3d(0,16px,0) scale(.98)';
     var to = sheet ? 'translate3d(0,0,0)' : 'translate3d(0,0,0) scale(1)';
     var o = { duration: OPEN_MS, easing: EASE_OUT, fill: 'both' };
+    // Each fades to the opacity its section gives it, never past it: a shade
+    // drawn at 0.5 that faded to 1 went near black and then jumped back
+    // lighter as the motion ended (round 67, scripts/check-popup-flash-r67.ts).
+    var cardTo = restOpacity(p.card), shadeTo = restOpacity(p.shade);
     var anims = [
       p.card.animate([{ transform: from, composite: 'add' }, { transform: to, composite: 'add' }], o),
-      p.card.animate([{ opacity: 0 }, { opacity: 1 }], { duration: sheet ? OPEN_MS : 220, easing: 'ease-out', fill: 'both' })
+      p.card.animate([{ opacity: 0 }, { opacity: cardTo }], { duration: sheet ? OPEN_MS : 220, easing: 'ease-out', fill: 'both' })
     ];
-    if (p.shade) anims.push(p.shade.animate([{ opacity: 0 }, { opacity: 1 }], { duration: OPEN_MS, easing: 'ease-out', fill: 'both' }));
+    if (p.shade) anims.push(p.shade.animate([{ opacity: 0 }, { opacity: shadeTo }], { duration: OPEN_MS, easing: 'ease-out', fill: 'both' }));
     anims.forEach(function (a) { a.pause(); });
     var els = [p.card].concat(p.shade ? [p.shade] : []);
     var m = entry.motion = { anims: anims, els: els };
@@ -211,12 +221,13 @@
     var to = sheet ? 'translate3d(0,100%,0)' : 'translate3d(0,16px,0) scale(.98)';
     var o = { duration: CLOSE_MS, easing: EASE_IN, fill: 'forwards' };
     var els = [p.card].concat(p.shade ? [p.shade] : []);
+    var cardFrom = restOpacity(p.card), shadeFrom = restOpacity(p.shade);
     els.forEach(function (el) { el.style.willChange = 'transform, opacity'; });
     var anims = [
       p.card.animate([{ transform: 'translate3d(0,0,0) scale(1)', composite: 'add' }, { transform: to, composite: 'add' }], o),
-      p.card.animate([{ opacity: 1 }, { opacity: 0 }], o)
+      p.card.animate([{ opacity: cardFrom }, { opacity: 0 }], o)
     ];
-    if (p.shade) anims.push(p.shade.animate([{ opacity: 1 }, { opacity: 0 }], o));
+    if (p.shade) anims.push(p.shade.animate([{ opacity: shadeFrom }, { opacity: 0 }], o));
     var m = entry.motion = { anims: anims, els: els, finish: null };
     var finished = false;
     var end = function () {
