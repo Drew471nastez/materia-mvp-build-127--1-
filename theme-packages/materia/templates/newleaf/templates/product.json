@@ -224,7 +224,9 @@
         "use_theme_button": true,
         "button_radius": 6,
         "padding_top": 88,
-        "padding_bottom": 88
+        "padding_bottom": 88,
+        "side_padding_desktop": 0,
+        "side_padding_mobile": 0
       },
       "blocks": {
         "eyebrow": {
