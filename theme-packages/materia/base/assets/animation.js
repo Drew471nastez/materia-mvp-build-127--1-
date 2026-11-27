@@ -11,8 +11,8 @@ const PART_TYPES = ['stagger_up', 'mask_reveal', 'split_text', 'editorial'];
 const MAX_PARTS = 14;
 // Sections whose own settings pick a reveal style play it themselves
 // (collection tabs, FAQ 1 to 4, countdown, scrolling text, marquee, logos,
-// XP shop's windows).
-const OWN_REVEAL = '[data-ct-reveal], [data-faq-reveal], [data-faq7-reveal], [data-xp-window][data-motion], [data-cd-reveal], .stm[data-lt-reveal], [data-own-reveal="true"], .lg[data-reveal="true"]';
+// the XP shop, Retro and VSL sections' own [data-motion]).
+const OWN_REVEAL = '[data-ct-reveal], [data-faq-reveal], [data-faq7-reveal], .xp [data-motion], .r98 [data-motion], .vsl [data-motion], [data-cd-reveal], .stm[data-lt-reveal], [data-own-reveal="true"], .lg[data-reveal="true"]';
 const revealInitialized = new WeakSet();
 const zoomInitialized = new WeakSet();
 const visibleZoom = new Set();

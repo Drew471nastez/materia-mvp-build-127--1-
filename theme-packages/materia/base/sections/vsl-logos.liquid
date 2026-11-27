@@ -47,8 +47,8 @@ Video sales letter: a row of logos or words under a small label, drifting
   .vsl--line::before { content: ""; position: absolute; left: 50%; top: 0; width: min(1120px, calc(100% - 40px)); height: 1px; transform: translateX(-50%); background: linear-gradient(90deg, rgba(var(--vsl-ink-rgb, 255,255,255),0), rgba(var(--vsl-ink-rgb, 255,255,255),.26) 50%, rgba(var(--vsl-ink-rgb, 255,255,255),0)); }
   .vsl--line::after { content: ""; position: absolute; left: 50%; top: 0; width: min(900px, 90%); height: 180px; transform: translateX(-50%); pointer-events: none; background: radial-gradient(50% 100% at 50% 0, rgba(var(--vsl-ink-rgb, 255,255,255),.07), rgba(var(--vsl-ink-rgb, 255,255,255),0)); }
   @media (max-width: 749px) { .vsl__eyebrow { letter-spacing: .18em; gap: 10px; } .vsl__eyebrow::before, .vsl__eyebrow::after { flex-basis: 22px; } .vsl__head { margin-bottom: 32px; } }
-  html.vsl-js .vsl [data-motion] { opacity: 0; transform: translate3d(0, 22px, 0); transition: opacity .9s cubic-bezier(.2,.65,.2,1), transform .9s cubic-bezier(.2,.65,.2,1); transition-delay: var(--d, 0ms); }
-  html.vsl-js .vsl [data-motion].is-in { opacity: 1; transform: none; }
+  html.vsl-js .vsl [data-motion][data-vsl-armed] { opacity: 0; transform: translate3d(0, 12px, 0); transition: opacity .45s cubic-bezier(.25,.6,.3,1), transform .45s cubic-bezier(.25,.6,.3,1); transition-delay: var(--d, 0ms); }
+  html.vsl-js .vsl [data-motion][data-vsl-armed].is-in { opacity: 1; transform: none; }
   @media (prefers-reduced-motion: reduce) {
     html.vsl-js .vsl [data-motion] { opacity: 1; transform: none; transition: none; }
     .vsl-btn, .vsl-btn::before, .vsl-btn svg { transition: none; }
@@ -110,7 +110,8 @@ Video sales letter: a row of logos or words under a small label, drifting
         entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('is-in'); window.__vslSeen.unobserve(e.target); } });
       }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
     }
-    root.querySelectorAll('[data-motion]:not(.is-in)').forEach(function (el) { window.__vslSeen.observe(el); });
+    /* Round 69: what is in the first screen is simply there; only what starts below it waits (armed). */
+    root.querySelectorAll('[data-motion]:not(.is-in)').forEach(function (el) { var r = el.getBoundingClientRect(); if (r.top < innerHeight && r.bottom > 0) { el.classList.add('is-in'); return; } el.setAttribute('data-vsl-armed', ''); window.__vslSeen.observe(el); });
   })();
 </script>
 

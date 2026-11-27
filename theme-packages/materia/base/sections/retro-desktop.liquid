@@ -85,8 +85,8 @@ Retro desktop: the computer the whole website sits on. Placed in the
   .r98-win.is-max { position: relative; z-index: 3; }
   .r98-win[data-r98-window] { transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .25s; }
   .r98-win.is-closing { opacity: 0; transform: scale(.96); }
-  html.r98-js .r98 [data-motion] { opacity: 0; transform: translate3d(0, 14px, 0) scale(.985); transition: opacity .55s cubic-bezier(.2,.7,.2,1), transform .55s cubic-bezier(.2,.7,.2,1); transition-delay: var(--d, 0ms); }
-  html.r98-js .r98 [data-motion].is-in { opacity: 1; transform: none; }
+  html.r98-js .r98 [data-motion][data-r98-armed] { opacity: 0; transform: translate3d(0, 12px, 0); transition: opacity .45s cubic-bezier(.25,.6,.3,1), transform .45s cubic-bezier(.25,.6,.3,1); transition-delay: var(--d, 0ms); }
+  html.r98-js .r98 [data-motion][data-r98-armed].is-in { opacity: 1; transform: none; }
   @media (prefers-reduced-motion: reduce) {
     html.r98-js .r98 [data-motion] { opacity: 1; transform: none; transition: none; }
     .r98-win[data-r98-window] { transition: none; }

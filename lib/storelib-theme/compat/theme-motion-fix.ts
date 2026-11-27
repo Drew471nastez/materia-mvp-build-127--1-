@@ -60,8 +60,9 @@
  *     section is, up to 635px tall. The root is always drawn now; new files
  *     reveal what is inside it, armed only below the first screen
  *     (data-faq-armed), and the theme's own reveal plays on old files.
- *     XP shop's windows faded in on load in the first screen too: only one
- *     below it waits now (data-xp-armed), 12px in 450ms.
+ *     The XP shop's, Retro's and the VSL funnels' own reveals ([data-motion])
+ *     faded the first screen in on load too (VSL: 22px over 0.9s): only what
+ *     starts below it waits now (data-*-armed), 12px in 450ms.
  *
  *  6. A SHADE FOLLOWS ITS PANEL. A phone's full-width menu darkened the page
  *     before its panel covered it (and stayed dark as it left): the backdrop
@@ -219,7 +220,7 @@ const REVEAL_FIX_CSS = [
   "[data-sl-noshade]{background-color:transparent!important}[data-sl-noshade]::before,[data-sl-noshade]::after{visibility:hidden!important}",
 ].join("")
 
-/* 7 above: an old FAQ 1, 2 or 3 root is never faded, moved or clipped (a new one never is, so this changes nothing there). XP shop's windows: an old file faded the one in the first screen in on load; only an armed one (new files, below the first screen) waits. */
-const FAQ_FIX_CSS = "[data-faq-root][data-faq-reveal]{opacity:1!important;transform:none!important;filter:none!important;clip-path:none!important}html.xp-js .xp [data-motion]:not([data-xp-armed]){opacity:1!important;transform:none!important}"
+/* 7 above: an old FAQ 1, 2 or 3 root is never faded, moved or clipped (a new one never is, so this changes nothing there). XP shop, Retro and VSL sections: an old file faded what is in the first screen in on load (VSL 22px over 0.9s); only an armed one (new files, below the first screen) waits. */
+const FAQ_FIX_CSS = "[data-faq-root][data-faq-reveal]{opacity:1!important;transform:none!important;filter:none!important;clip-path:none!important}html.xp-js .xp [data-motion]:not([data-xp-armed]),html.r98-js .r98 [data-motion]:not([data-r98-armed]),html.vsl-js .vsl [data-motion]:not([data-vsl-armed]){opacity:1!important;transform:none!important}"
 
 export const THEME_MOTION_FIX_HEAD = `<style data-sl-motion-fix>${MOTION_FIX_CSS}${REVEAL_FIX_CSS}</style><style data-sl-faq-fix>${FAQ_FIX_CSS}</style><script data-sl-popup-rest>try{(${installPopupRestOpacity.toString()})(window)}catch(e){}</script><script data-sl-popup-handoff>try{(${installPopupHandoff.toString()})(window)}catch(e){}</script>`
