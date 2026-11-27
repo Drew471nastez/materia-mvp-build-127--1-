@@ -414,6 +414,17 @@ html.nav-open :is(#materia-header, .shopify-section.section-header) header-inner
     align-items: center;
   }
   :is(#materia-header, .shopify-section.section-header) .header[data-actions-text] .header__action .header__wishlist svg { display: none !important; }
+  /* Round 67: the count sits in the icon's <h-count class="fs-0">, a box drawn at font size 0 for the icon, and the
+     count inherits its size, so "Wishlist" showed with no number after a heart was pressed (Redline). In text mode the
+     box takes the label's size, and the count reads "Wishlist (1)" as the cart reads "Cart (1)". */
+  :is(#materia-header, .shopify-section.section-header) .header[data-actions-text] .header__action .header__wishlist h-count {
+    display: inline-flex !important;
+    align-items: center;
+    position: static !important;
+    font-size: inherit !important;
+    line-height: inherit !important;
+    order: 2;
+  }
   :is(#materia-header, .shopify-section.section-header) .header[data-actions-text] .header__action .header__wishlist > :is(a, button):first-child::before,
   :is(#materia-header, .shopify-section.section-header) .header[data-actions-text] .header__action a.header__wishlist::before,
   :is(#materia-header, .shopify-section.section-header) .header[data-actions-text] .header__action .header__wishlist:not(a):not(:has(> a, > button))::before {

@@ -51,6 +51,25 @@
  *     given (object-fit: contain). A lazy logo (sizes="auto") is laid out by
  *     its attributes whatever the stylesheet says, so once its file is in it
  *     is given the file's shape (installLogoShape).
+ *
+ *  6. WISHLIST (N) IN A HEADER OF WORDS (round 67). Materia's "Show actions
+ *     as text" draws Wishlist as a label before the icon's count, and the
+ *     count sits in the icon's <h-count class="fs-0">, a box at font size 0,
+ *     whose size it inherits: a heart pressed, the count went to 1 and stayed
+ *     invisible, so the header read "Search Account Wishlist Cart (0)". The
+ *     box takes the label's size here, and the count reads "Wishlist (1)" as
+ *     the cart's reads "Cart (1)", kept current by the theme's own script on
+ *     a press, in another tab and on load.
+ *
+ *  7. A COUNT BUBBLE'S NUMBER FROM ITS OWN FILL (round 67). Materia works the
+ *     number's colour out from the bubble (header-section.css --cb-auto):
+ *     white under a luminance of 0.179, where white and black have the same
+ *     WCAG ratio, else black, which put a black number on Redline's intense
+ *     red (#f01a10, luminance 0.19). People read small bold figures on a
+ *     saturated colour as perceptual contrast (APCA) says, whose crossing is
+ *     near 0.31: white on red, orange, blue and mid grey, black on yellow,
+ *     light green, pastels and white. Only the line moves; a colour the
+ *     creator picked for the number, when it reads, still wins (--cb-text).
  */
 
 /** The widest a product card is drawn, in CSS pixels. */
@@ -119,6 +138,12 @@ export const SHOP_CALM_CSS = [
 
   /* 4. No wishlist on this store: no heart anywhere. */
   'html[data-sl-wishlist=off] :is(button-wishlist,.product-item__button-wishlist,.pc-heart,.product-form__wishlist,[data-wishlist-button],.qv__wish){display:none!important}',
+
+  /* 6. Wishlist (N) in a header of words: the count's box at the label's size, not the icon's 0. */
+  "@media (min-width:1025px){:is(#materia-header,.shopify-section.section-header) .header[data-actions-text] .header__action .header__wishlist h-count{display:inline-flex!important;align-items:center;position:static!important;font-size:inherit!important;line-height:inherit!important;order:2}}",
+
+  /* 7. A count bubble's number from its own fill: the line at a luminance of 0.31 (one class more than Materia's rule). */
+  "@supports (color:color(from red srgb-linear r g b)){html body .h-count.h-count:not(.header-action-text .h-count),html body .wishlist-count-header.wishlist-count-header{--cb-auto:clamp(0,(0.31 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 100000,1)}}",
 
   /* 5. A logo keeps its shape. */
   `:where(${LOGO_PLACES}){height:auto}`,

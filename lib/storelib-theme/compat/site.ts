@@ -669,6 +669,7 @@ export function tabTitleOf(site: Pick<SiteData, "shop" | "seo">, page: CompatPag
     ? { kind: "home" }
     : t === "product" ? { kind: "product", name: String(page.product?.settings?.title ?? "") || name }
     : t === "collection" ? { kind: "collection", name: page.collection?.title || name }
+    : t === "search" && page.suffix === "wishlist" && !page.search?.terms ? { kind: "page", name: page.title || "Wishlist" }
     : t === "search" ? { kind: "search", query: page.search?.terms ?? "" }
     : t === "cart" ? { kind: "cart" }
     : t === "404" ? { kind: "not-found" }
@@ -820,6 +821,14 @@ const SAMPLE_CUSTOMER = { name: "Sample customer", first_name: "Sample", email: 
  */
 export function canvasAccountPage(site: SiteData, path: string, opts: { extraHead?: string; extraBodyEnd?: string } = {}): { path: string; html: string } | null {
   const clean = path.split(/[?#]/)[0].replace(/\/+$/, "") || "/"
+  /* The theme's own Wishlist page (themeWishlist), its cards those the canvas's hearts saved (round 67). */
+  if (isWishlistPath(clean)) {
+    const req: SiteRequest = { method: "GET", path: clean, query: new URLSearchParams(), body: null, cart: [] }
+    const route = themeWishlist({ ...site, designMode: true }, req, clean)
+    if (!route) return null
+    const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: opts.extraHead, extraBodyEnd: opts.extraBodyEnd })
+    return { path: clean, html: drawn.html }
+  }
   if (!(CANVAS_ACCOUNT_PATHS as readonly string[]).includes(clean)) return null
   const signIn = /^\/account\/(login|register)$/.test(clean)
   const req: SiteRequest = { method: "GET", path: clean, query: new URLSearchParams(), body: null, cart: [], account: { customer: signIn ? null : SAMPLE_CUSTOMER } }
@@ -876,6 +885,47 @@ function themeAccountTemplate(site: SiteData, req: SiteRequest, template: string
   }
   if (files[`templates/${template}.liquid`] !== undefined) return { page, sections: chrome }
   return null
+}
+
+/** The paths a visitor's wishlist is reached at: Storelib's own and a theme's page of that name. */
+export function isWishlistPath(path: string): boolean {
+  const clean = path.split(/[?#]/)[0].replace(/\/+$/, "")
+  return clean === "/wishlist" || clean === "/pages/wishlist"
+}
+
+/** The theme's own Wishlist template: Materia's search.wishlist (its default address, /search?view=wishlist), else a page.wishlist. Null when it has neither. */
+export function themeWishlistTemplate(theme: { files: Record<string, string | undefined> }): "search" | "page" | null {
+  for (const t of ["search", "page"] as const) if (theme.files[`templates/${t}.wishlist.json`] !== undefined || theme.files[`templates/${t}.wishlist.liquid`] !== undefined) return t
+  return null
+}
+
+/*
+  THE THEME'S OWN WISHLIST PAGE (round 67). The owner: in a theme's preview,
+  a theme just added and the builder, a heart pressed and then the Wishlist
+  page "says no products were added". The theme's hearts keep their list in
+  the theme's own key (Materia: localStorage materia__wishlist-items, the
+  product ids its cards were drawn with), and /pages/wishlist was Storelib's
+  own page in a frame (accountShell), which reads the website's list: copied
+  from the theme's key only on the live site and a preview link (shims.ts
+  WISHLIST, off in the canvas), and listing only the creator's published
+  products, so the sample products a new theme shows were never on it. The
+  theme's own Wishlist template reads the very key its hearts write and asks
+  this engine for the cards (/search?q=id:..&section_id=), wherever the page
+  is drawn: the live site, a preview link, the builder's canvas. A signed in
+  visitor's list still comes from their account, written into the theme's
+  key by shims.ts (pull). A theme without one keeps Storelib's page.
+*/
+function themeWishlist(site: SiteData, req: SiteRequest, path: string): Route | null {
+  const t = themeWishlistTemplate(site.theme)
+  if (!t) return null
+  const chrome = (sectionsOf(site, "home") ?? []).filter((s) => s.group === "header" || s.group === "footer" || s.group === "overlay")
+  const query = new URLSearchParams()
+  query.set("view", "wishlist")
+  const alternate = viewOf(site, { ...req, query }, t, sectionsOf(site, t) ?? chrome)
+  if (!alternate) return null
+  const extra: Partial<CompatPage> =
+    t === "search" ? { search: { terms: "", results: [], performed: false } } : { pageObject: { title: "Wishlist", content: "", handle: "wishlist", url: "/pages/wishlist" } }
+  return { page: basePage(site, req, { template: t, suffix: alternate.suffix, path, title: "Wishlist", ...extra }), sections: alternate.sections }
 }
 
 /** The wishlist, which is Storelib's own page, shown in a frame of the same site between the theme's header and footer. */
@@ -1026,7 +1076,7 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
       const own = at("wishlist", { pageObject: { title: "Wishlist", content: "", handle: "wishlist", url: "/pages/wishlist" }, title: "Wishlist" })
       if (own) return own
     }
-    return accountShell(site, req, path)
+    return themeWishlist(site, req, path) ?? accountShell(site, req, path)
   }
   if (path === "/" || path === "") return at("home", { title: site.shop.name, reviews: await reviewsFor(null) })
 
@@ -1094,7 +1144,7 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
     const found = terms ? searchProducts(site.products, terms) : []
     const { filters, products } = facet(found, req.query, path)
     const results = sortProducts(products, req.query.get("sort_by"))
-    return at("search", { search: { terms, results, performed: !!terms }, title: terms ? `Search: ${terms}` : "Search", catalog: { filters, sortBy: req.query.get("sort_by") ?? "" } })
+    return at("search", { search: { terms, results, performed: !!terms }, title: terms ? `Search: ${terms}` : req.query.get("view") === "wishlist" ? "Wishlist" : "Search", catalog: { filters, sortBy: req.query.get("sort_by") ?? "" } })
   }
 
   if (path === "/cart") return at("cart", { title: "Your cart" })
@@ -1131,7 +1181,7 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
   }
 
   /* A theme's wishlist page (page.wishlist, its phone tab bar's heart) is the visitor's wishlist, which Storelib keeps. */
-  if (path === "/pages/wishlist" && !site.pages.wishlist) return accountShell(site, req, "/wishlist")
+  if (path === "/pages/wishlist" && !site.pages.wishlist) return themeWishlist(site, req, path) ?? accountShell(site, req, "/wishlist")
   const pageMatch = path.match(/^\/pages\/([a-z0-9-]+)$/) ?? path.match(/^\/([a-z0-9][a-z0-9-]*)$/)
   if (pageMatch) {
     const handle = pageMatch[1]

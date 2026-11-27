@@ -54,7 +54,7 @@ import { CANVAS_SHOWN, canvasInsets } from "@/lib/storelib-theme/compat/canvas-n
 import { CANVAS_SHEET_GUARD, SHEET_WAIT_MS } from "@/lib/storelib-theme/compat/sheet-guard"
 import { linkedSheets } from "@/lib/storelib-theme/compat/preview-styles"
 import { fixThemeCss } from "@/lib/storelib-theme/compat/css-fixes"
-import { canvasAccountPage, cartLines, CANVAS_ACCOUNT_PATHS, type CartPricing, type SiteData } from "@/lib/storelib-theme/compat/site"
+import { canvasAccountPage, cartLines, CANVAS_ACCOUNT_PATHS, isWishlistPath, themeWishlistTemplate, type CartPricing, type SiteData } from "@/lib/storelib-theme/compat/site"
 import type { CartOffers } from "@/lib/storelib-theme/compat/objects"
 import { assetAddresses, compatOf, compatValues, templateOfPage } from "@/lib/storelib-theme/compat/install"
 import { overrideCss } from "@/lib/storelib-theme/compat/overrides"
@@ -2456,7 +2456,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const rawHref = ownSitePath(givenHref, siteUrlRef.current) ?? givenHref
     const href = withoutLanguage(rawHref, langRef.current)
     const to = href.split(/[?#]/)[0].replace(/\/+$/, "") || "/"
-    if ((CANVAS_ACCOUNT_PATHS as readonly string[]).includes(to)) {
+    /* The wishlist: the theme's own Wishlist page drawn here, as the account pages are, when the theme has one (round 67). */
+    if ((CANVAS_ACCOUNT_PATHS as readonly string[]).includes(to) || (isWishlistPath(to) && compatTheme && themeWishlistTemplate(compatTheme) !== null)) {
       /* As any link in the page: from the header and footer always, from the page itself while the inspector is off. */
       if (chrome || !inspecting.current) { setAccountPath(to); return true }
       return false

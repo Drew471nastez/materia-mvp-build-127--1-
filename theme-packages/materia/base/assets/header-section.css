@@ -174,12 +174,17 @@ html body .wishlist-count-header {
    near black on a light one, so a scheme whose primary colour is its
    background colour (white on white, black on black) still reads. */
 /* In srgb-linear r, g and b are linear light, so their weighted sum is the
-   fill's luminance: under 0.179 (where white and black read alike, 4.58 to
-   1) the number is white, at or over it black, every channel the same. */
+   fill's luminance: under 0.31 the number is white, at or over it black,
+   every channel the same. Round 67: the line was 0.179, where the WCAG ratio
+   of white and black cross, which put a black number on an intense red
+   (#f01a10, luminance 0.19, Redline's wishlist bubble). Small bold figures on
+   a saturated colour read as people judge them where the perceptual contrast
+   of white and black cross (APCA, about 0.31): white on red, orange, blue and
+   mid grey, black on yellow, light green, pastel and white. */
 @supports (color: color(from red srgb-linear r g b)) {
   html body .h-count:not(.header-action-text .h-count),
   html body .wishlist-count-header {
-    --cb-auto: clamp(0, (0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 100000, 1);
+    --cb-auto: clamp(0, (0.31 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 100000, 1);
     color: var(--cb-text, color(from var(--cb-fill, var(--color-primary, #111)) srgb-linear var(--cb-auto) var(--cb-auto) var(--cb-auto))) !important;
   }
 }
