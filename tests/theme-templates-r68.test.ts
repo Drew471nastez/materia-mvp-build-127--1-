@@ -94,6 +94,8 @@ function main() {
   const fixed = fixButtonLabels(page)
   check("the scheme variables, the header button and a button's own rule are all fixed in the drawn page", /--btn-primary-color: #ffffff; --btn-primary-bg-color: #c2410c; --btn-primary-border-color: #c2410c;/.test(fixed) && /--hs-cta-bg: #c4482b; --hs-cta-fg: #ffffff; --hs-cta-bd: #c4482b;/.test(fixed) && /\.wsh__btn--a \{ background: #c4482b; color: #ffffff; \}/.test(fixed) && /\.wsh__btn--a:hover \{ background: #a93c23; \}/.test(fixed), fixed)
   check("  and a rule that is not a button keeps its colours", /\.wsh__h \{ background: #f07a5c; color: #13292c; \}/.test(fixed))
+  const curriculum = fixButtonLabels(`<style>#s .rnc { --lapis: #e3a63a; } #s .rnc__btn { display: flex; background: var(--lapis); color: #15130f; } #t .x__btn { background: var(--lapis); color: #ffffff; }</style>`)
+  check("  a button filled from its section's variable with a template's old pair (Renaissance's curriculum) gets the new pair; another label stays", /\.rnc__btn \{ display: flex; background: #b45309; color: #ffffff; \}/.test(curriculum) && /\.x__btn \{ background: var\(--lapis\); color: #ffffff; \}/.test(curriculum), curriculum)
   check("  a page with nothing to fix comes back as it was", fixButtonLabels("<style>.a{--btn-primary-color:#fff;--btn-primary-bg-color:#111}</style>") === "<style>.a{--btn-primary-color:#fff;--btn-primary-bg-color:#111}</style>")
   const theme = read(join(ROOT, "lib", "storelib-theme", "compat", "theme.ts"))
   check("theme.ts runs it over every page an installed theme draws", /import \{ fixButtonLabels \} from "\.\/button-label"/.test(theme) && /html = fixButtonLabels\(html\)/.test(theme))

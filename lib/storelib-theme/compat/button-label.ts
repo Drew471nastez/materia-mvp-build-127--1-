@@ -124,7 +124,7 @@ export const LEGACY_PAIRS: Record<string, [string, string]> = {
   /* Landing page */
   "#ff5f1f|#111113": ["#c2410c", "#ffffff"],
   "#ff7a42|#111113": ["#9a3412", "#ffffff"],
-  /* Digital Renaissance */
+  /* Digital Renaissance, its schemes and its curriculum's button */
   "#e3a63a|#15130f": ["#b45309", "#ffffff"],
   /* Ebooks, its dark scheme */
   "#d9774c|#1f1b17": ["#b9562a", "#ffffff"],
@@ -184,8 +184,18 @@ function fixVars(body: string): string {
 }
 
 /** A button's own rule written with plain declarations (a section's inline style: `.x__btn { background: #f07a5c; color: #13292c; }`). */
-function fixPlainRule(selector: string, body: string): string {
+function fixPlainRule(selector: string, body: string, before: string): string {
   if (!/btn|button/i.test(selector)) return body
+  /* `background: var(--lapis)` (Digital Renaissance's curriculum): the variable's last value written before this rule, when that and the label are a template's old pair, is replaced by the new fill itself. */
+  const viaVar = body.match(/(?:^|[\s;{])(background(?:-color)?)\s*:\s*var\((--[\w-]+)\)\s*(?=[;}]|$)/)
+  if (viaVar) {
+    const label = value(body, "color")
+    const defs = [...before.slice(-6000).matchAll(new RegExp(`${viaVar[2]}\\s*:\\s*(#[0-9a-fA-F]{6})`, "g"))]
+    const fill = defs.length ? defs[defs.length - 1][1] : null
+    const legacy = fill && label ? LEGACY_PAIRS[`${fill.toLowerCase()}|${label.toLowerCase()}`] : undefined
+    if (!legacy || !label) return body
+    return setValue(body.replace(viaVar[0], viaVar[0].replace(`var(${viaVar[2]})`, legacy[0])), "color", label, legacy[1])
+  }
   const bgName = value(body, "background") ? "background" : value(body, "background-color") ? "background-color" : null
   if (!bgName) return body
   const fill = value(body, bgName) as string
@@ -207,8 +217,8 @@ export function fixButtonLabels(html: string): string {
   if (!/--btn-|--hs-cta-|btn|button/i.test(html)) return html
   let out = html.replace(/\{[^{}<]*--btn-(?:primary|secondary)[^{}<]*\}/g, fixVars)
   out = out.replace(/style="[^"]*--hs-cta-bg[^"]*"/g, fixVars)
-  out = out.replace(/(^|[}\s>])([^{}<>]*(?:btn|button)[^{}<>]*)\{([^{}<]*)\}/gi, (m, lead: string, selector: string, body: string) => {
-    const next = fixPlainRule(selector, body)
+  out = out.replace(/(^|[}\s>])([^{}<>]*(?:btn|button)[^{}<>]*)\{([^{}<]*)\}/gi, (m, lead: string, selector: string, body: string, at: number, all: string) => {
+    const next = fixPlainRule(selector, body, all.slice(Math.max(0, at - 6000), at))
     return next === body ? m : `${lead}${selector}{${next}}`
   })
   return out
