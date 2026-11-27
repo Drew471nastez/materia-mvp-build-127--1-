@@ -32,6 +32,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { CANVAS_BRIDGE, CANVAS_SCRIPT_OWN, CANVAS_SWITCH } from "@/lib/storelib-theme/compat/canvas-bridge"
+import { THEME_MOTION_FIX_HEAD } from "@/lib/storelib-theme/compat/theme-motion-fix"
 
 let passed = 0
 let failed = 0
@@ -67,6 +68,38 @@ console.log("\nA resting section keeps its size through a switch\n")
   check("the canvas's own hold (CANVAS_SWITCH holdBelow): auto first", CANVAS_SWITCH.includes('s.style.containIntrinsicHeight = "auto " + Math.round(item.height) + "px";'))
   check("the editor's hold (canvas-switch.ts holdIn): auto first", switchTs.includes("b.style.containIntrinsicHeight = `auto ${Math.round(h * 10) / 10}px`"))
   check("the rest itself remembers the size (auto none)", CANVAS_BRIDGE.includes("[data-sl-rest]{contain-intrinsic-size:auto none}"))
+}
+
+console.log("\nFAQ 1, 2 and 3 never leave a white band (scripts/check-white-band-r69.ts)\n")
+{
+  for (const [file, p] of [["sections/faq.liquid", "faq6"], ["sections/Faq1.liquid", "faq1"], ["sections/faq5.liquid", "faq5"]] as const) {
+    const t = code(M + file)
+    check(`${file}: the root carrying the colour is never hidden, only its contents when armed`, t.includes(`.${p}[data-faq-armed] > .${p}__inner {`) && !new RegExp(`\\.${p} \\{\\s*opacity: 0;`).test(t))
+  }
+  for (const file of ["assets/live-faq-runtime.js", "assets/live-faq.js"]) {
+    const t = code(M + file)
+    check(`${file}: armed only below the first screen, revealed 6% in (was 12% of the section)`, /e\.isIntersecting \|\| e\.boundingClientRect\.top < innerHeight/.test(t) && /setAttribute\('data-faq-armed', ''\)/.test(t) && /rootMargin: '0px 0px -6% 0px'/.test(t) && !/threshold: 0\.12/.test(t))
+  }
+  check("one reveal, not two: FAQ 1 to 3 and the XP shop, Retro and VSL sections play their own", /OWN_REVEAL = '\[data-ct-reveal\], \[data-faq-reveal\], \[data-faq7-reveal\], \.xp \[data-motion\], \.r98 \[data-motion\], \.vsl \[data-motion\]/.test(code(M + "assets/animation.js")))
+  check("installed themes: an old FAQ root is always drawn", THEME_MOTION_FIX_HEAD.includes("[data-faq-root][data-faq-reveal]{opacity:1!important;transform:none!important;filter:none!important;clip-path:none!important}"))
+}
+
+console.log("\nXP shop, Retro and VSL: what is in the first screen is simply there\n")
+{
+  for (const [prefix, armed, files] of [["xpshop", "data-xp-armed", ["window", "shop", "help"]], ["retro", "data-r98-armed", ["window", "shop", "help"]], ["vsl", "data-vsl-armed", ["hero", "cards", "faq"]]] as const) {
+    for (const f of files) {
+      const t = code(`${M}sections/${prefix}-${f}.liquid`)
+      check(`${prefix}-${f}: only an armed element waits, 12px in 450ms; the first screen is marked shown, never armed`, t.includes(`[data-motion][${armed}] { opacity: 0; transform: translate3d(0, 12px, 0); transition: opacity .45s`) && t.includes(`el.setAttribute('${armed}', '')`) && /if \(r\.top < innerHeight && r\.bottom > 0\) \{ el\.classList\.add\('is-in'\); return; \}/.test(t))
+    }
+  }
+  check("installed themes: an old file's element that is not armed is drawn", THEME_MOTION_FIX_HEAD.includes("html.xp-js .xp [data-motion]:not([data-xp-armed]),html.r98-js .r98 [data-motion]:not([data-r98-armed]),html.vsl-js .vsl [data-motion]:not([data-vsl-armed]){opacity:1!important;transform:none!important}"))
+}
+
+console.log("\nA pill on the desktop only: the header is sticky on phones and tablets\n")
+{
+  const rule = ':where(.shopify-section.section-header[data-storelib-sticky="always"],.shopify-section.section-header[data-storelib-sticky="on-scroll-up"]):has(>header.header.is-pill){position:sticky!important'
+  check("installed themes, through the head", THEME_MOTION_FIX_HEAD.includes(rule))
+  check("new files, in header-sticky.css", stickyCss.includes(':has(> header.header.is-pill) {\n    position: sticky !important;'))
 }
 
 /* ------------------------------------------------------------------------ */

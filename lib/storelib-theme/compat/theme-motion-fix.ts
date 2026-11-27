@@ -64,6 +64,13 @@
  *     faded the first screen in on load too (VSL: 22px over 0.9s): only what
  *     starts below it waits now (data-*-armed), 12px in 450ms.
  *
+ *  8. A PILL HEADER ON THE DESKTOP ONLY STICKS ON PHONES. With the pill on
+ *     the desktop only, the header on a phone or a tablet is a plain bar, and
+ *     no rule made it sticky there: "Always sticky" and "Show on scroll up"
+ *     scrolled away with the page (Notion site, scripts/check-editor-
+ *     stability-r69.ts). It sticks like any bar now; a pill shown on phones
+ *     keeps its own rules.
+ *
  *  6. A SHADE FOLLOWS ITS PANEL. A phone's full-width menu darkened the page
  *     before its panel covered it (and stayed dark as it left): the backdrop
  *     now eases the other way round from the panel. Promotion popup (Code)'s
@@ -223,4 +230,7 @@ const REVEAL_FIX_CSS = [
 /* 7 above: an old FAQ 1, 2 or 3 root is never faded, moved or clipped (a new one never is, so this changes nothing there). XP shop, Retro and VSL sections: an old file faded what is in the first screen in on load (VSL 22px over 0.9s); only an armed one (new files, below the first screen) waits. */
 const FAQ_FIX_CSS = "[data-faq-root][data-faq-reveal]{opacity:1!important;transform:none!important;filter:none!important;clip-path:none!important}html.xp-js .xp [data-motion]:not([data-xp-armed]),html.r98-js .r98 [data-motion]:not([data-r98-armed]),html.vsl-js .vsl [data-motion]:not([data-vsl-armed]){opacity:1!important;transform:none!important}"
 
-export const THEME_MOTION_FIX_HEAD = `<style data-sl-motion-fix>${MOTION_FIX_CSS}${REVEAL_FIX_CSS}</style><style data-sl-faq-fix>${FAQ_FIX_CSS}</style><script data-sl-popup-rest>try{(${installPopupRestOpacity.toString()})(window)}catch(e){}</script><script data-sl-popup-handoff>try{(${installPopupHandoff.toString()})(window)}catch(e){}</script>`
+/* 8 above: a desktop only pill header is sticky on phones and tablets too (assets/header-sticky.css carries the same for new files). */
+const PILL_PHONE_STICKY_CSS = '@media (max-width:1024.98px){:where(.shopify-section.section-header[data-storelib-sticky="always"],.shopify-section.section-header[data-storelib-sticky="on-scroll-up"]):has(>header.header.is-pill){position:sticky!important;top:var(--storelib-header-top,0px)!important;z-index:11}:where(.shopify-section.section-header[data-storelib-sticky="on-scroll-up"].shopify-section-header-hidden):has(>header.header.is-pill){transform:translate3d(0,calc(-100% - var(--storelib-header-top,0px) - 4px),0)!important;pointer-events:none}}'
+
+export const THEME_MOTION_FIX_HEAD = `<style data-sl-motion-fix>${MOTION_FIX_CSS}${REVEAL_FIX_CSS}</style><style data-sl-faq-fix>${FAQ_FIX_CSS}</style><style data-sl-pill-sticky>${PILL_PHONE_STICKY_CSS}</style><script data-sl-popup-rest>try{(${installPopupRestOpacity.toString()})(window)}catch(e){}</script><script data-sl-popup-handoff>try{(${installPopupHandoff.toString()})(window)}catch(e){}</script>`

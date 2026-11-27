@@ -89,6 +89,23 @@
   transform: none;
   animation: none !important;
 }
+/* A pill on the desktop only (round 69): on a phone and a tablet the header is
+   a plain bar, and it was never sticky there (the rule above leaves the pill
+   out, the pill's own rules are for the desktop). It sticks like any bar now.
+   Low weight (:where; :has(header.header.is-pill) just outweighs
+   .shopify-section.has-popup), so a pill shown on phones keeps its own,
+   stronger rules (sections/header.liquid). */
+@media (max-width: 1024.98px) {
+  :where(.shopify-section.section-header[data-storelib-sticky="always"], .shopify-section.section-header[data-storelib-sticky="on-scroll-up"]):has(> header.header.is-pill) {
+    position: sticky !important;
+    top: var(--storelib-header-top, 0px) !important;
+    z-index: 11;
+  }
+  :where(.shopify-section.section-header[data-storelib-sticky="on-scroll-up"].shopify-section-header-hidden):has(> header.header.is-pill) {
+    transform: translate3d(0, calc(-100% - var(--storelib-header-top, 0px) - 4px), 0) !important;
+    pointer-events: none;
+  }
+}
 /* Coming back: a quick ease out (the show slide in the sticky controller
    uses the same 380ms and curve when it has to hold the bar at its place).
    Going away: a shorter ease in. Only a transform, so the scroll itself
