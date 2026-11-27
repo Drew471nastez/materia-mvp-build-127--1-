@@ -63,7 +63,7 @@
           "type": "info",
           "settings": {
             "icon": "mail",
-            "line1": "hello@wrenstudio.co",
+            "line1": "hello@halfmoon.example",
             "line2": "Write any time"
           }
         },

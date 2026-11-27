@@ -1,4 +1,4 @@
-/* Templates round 25: an ebook site (Windowsill) with the book on its own dark hero. Round 26: Sit, Stay, Settle, a puppy training ebook. Round 28: Known For It, a LinkedIn playbook. Round 30: Say It Plainly, a copywriting handbook by Hanna Reyes (a sample author), in ink, paper and editor's red, set in Libre Baskerville and Helvetica, with a typographic cover drawn for the template (a struck out word) and one Unsplash session of the author: the book on a dark hero, a promise, who it is for, why now and who it is not for beside three open spreads, early reader quotes, what is inside, who it is for, the author, the numbers and questions. */
+/* Templates round 25: an ebook site (Windowsill) with the book on its own dark hero. Round 26: Sit, Stay, Settle, a puppy training ebook. Round 28: Known For It, a LinkedIn playbook. Round 30: Say It Plainly, a copywriting handbook by Hanna Reyes (a sample author), in ink, paper and editor's red, set in Libre Baskerville and Helvetica (round 67: Manrope at 800 for headings and the logo, Manrope for text, so the book no longer shares the serif the other templates use), with a typographic cover drawn for the template (a struck out word) and one Unsplash session of the author: the book on a dark hero, a promise, who it is for, why now and who it is not for beside three open spreads, early reader quotes, what is inside, who it is for, the author, the numbers and questions. */
 {
   "sections": {
     "hero": {
@@ -37,7 +37,7 @@
             "enable_custom_style": true,
             "heading_font_size": 58,
             "heading_font_size_mobile": 38,
-            "heading_weight": "700",
+            "heading_weight": "800",
             "text_case": "none",
             "line_height": 1.08,
             "letter_spacing": 0
@@ -95,7 +95,7 @@
         "title_font_size_desktop": 46,
         "subtitle_font_size_desktop": 46,
         "subheading_font_size_desktop": 18,
-        "title_font_weight": "700",
+        "title_font_weight": "800",
         "subtitle_font_weight": "700",
         "enable_custom_style": true,
         "subtitle_text_color": "#c8372d",

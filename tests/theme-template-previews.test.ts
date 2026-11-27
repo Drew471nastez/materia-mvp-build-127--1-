@@ -49,7 +49,7 @@ const BUDGET_TOTAL = 320 * MB
 /* Changed on purpose (templates round 25): sample product pictures are 1600 px from their photographs now, each with a real second shot instead of a zoomed crop; the outerwear shop's 35 pages of HTML alone are 8 MB, so its pictures take it to about 10.7 MB. */
 /* Changed on purpose (round 26 upgrade): the quick view, recently viewed and account pages above, about 0.6 MB a template. */
 /* Changed on purpose (round 26 integration): the 1.3.2 upgrade adds quick view, recently viewed and account pages to every preview; Redline (rail, try the look) and Print on demand (four new collections) sit at about 12.1 to 12.6 MB. */
-/* round 28 integration: Wren Studio sits at 13.0 MB with two drawn mockups per product. */
+/* round 28 integration: Digital studio (Halfmoon) sits at 13.0 MB with two drawn mockups per product. */
 const BUDGET_TEMPLATE = 14 * MB
 
 function main() {
@@ -86,7 +86,8 @@ function main() {
   check("every file a page, a stylesheet or a script names is there", dead.length === 0, [...new Set(dead)].slice(0, 12))
   /* Changed on purpose (round 28 integration): the cover trim script (lib/images/cover-trim.ts, round 64) reads a CROSS ORIGIN picture through the page's own /_next/image; a static preview's pictures are all on its own origin, so that guarded branch never runs. Only that exact guarded line is set aside. */
   /* Changed on purpose (round 29): pic-fit (lib/images/pic-fit.ts, round 65) reads another host's picture's colours the same guarded way, returning early when the picture is on the page's own origin, which a preview's always is. */
-  const COVER_TRIM_GUARD = /(?:readFrom|small\.src) = here \+ "\/_next\/image\?url="/g
+  /* Changed on purpose (r67): the same guard with or without spaces, as a build whose transform drops the whitespace in installPicFit's source writes it (readFrom=here+"/_next/image?url="). */
+  const COVER_TRIM_GUARD = /(?:readFrom|small\.src)\s*=\s*here\s*\+\s*"\/_next\/image\?url="/g
   const engine = texts.filter((f) => /["'(\s]\/(?:__asset|__media|__product)\/|\/_next\/image\?url=/.test(body.get(f)!.replace(COVER_TRIM_GUARD, "")))
   check("nothing still asks the engine or the image optimizer", engine.length === 0, engine.slice(0, 8))
   const hosts = texts.filter((f) => /127\.0\.0\.1|preview\.invalid/.test(body.get(f)!) || (!f.endsWith(".js") && /fonts\.googleapis\.com|fonts\.gstatic\.com/.test(body.get(f)!)))

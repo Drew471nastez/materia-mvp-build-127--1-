@@ -680,9 +680,9 @@ Running coach (coach folder, round 22): the coach, Amara Wells, is three photogr
 | coach (cover only) | scripts/theme-templates/products/coach/coach-monthly.webp | https://images.unsplash.com/photo-1726195221342-8676de2c5b86, black and white, logo painted out | Unsplash License |
 | coach (cover only) | scripts/theme-templates/products/coach/coach-form-review.webp | https://images.unsplash.com/photo-1695918425283-eb385c012b7a, black and white | Unsplash License |
 
-## VSL funnel (vslfunnel, Fullbook)
+## VSL funnel (vslfunnel, Hablo)
 
-VSL funnel (round 23, remade in round 25, round 26 and round 28): Fullbook, an eight week client acquisition program for freelancers and small studios, run by Daniel Brandt, a sample coach. Every photograph of the coach, on the pages and on the products, is one Unsplash session of the same man at his desk in a brick walled studio (Vitaly Gariev); the notebook and desk pictures are separate Unsplash photographs. The logo and the member initials are drawn for the template; the reviews are marked as samples on the page.
+VSL funnel (round 23, remade in round 25, round 26, round 28 and round 67): Hablo, an eight week Spanish course for adults who gave up at school, taught by Daniel Brandt, a sample teacher. Every photograph of the teacher, on the pages and on the products, is one Unsplash session of the same man at his desk in a brick walled studio (Vitaly Gariev); the notebook and desk pictures are separate Unsplash photographs. The logo and the member initials are drawn for the template; the reviews are marked as samples on the page.
 
 | vslfunnel | assets/vslfunnel-poster.webp | https://images.unsplash.com/photo-1713946598377-891884fa90de | Unsplash License |
 | vslfunnel | assets/vslfunnel-teacher.webp | https://images.unsplash.com/photo-1713947507130-227586ab3024 | Unsplash License |
@@ -983,9 +983,9 @@ Sound packs (round 25, redrawn in rounds 26 and 28): Lowmoth, a sample label mad
 | soundpacks (sample products) | scripts/theme-templates/products/soundpacks/soundpacks-post-desk.webp | https://images.unsplash.com/photo-1477233534935-f5e6fe7c1159, two small maker names blurred | Unsplash License |
 | soundpacks (sample products) | scripts/theme-templates/products/soundpacks/soundpacks-post-mixer.webp | https://images.unsplash.com/photo-1518972559570-7cc1309f3229 | Unsplash License |
 
-## Digital studio (digistudio, Wren Studio)
+## Digital studio (digistudio, Halfmoon)
 
-<!-- digistudio (templates round 26, rebuilt in round 28): Wren Studio, its maker Hana Lee and every product are made up. Each product picture is a device mockup drawn as HTML for this template and rendered to an image on one ground and one light: Notion pages, Canva posts and a brand kit, a Lightroom style editor with before and after, ebook covers and pages, planners and printables, and a course player. The UI in them is drawn for the template and carries no app maker's logo. Photographs inside the mockups are Unsplash photographs, some colour graded for the preset products. The logo and mark (a small bird) were drawn for it. The maker photo and the buyer portraits are Unsplash photographs; the reviews beside the portraits are marked on the page as samples to replace. -->
+<!-- digistudio (templates round 26, rebuilt in round 28, its sample brand named Halfmoon in round 67): Halfmoon, its maker Hana Lee and every product are made up. Each product picture is a device mockup drawn as HTML for this template and rendered to an image on one ground and one light: Notion pages, Canva posts and a brand kit, a Lightroom style editor with before and after, ebook covers and pages, planners and printables, and a course player. The UI in them is drawn for the template and carries no app maker's logo. Photographs inside the mockups are Unsplash photographs, some colour graded for the preset products. The logo and mark (a small bird) were drawn for it. The maker photo and the buyer portraits are Unsplash photographs; the reviews beside the portraits are marked on the page as samples to replace. -->
 
 | Template | File | Source | Licence |
 | --- | --- | --- | --- |
@@ -1020,6 +1020,8 @@ Sound packs (round 25, redrawn in rounds 26 and 28): Lowmoth, a sample label mad
 | Template | File | Source | Licence |
 | --- | --- | --- | --- |
 | newleaf | assets/newleaf-logo.webp | Drawn for this template | Storelib |
+| newleaf | assets/newleaf-mark.webp | Drawn for this template | Storelib |
+| newleaf | assets/newleaf-how.webp | Drawn for this template | Storelib |
 | newleaf | assets/newleaf-card-exam-planner.webp | Drawn for this template | Storelib |
 | newleaf | assets/newleaf-card-lecture-notes.webp | Drawn for this template | Storelib |
 | newleaf | assets/newleaf-card-recall-cards.webp | Drawn for this template | Storelib |

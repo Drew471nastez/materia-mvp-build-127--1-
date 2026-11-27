@@ -1,4 +1,4 @@
-/* Templates round 28: Wren Studio, one creator's shop of Notion and Canva templates, Lightroom presets, ebooks, planners and a course: a split hero with the products as device mockups, categories, best sellers, bundles, how instant download works, the maker, buyer reviews, questions, the blog and a monthly email, built from the theme's own sections. */
+/* Templates round 28: a creator's shop (its sample brand named Halfmoon in round 67), one creator's shop of Notion and Canva templates, Lightroom presets, ebooks, planners and a course: a split hero with the products as device mockups, categories, best sellers, bundles, how instant download works, the maker, buyer reviews, questions, the blog and a monthly email, built from the theme's own sections. */
 {
   "sections": {
     "hero": {
@@ -45,7 +45,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Planners, social posts, Lightroom presets, ebooks and printables from Wren Studio. Pay once, download straight away and keep every update.</p>",
+            "text": "<p>Planners, social posts, Lightroom presets, ebooks and printables from Halfmoon. Pay once, download straight away and keep every update.</p>",
             "size_enable": true,
             "size": 18,
             "line_height": 1.55
@@ -477,7 +477,7 @@
         "button_5": {
           "type": "button",
           "settings": {
-            "label": "About Wren Studio",
+            "label": "About Halfmoon",
             "link": "/pages/about",
             "button_style": "secondary"
           }

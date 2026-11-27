@@ -3,11 +3,11 @@
     "title": "Main menu",
     "links": [
       {
-        "title": "The program",
+        "title": "The course",
         "url": "/#curriculum"
       },
       {
-        "title": "Your coach",
+        "title": "Your teacher",
         "url": "/pages/about"
       },
       {
@@ -25,7 +25,7 @@
     ]
   },
   "footer-course": {
-    "title": "The program",
+    "title": "The course",
     "links": [
       {
         "title": "Join the January group",
@@ -42,7 +42,7 @@
     ]
   },
   "footer": {
-    "title": "Fullbook",
+    "title": "Hablo",
     "links": [
       {
         "title": "About Daniel",

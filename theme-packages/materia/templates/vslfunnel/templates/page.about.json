@@ -17,7 +17,7 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "About the coach"
+            "text": "About the teacher"
           }
         },
         "heading_2": {
@@ -30,7 +30,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Daniel opened a design studio at twenty eight with two clients and no plan for the third. For three years every quiet month felt like the end. Then he started writing to ten people every Monday and kept a sheet of every conversation.</p><p>He has coached freelancers and studios for five years. Fullbook is that routine, filmed. This is sample text; replace it with your own story.</p>"
+            "text": "<p>Daniel moved to Valencia at thirty four with school Spanish and an app on his phone. For six months he understood the neighbours and answered in English. Then he learned the phrases people really use and booked a conversation every week.</p><p>He has taught adults online for seven years. Hablo is that way of learning, filmed. This is sample text; replace it with your own story.</p>"
           }
         },
         "button_4": {
@@ -53,7 +53,7 @@
       "settings": {
         "color_scheme": "default",
         "image": "shopify://shop_images/vslfunnel-desk-wide.webp",
-        "image_alt": "Daniel typing at his desk in the studio",
+        "image_alt": "Daniel typing at his desk at home",
         "image_position": "right",
         "aspect_w": 1,
         "aspect_h": 1,
@@ -63,19 +63,19 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Why the program exists"
+            "text": "Why the course exists"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Most advice is about ads and funnels, not your next client"
+            "text": "Most courses teach grammar first and talking last"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Big launches and paid ads make good stories and rarely fit a two person business. The freelancers Daniel coached kept stalling in the same places: no clear offer, no list, no follow up. The program fixes those first.</p>"
+            "text": "<p>Verb tables make good tests and rarely help in a café. The adults Daniel taught stalled in the same places: they understood more than they could say, and nobody gave them time to say it. The course fixes those first.</p>"
           }
         }
       },
@@ -96,31 +96,31 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Three ideas the program is built on"
+            "text": "Three ideas the course is built on"
           }
         },
         "column_2": {
           "type": "column",
           "settings": {
             "label": "01",
-            "heading": "Talk to people",
-            "text": "<p>Most projects start with a conversation, not a landing page.</p>"
+            "heading": "Phrases before rules",
+            "text": "<p>You learn what people say first. The grammar makes sense once you have used it.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
             "label": "02",
-            "heading": "One habit a week",
-            "text": "<p>Changing your offer, site and outreach at once is why people stall. The program adds one thing at a time.</p>"
+            "heading": "Out loud every day",
+            "text": "<p>Five minutes said out loud beats an hour read in silence. Every lesson ends with something to say.</p>"
           }
         },
         "column_4": {
           "type": "column",
           "settings": {
             "label": "03",
-            "heading": "Do it, then review",
-            "text": "<p>Every module ends with real outreach, and every other week someone goes through it with you.</p>"
+            "heading": "Real people early",
+            "text": "<p>The first live call is in week two, at your level, in a group of four.</p>"
           }
         }
       },
@@ -150,39 +150,39 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "What members say"
+            "text": "What students say"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Sample reviews to show the layout. Replace them with your own members' words.</p>"
+            "text": "<p>Sample reviews to show the layout. Replace them with your own students' words.</p>"
           }
         },
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "body": "I had never written to someone I did not know. By week three it was a habit.",
+            "body": "I had not said a word of Spanish since school. By week three I ordered dinner in Málaga without pointing at the menu.",
             "name": "Naomi B.",
-            "role": "Freelance copywriter",
+            "role": "Started at 41",
             "rating": 0
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "body": "The free training alone changed my Mondays. I stopped refreshing my inbox and started writing to people.",
+            "body": "The ten minute lessons fit my commute. I said the phrases out loud on the platform and stopped caring who heard.",
             "name": "Rafael O.",
-            "role": "Web developer",
+            "role": "Nurse, night shifts",
             "rating": 0
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "body": "Each week has one habit, so I never felt behind. In the live call Daniel rewrote my offer in two lines.",
+            "body": "Each week has one thing to practise, so I never felt behind. On the live call Daniel fixed the one mistake I made every time.",
             "name": "Chloe L.",
-            "role": "Two person studio",
+            "role": "Learning with her partner",
             "rating": 0
           }
         }
@@ -206,22 +206,22 @@
         "image_ratio": "landscape",
         "image_width": 50,
         "form_layout": "horizontal",
-        "btn_text": "Send me the scripts",
+        "btn_text": "Send me the phrases",
         "email_placeholder": "Your email",
         "note": "One email a month at most. Leave whenever you like.",
-        "success_text": "Done. The outreach scripts are on their way to your inbox."
+        "success_text": "Done. The 100 phrase starter is on its way to your inbox."
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Get the outreach scripts free"
+            "text": "Get the 100 phrase starter free"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Twelve short messages from module four as a PDF: first messages, follow ups and asking past clients for an introduction, with notes on when to use each.</p>"
+            "text": "<p>The hundred phrases from week one as a printable PDF with an audio file for each, so you can say them before you read them.</p>"
           }
         }
       },

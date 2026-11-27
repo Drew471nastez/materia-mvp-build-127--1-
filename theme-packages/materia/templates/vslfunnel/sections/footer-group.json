@@ -22,20 +22,20 @@
           "type": "store_info",
           "settings": {
             "show_logo": false,
-            "store_heading": "Fullbook",
+            "store_heading": "Hablo",
             "image_width": 110,
             "store_email": true,
             "store_phone": false,
             "store_address": false,
             "content_width": "33%",
-            "store_description": "<p>An eight week client acquisition program for freelancers and small studios, run by Daniel Brandt. A new group starts every January and September.</p>"
+            "store_description": "<p>An eight week Spanish course for adults who gave up at school, taught by Daniel Brandt. A new group starts every January and September.</p>"
           }
         },
         "link_list_2": {
           "type": "link_list",
           "settings": {
             "menu": "footer-course",
-            "heading": "The program",
+            "heading": "The course",
             "content_width": "17%"
           }
         },
@@ -51,7 +51,7 @@
           "type": "newsletter",
           "settings": {
             "note": "",
-            "heading": "The outreach scripts",
+            "heading": "The 100 phrase starter",
             "description": "Free by email, with a short note when the next group opens.",
             "button_label": "Send it",
             "content_width": "33%",

@@ -66,14 +66,14 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Fullbook",
+            "text": "Hablo",
             "transform": "uppercase"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Have a client plan by March",
+            "text": "Hold a conversation by March",
             "transform": "none",
             "lineheight": "1.25"
           }
@@ -81,7 +81,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "Eight modules, six live group calls and a 30 day refund."
+            "text": "Eight weeks, six live conversation calls and a 30 day refund."
           }
         },
         "button_4": {

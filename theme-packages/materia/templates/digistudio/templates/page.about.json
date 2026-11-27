@@ -16,7 +16,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "page_title": "About Wren Studio",
+            "page_title": "About Halfmoon",
             "header_size": "large",
             "vertical_gap": 10
           }
@@ -81,7 +81,7 @@
         "heading_3": {
           "type": "heading",
           "settings": {
-            "text": "How Wren Studio started",
+            "text": "How Halfmoon started",
             "tag": "h2",
             "size_desktop": 40,
             "size_mobile": 30
@@ -90,7 +90,7 @@
         "subheading_4": {
           "type": "subheading",
           "settings": {
-            "text": "<p>I spent eight years designing for small businesses: cafés, studios, a few shops. Every client asked for the same things, a content plan, social posts that looked like them, a way to keep track of it all.</p><p>Wren Studio sells those files, cleaned up and tested on the free plan of every app they are for. New products come out a few times a year and every update is free for everyone who bought.</p>",
+            "text": "<p>I spent eight years designing for small businesses: cafés, studios, a few shops. Every client asked for the same things, a content plan, social posts that looked like them, a way to keep track of it all.</p><p>Halfmoon sells those files, cleaned up and tested on the free plan of every app they are for. New products come out a few times a year and every update is free for everyone who bought.</p>",
             "size_desktop": 17,
             "size_mobile": 15
           }
