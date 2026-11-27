@@ -5791,8 +5791,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         setStorelibSources((previous) => ({ ...previous, ...Object.fromEntries(putBack) }))
         for (const [path, content] of putBack) {
           void fetch(`/api/website-builder/themes/${installId}/files`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path, content }) })
-            .then((res) => { if (!res.ok) toast.error(`${path.replace(/^sections\//, "")} could not be put back. Open it in Code to restore it from its history.`) })
-            .catch(() => toast.error(`${path.replace(/^sections\//, "")} could not be put back. Open it in Code to restore it from its history.`))
+            .then((res) => { if (!res.ok) toast.error(`${path.replace(/^sections\//, "")} could not be put back`) })
+            .catch(() => toast.error(`${path.replace(/^sections\//, "")} could not be put back`))
         }
       }
       const stack = undoRef.current

@@ -329,7 +329,7 @@ async function main() {
     check("with one open and in scope, a change to how it behaves goes into its code", route("make the cards slide in", hero, true).codeFocus === true && route("edit this to look like this image", hero, true, 1).codeFocus === true)
     check("unless the words ask for a section of their own", ["build me a section like this image", "add a new section with a flag", "a section with the president's image and a flag", "copy this section"].every((p) => route(p, hero, true).agent === "writer"))
     check("scope cleared, a change is the page's, not the selection's", route("make the cards slide in", hero, false).lock === false)
-    check("the edit goes to the page assistant as code", /void send\(prompt, images, true, \{ codeFocus: route\.codeFocus, lock: route\.lock, into \}\)/.test(chat) && /codeFocus: body\.codeFocus === true && !!selected/.test(read("app/api/website-builder/themes/[installId]/agent/route.ts")))
+    /* Changed on purpose (r69): the aim goes with it. */ check("the edit goes to the page assistant as code", /void send\(prompt, images, true, \{ codeFocus: route\.codeFocus, lock: route\.lock, into, aim: wire \}\)/.test(chat) && /codeFocus: body\.codeFocus === true && !!selected/.test(read("app/api/website-builder/themes/[installId]/agent/route.ts")))
     const writeOne = chat.slice(chat.indexOf("const writeOne = React.useCallback("), chat.indexOf("const dispatch = React.useCallback("))
     check("a new section's request carries the words and the pictures", /body: JSON\.stringify\(\{\s*prompt,\s*images: images\.map/.test(writeOne))
     const send = chat.slice(chat.indexOf("const send = React.useCallback("), chat.indexOf("const writeOne = React.useCallback("))

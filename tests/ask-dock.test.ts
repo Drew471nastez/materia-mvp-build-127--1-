@@ -373,7 +373,7 @@ section("Undo for one run, the editor's side")
   const chat = read("components/website-builder/theme-chat.tsx")
   check(
     "a run's snapshot is kept under its id with its page, as its one undo step",
-    /if \(runId\) aiRuns\.current\.set\(runId, \{ page: currentPageRef\.current, before \}\)/.test(editor) &&
+    /if \(runId\) aiRuns\.current\.set\(runId, \{ page: currentPageRef\.current, before, files: \{\} \}\)/.test(editor) /* Changed on purpose (r69): with the files it writes, for Discard. */ &&
       /setUndoStack\(prev => \[\.\.\.prev\.slice\(-30\), before\]\)/.test(editor),
   )
   check(
@@ -387,8 +387,9 @@ section("Undo for one run, the editor's side")
     (editor.match(/onRunStart=\{startAiRun\}/g) ?? []).length === 2 && (editor.match(/onUndoRun=\{undoAiRun\}/g) ?? []).length === 2,
   )
   check(
-    "the chat offers Undo only on the newest run that changed this page, never one that rewrote a section file",
-    /if \(e\.undone \|\| e\.page !== page \|\| e\.activity\.code\.length > 0\) return null/.test(chat) && /onRunStart\(runId\)/.test(chat),
+    /* Changed on purpose (r69): a run that rewrote a section file is undone too; the editor puts the file back (undoAiRun). */
+    "the chat offers Undo only on the newest run that changed this page, a section file included",
+    /if \(e\.undone \|\| e\.page !== page\) return null/.test(chat) && /onRunStart\(runId\)/.test(chat),
   )
   check(
     "the suggestions know how many products there are, from a memoised value, so the chat is not redrawn by the editor",
