@@ -234,10 +234,12 @@
 :is(#_, .faq7) .faq7__btn:active { transform: translateY(1px); }
 
 @media (prefers-reduced-motion: reduce) {
-  :is(#_, .faq7) :is(.faq7__a-wrap, .faq7__icon, .faq7__icon-plus *, .faq7__btn),
+  :is(#_, .faq7) :is(.faq7__a-wrap, .faq7__btn),
   .faq7:is(#_, *) {
     transition: none !important;
     transform: none !important;
     opacity: 1 !important;
   }
+  /* The plus is two bars centred by their transform, and open hides one: they keep both, only without moving (round 67: transform none drew the bars as a corner, top left). */
+  :is(#_, .faq7) :is(.faq7__icon, .faq7__icon-plus *) { transition: none !important; }
 }
