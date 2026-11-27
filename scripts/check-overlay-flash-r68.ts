@@ -87,6 +87,15 @@ export function flashIn(series: number[], tol = TOL): string | null {
   return null
 }
 
+/** The series from its turn: the frame furthest from its end. */
+export function fromTurn(series: number[]): number[] {
+  if (series.length < 3) return series
+  const end = series[series.length - 1]
+  let at = 0
+  for (let i = 0; i < series.length; i++) if (Math.abs(series[i] - end) > Math.abs(series[at] - end)) at = i
+  return series.slice(at)
+}
+
 /* ---------------- the in-page recorder ---------------- */
 const STYLE_RECORDER = () => {
   const w = window as unknown as { __ov: { on: boolean; rows: { t: number; shade: number; sy: number; cw: number; hidden: number }[] } }
@@ -152,10 +161,15 @@ async function measure(template: string, page: Page, cdp: CDPSession, surface: s
     /* A close is read until just before the next waiting popup may open (materia-popups flush: its gap, 600ms, after the close). */
     const { frames, rows } = await film(page, cdp, act, /close/.test(what) ? 700 : CPU > 1 ? 1600 : 1000)
     const read = await Promise.all(frames.map(lums))
-    /* The middle is the card: its own words and picture fade in there over the shade, so only a large swing counts. */
-    const pix = keys.map((k) => [k, flashIn(read.map((r) => r[k]), k === "mid" ? 32 : TOL)] as const).filter(([, f]) => f)
+    /* The shade at the screen's edge holds to TOL. The whole screen also carries the card, which fades over the
+       shade (its middle passes through the shaded page as it comes and goes, the way a card does): a flash of the
+       screen is far larger than that, so the whole screen holds to 16 levels. The middle alone is not judged. */
+    const tolOf = (k: string) => (k === "all" && !PHONE ? 16 : k === "mid" ? 255 : TOL)
+    /* A step where the person turns back on purpose (deselects, then picks it again) may turn once: from its turn on it must not. */
+    const judge = (series: number[], tol: number) => (/after a pause/.test(what) ? flashIn(fromTurn(series), tol) : flashIn(series, tol))
+    const pix = keys.map((k) => [k, judge(read.map((r) => r[k]), tolOf(k))] as const).filter(([, f]) => f)
     const shade = rows.map((r) => r.shade * 100)
-    const sFlash = flashIn(shade, 3)
+    const sFlash = judge(shade, 3)
     const jumps = rows.filter((r, i) => i && (r.sy !== rows[i - 1].sy || r.cw !== rows[i - 1].cw)).map((r) => `scroll ${r.sy} width ${r.cw}`)
     const ok = !pix.length && !sFlash && !jumps.length
     const detail = ok
@@ -277,20 +291,24 @@ void (async () => {
     const ids = (await popupIds(page)).filter((_, i) => !process.env.ONLY || process.env.ONLY.split(",").includes(String(i)))
     console.log(`  popups: ${ids.length}`)
     if (MODE === "canvas") {
-      const fire = (name: string, id: string) => page.evaluate((n, x) => { const s = document.getElementById("shopify-section-" + x) ?? document; s.dispatchEvent(new CustomEvent(n, { bubbles: true, detail: { sectionId: x, load: false } })) }, name, id)
+      /* As canvas-bridge mark() does: the last section's deselect and the next one's select in one task. */
+      const fireAll = (list: [string, string][]) => page.evaluate((l) => { for (const [n, x] of l) { const s = document.getElementById("shopify-section-" + x) ?? document; s.dispatchEvent(new CustomEvent(n, { bubbles: true, detail: { sectionId: x, load: false } })) } }, list)
+      const fire = (name: string, id: string) => fireAll([[name, id]])
       for (let i = 0; i < ids.length; i++) {
         const id = ids[i], next = ids[(i + 1) % ids.length]
         if (ids.length < 2) break
         const short = id.replace(/^.*__/, "")
+        /* In the builder a popup set to show while editing is already open, so picking another one is a switch too. */
         await measure(template, page, cdp, `popup ${short}`, [
           ["opens on select", () => fire("shopify:section:select", id)],
-        ])
+        ], PHONE ? ["all"] : ["all", "edge"])
         /* From one card to another the middle of the screen passes through the shaded page: that is the motion, not a
            flash. What must not move back and forth is the shade, read at the screen's edge and in the page's styles. */
         await measure(template, page, cdp, `popup ${short}`, [
-          ["switches to the next one", async () => { await fire("shopify:section:deselect", id); await fire("shopify:section:select", next) }],
-          ["switches back", async () => { await fire("shopify:section:deselect", next); await fire("shopify:section:select", id) }],
-        ], PHONE ? [] : ["edge"])
+          ["switches to the next one", () => fireAll([["shopify:section:deselect", id], ["shopify:section:select", next]])],
+          /* Deselected (a click on the page), then the next one picked a moment later, while the first still closes. */
+          ["switches back after a pause", async () => { await fire("shopify:section:deselect", next); await sleep(90); await fire("shopify:section:select", id) }],
+        ], PHONE ? ["all"] : ["all", "edge"])
         await measure(template, page, cdp, `popup ${short}`, [
           ["closes on deselect", () => fire("shopify:section:deselect", id)],
         ])
