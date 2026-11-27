@@ -17,6 +17,7 @@ import { REVALIDATED_CACHE } from "@/lib/website-builder/revalidated-json"
 import { filesRevision, revisionJson, unchangedSince } from "@/lib/website-builder/files-revision"
 import { createHash } from "node:crypto"
 import { fileCols, isRefRow, refsOn, resolveRef, resolveRefs, withRefColumn, type MaybeRef } from "@/lib/website-builder/theme-file-refs"
+import { partSectionPaths, partTypes, sectionTagNames } from "@/lib/website-builder/source-parts"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -199,6 +200,50 @@ async function handleGET(req: Request, { params }: Params) {
      * editing a section would be shown the version they have not saved over
      * yet. The storefront reads `content` and only `content`.
      */
+    /*
+      Round 68: AN IMPORTED THEME'S SOURCES IN TWO PARTS (lib/website-builder/source-parts.ts). `types=`: what the
+      page being opened draws from, so its canvas is drawn after 7.8 MB rather than 22.8 MB on Materia; `rest=`: the
+      other sections, asked once it is drawn. Without either, every source, as before.
+    */
+    const pageTypes = partTypes(searchParams.get("types"))
+    const restTypes = pageTypes ? null : partTypes(searchParams.get("rest"))
+    if (pageTypes || restTypes) {
+      const named = (pageTypes ?? restTypes)!
+      const revision = await filesRevision(supabase!, installId, ["%.storelib", THEME_SCHEMA_FILE], `sources:${pageTypes ? "types" : "rest"}=${named.join(",")}`)
+      const unchanged = unchangedSince(req, revision)
+      if (unchanged) return unchanged
+      const cols = withRefColumn("path, content, draft_content", await refsHere())
+      type SourceRow = { path: string; content: string; draft_content?: string | null }
+      const read = async (q: PromiseLike<{ data: unknown; error: unknown }>): Promise<SourceRow[] | null> => {
+        const r = await q
+        if (r.error) return null
+        return resolveHere((r.data ?? []) as SourceRow[])
+      }
+      const base = () => supabase!.from("store_theme_custom_files").select(cols).eq("install_id", installId)
+      if (restTypes) {
+        const quoted = partSectionPaths(restTypes).map((p) => `"${p}"`).join(",")
+        const rows = await read(base().like("path", "sections/%.storelib").not("path", "in", `(${quoted})`))
+        if (!rows) return NextResponse.json({ error: "Could not read theme sources. Try again." }, { status: 503 })
+        return revisionJson(req, revision, { files: sourceMap(rows), settings_schema: null, part: "rest" })
+      }
+      const sectionPaths = partSectionPaths(pageTypes!)
+      const [others, sections, schemaRows] = await Promise.all([
+        read(base().like("path", "%.storelib").not("path", "like", "sections/%")),
+        read(base().in("path", sectionPaths)),
+        read(base().eq("path", THEME_SCHEMA_FILE)),
+      ])
+      if (!others || !sections || !schemaRows) return NextResponse.json({ error: "Could not read theme sources. Try again." }, { status: 503 })
+      const files = sourceMap([...others, ...sections])
+      /* A section the layout or a snippet draws by name ({% section 'cart-drawer' %}) is drawn on every page: in this part too. */
+      const tagged = sectionTagNames(files).map((t) => `sections/${t}.storelib`).filter((p) => !(p in files))
+      if (tagged.length) {
+        const more = await read(base().in("path", tagged))
+        if (!more) return NextResponse.json({ error: "Could not read theme sources. Try again." }, { status: 503 })
+        Object.assign(files, sourceMap(more))
+      }
+      const settingsSchema = schemaRows.length ? (sourceMap(schemaRows)[THEME_SCHEMA_FILE] ?? null) : null
+      return revisionJson(req, revision, { files: withStorelibReviewsSection(files), settings_schema: settingsSchema, part: "page" })
+    }
     /* Round 66: the rows' paths and times first; unchanged since the browser's copy, a 304 before a file is read (lib/website-builder/files-revision.ts). */
     const revision = await filesRevision(supabase!, installId, ["%.storelib", THEME_SCHEMA_FILE], "sources")
     const unchanged = unchangedSince(req, revision)

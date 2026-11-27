@@ -329,6 +329,13 @@ export function splitCompatFile(source: string): { markup: string; schema: O | n
   return { markup: hit.markup, schema }
 }
 
+/** Whether a file's text could hold a {% name %} tag at all: one that does not name it anywhere holds none (round 68, stylesheetBundle). */
+export function mayHoldTag(text: string | undefined, name: "stylesheet" | "javascript"): boolean {
+  if (typeof text !== "string" || !text.includes(name)) return false
+  /* As a tag ({% stylesheet %}, {%- stylesheet -%}), or as a line of a {% liquid %} tag. */
+  return (name === "stylesheet" ? /\{%-?\s*stylesheet\b|^\s*stylesheet\s*$/m : /\{%-?\s*javascript\b|^\s*javascript\s*$/m).test(text)
+}
+
 /** A file's markup parsed, strictly, or as Shopify's lenient parser reads it when that fails; with the warning to say so. */
 function parsedMarkup(markup: string): { tree: Parsed | null; warning: string | null } {
   const held = treesHeld.get(markup)
@@ -729,6 +736,8 @@ export class CompatTheme {
     const parts: string[] = []
     for (const path of Object.keys(this.files).sort()) {
       if (!/^(sections|blocks|snippets)\/[^/]+\.(storelib|liquid)$/.test(path)) continue
+      /* Round 68: a file with no {% stylesheet %} in it adds nothing, and is not parsed for it: 2 of Materia's 673 have one, and parsing the rest was 1.3s of the canvas's first draw at a quarter speed. */
+      if (!mayHoldTag(this.files[path], "stylesheet")) continue
       const t = this.tree(path)
       /* A <style> tag written inside {% stylesheet %} would end the bundle's own. */
       const css = t?.stylesheet.replace(/<\/?style\b[^>]*>/gi, "").trim()
@@ -761,6 +770,7 @@ export class CompatTheme {
     const parts: string[] = []
     for (const path of Object.keys(this.files).sort()) {
       if (!/^(sections|blocks|snippets)\/[^/]+\.(storelib|liquid)$/.test(path)) continue
+      if (!mayHoldTag(this.files[path], "javascript")) continue
       const t = this.tree(path)
       const code = t?.javascript.replace(/<\/?script\b[^>]*>/gi, "").trim()
       if (!code) continue

@@ -246,6 +246,15 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const text = compat ? (compat.files[onePath] ?? compat.sources[onePath] ?? (written && !Array.isArray(written) ? written[onePath] : undefined)) : (written && !Array.isArray(written) ? written[onePath] : undefined)
     if (typeof text === "string") return json({ path: onePath, content: text })
   }
+  /*
+    PROBE_COMPAT_FETCH (round 68, scripts/check-editor-open-r68.mjs): the theme's files and sources are the probe
+    server's own answer to the same query, as text over the network, so the editor parses what it would parse in
+    production instead of an object handed over in memory.
+  */
+  const compatFetch = (window as unknown as { PROBE_COMPAT_FETCH?: string }).PROBE_COMPAT_FETCH
+  if (compatFetch && /\/themes\/probe-install\/files\?/.test(url) && (!init?.method || init.method === "GET") && !onePath) {
+    return realFetch(`${compatFetch}${url.slice(url.indexOf("?"))}`, { signal: init?.signal })
+  }
   if (/\/themes\/probe-install\/files/.test(url) && compat) {
     /*
       PROBE_FILES_FAIL: the theme's own files answer 500 this many more times;
