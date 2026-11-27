@@ -152,7 +152,8 @@ export function installPicFit(doc: Document, win: Window): void {
    * banner in a 3:4 card covered 42% of it, a 4:3 photo 56%). A row of frames whose pictures are mostly another
    * shape than the theme's setting takes theirs: the middle shape of the pictures in that row (a grid, a
    * gallery), snapped to one of SHAPES, so a shop of banners gets banner cards, filled edge to edge. A row whose
-   * pictures are near its frame keeps the theme's shape. A frame on its own takes its picture's. A theme that
+   * pictures are near its frame keeps the theme's shape. A frame on its own takes its picture's. Only from shapes
+   * already known, before the frame is drawn (SEEN below), so nothing moves. A theme that
    * already gives each frame its own picture's shape (frames of differing shapes) is left as it is.
    */
   var SHAPES = [16 / 9, 3 / 2, 4 / 3, 1, 4 / 5, 3 / 4, 2 / 3]
@@ -223,14 +224,18 @@ export function installPicFit(doc: Document, win: Window): void {
       if (frame.style.getPropertyValue("--aspect-ratio-mb")) frame.style.setProperty("--aspect-ratio-mb", v)
     } else frame.style.aspectRatio = v
   }
-  /* Each frame in this picture's row given the row's shape, once its pictures' shapes are known. */
   /*
-   * THE SHAPES SEEN BEFORE, KEPT IN THIS BROWSER (round 67), so a row is given its shape before its pictures load
-   * and nothing below it moves: a picture's ratio by its address (the file behind the optimizer, without the size
-   * asked for). The first visit's row takes its shape as soon as each picture's size is known, which the browser
-   * reads from the file's first bytes, before it is drawn (watchSizes).
+   * THE SHAPES SEEN BEFORE, KEPT IN THIS BROWSER (round 67): the shape each picture's row took, by the picture's
+   * address (the file behind the optimizer, without the size asked for) and the theme's shape for its frame, so a
+   * whole row is given one shape before it is drawn. NOTHING ON SCREEN CHANGES SHAPE: a frame is given its row's shape only as it is put in the page,
+   * before it is drawn, and only from shapes this browser already knows. The server holds no picture's size (every
+   * product picture is an image object 1600 by 1600 to the theme), so on a first visit each frame keeps the theme's
+   * shape (the picture filling it within 8%, else whole on its edge's colours) and the shapes are learned for every
+   * page after: the next page, a row drawn later (related, recently viewed), the next visit. Measured round 67: a
+   * first visit's frames that changed shape once their pictures arrived moved the page (CLS 0.198 on a phone).
    */
-  var SEEN = "sl:pic-r"
+  /* A picture's row shape, by its address and the frame's own shape: what its whole row took when last drawn (0: the frame's own). */
+  var SEEN = "sl:pic-row"
   var seen: Record<string, number> = {}
   try {
     seen = JSON.parse(win.localStorage.getItem(SEEN) || "{}") || {}
@@ -247,54 +252,74 @@ export function installPicFit(doc: Document, win: Window): void {
       return ""
     }
   }
-  var remember = function (src: string, r: number) {
-    var k = addressOf(src)
-    if (!k || !(r > 0)) return
-    var v = Math.round(r * 1000) / 1000
-    if (seen[k] === v) return
-    seen[k] = v
+  var keyOf = function (pic: HTMLImageElement, frame: number): string {
+    var a = addressOf(pic.currentSrc || pic.src || pic.getAttribute("src") || "")
+    return a ? a + "@" + Math.round(frame * 100) : ""
+  }
+  var save = function () {
     try {
       var keys = Object.keys(seen)
-      if (keys.length > 400) delete seen[keys[0]]
+      for (var i = 0; keys.length - i > 500; i++) delete seen[keys[i]]
       win.localStorage.setItem(SEEN, JSON.stringify(seen))
     } catch {
       /* Kept for this page only. */
     }
   }
-  /* A picture's ratio: its own once its size is known, else the one this browser saw before. 0 when neither. */
+  /* A frame's picture: its first that is not a hover picture. */
+  var pictureIn = function (frame: Element): HTMLImageElement | null {
+    var pics = frame.getElementsByTagName("img")
+    for (var q = 0; q < pics.length; q++) if (!pics[q].closest(".secondary-image,.hover-effect__alt") && !pics[q].classList.contains("secondary-image") && pics[q].getAttribute("data-pic-fit") !== "off") return pics[q]
+    return null
+  }
+  /* A picture's own ratio once its size is known; 0 for a padded copy not yet cut, or one not loaded. */
   var ratioOf = function (pic: HTMLImageElement): number {
     var src = pic.currentSrc || pic.src || ""
     if (PADDED.test(src) && pic.getAttribute("data-cover-trim") !== "none") return 0
-    if (pic.naturalWidth > 0 && pic.naturalHeight > 0) {
-      var r = pic.naturalWidth / pic.naturalHeight
-      remember(src, r)
-      return r
-    }
-    return seen[addressOf(src)] || 0
+    return pic.naturalWidth > 0 && pic.naturalHeight > 0 ? pic.naturalWidth / pic.naturalHeight : 0
   }
-  var reshape = function (img: HTMLImageElement) {
+  /*
+   * LEARN: the row this picture is in, with every size known so far, decides its shape (shapeOf), and that shape is
+   * kept for each of its pictures. Nothing on screen is changed here.
+   */
+  var learn = function (img: HTMLImageElement) {
     var frame = img.closest(FRAMES) as HTMLElement | null
     if (!frame || frame.closest('[data-cover-padded="keep"]')) return
     var row = rowOf(frame)
     var own: number[] = []
     var ratios: number[] = []
+    var pics: (HTMLImageElement | null)[] = []
     for (var i = 0; i < row.length; i++) {
       var was = Number(row[i].getAttribute("data-pic-was")) || declared(row[i])
       if (was > 0 && own.indexOf(Math.round(was * 100)) < 0) own.push(Math.round(was * 100))
-      var pics = row[i].getElementsByTagName("img")
-      var pic: HTMLImageElement | null = null
-      for (var q = 0; q < pics.length && !pic; q++) if (!pics[q].closest(".secondary-image,.hover-effect__alt") && !pics[q].classList.contains("secondary-image") && pics[q].getAttribute("data-pic-fit") !== "off") pic = pics[q]
+      var pic = pictureIn(row[i])
+      pics.push(pic)
       var r = pic ? ratioOf(pic) : 0
       if (r > 0) ratios.push(r)
     }
     /* Frames of differing shapes: the theme gives each its picture's own (Adapt). */
-    if (own.length !== 1) return
+    if (own.length !== 1 || !ratios.length) return
     var shape = shapeOf(ratios, own[0] / 100)
-    for (var j = 0; j < row.length; j++) {
-      if (shape) setShape(row[j], shape)
-      else if (row[j].hasAttribute("data-pic-shape")) setShape(row[j], Number(row[j].getAttribute("data-pic-was")) || own[0] / 100)
+    var v = shape ? Math.round(shape * 10000) / 10000 : 0
+    var changed = false
+    for (var j = 0; j < pics.length; j++) {
+      var k = pics[j] ? keyOf(pics[j] as HTMLImageElement, own[0] / 100) : ""
+      if (k && seen[k] !== v) {
+        seen[k] = v
+        changed = true
+      }
     }
+    if (changed) save()
   }
+  /* PLACE: a frame just put in the page, not drawn yet, given the shape its picture's row took before. */
+  var place = function (frame: HTMLElement) {
+    if (frame.hasAttribute("data-pic-shape") || frame.closest('[data-cover-padded="keep"]')) return
+    var pic = pictureIn(frame)
+    var own = declared(frame)
+    if (!pic || !(own > 0)) return
+    var v = seen[keyOf(pic, own)]
+    if (v > 0) setShape(frame, v)
+  }
+
 
   var pixels = function (pic: HTMLImageElement): Edges | null {
     try {
@@ -384,9 +409,9 @@ export function installPicFit(doc: Document, win: Window): void {
     if (PADDED.test(key) && img.getAttribute("data-cover-trim") !== "none") return
     if (sizes && !img.hasAttribute("data-pic-fit")) sizes.observe(img)
     try {
-      reshape(img)
+      learn(img)
     } catch {
-      /* The frame keeps the theme's shape. */
+      /* Nothing learned. */
     }
     if (key in edges) return apply(img)
     if (reading[key]) {
@@ -411,42 +436,24 @@ export function installPicFit(doc: Document, win: Window): void {
     },
     true,
   )
-  /* Every frame's row shaped from what is known now, then each frame by frame as its picture's size arrives (until the page has loaded, at most 4s). */
-  var shaped: HTMLImageElement[] = []
-  var watchSizes = function () {
-    var started = Date.now()
-    var tick = function () {
-      var imgs = doc.images
-      for (var i = 0; i < imgs.length; i++) {
-        var im = imgs[i]
-        if (shaped.indexOf(im) >= 0 || !im.closest || !im.closest(FRAMES)) continue
-        if (im.naturalWidth > 0 || seen[addressOf(im.currentSrc || im.src || "")]) {
-          shaped.push(im)
-          try {
-            reshape(im)
-          } catch {
-            /* The theme's shape. */
-          }
-        }
-      }
-      if (doc.readyState !== "complete" && Date.now() - started < 4000) (win.requestAnimationFrame || win.setTimeout)(tick)
-    }
-    tick()
-  }
-  /* While the page is still being read: a frame's row given the shape this browser saw before as soon as the frame is in the page, before it is drawn. */
-  if (doc.readyState === "loading" && typeof MutationObserver === "function") {
+  /* A frame as it is put in the page (while it is read, or a row a script adds), before it is drawn. */
+  if (typeof MutationObserver === "function") {
     var parsing = new MutationObserver(function (list) {
       for (var i = 0; i < list.length; i++) {
         var added = list[i].addedNodes
         for (var j = 0; j < added.length; j++) {
           var n = added[j] as Element
           if (n.nodeType !== 1) continue
-          var imgs = n.tagName === "IMG" ? [n as HTMLImageElement] : Array.prototype.slice.call(n.getElementsByTagName("img"))
-          for (var q = 0; q < imgs.length; q++) {
-            var im = imgs[q] as HTMLImageElement
-            if (!seen[addressOf(im.currentSrc || im.src || "")]) continue
+          var found: Element[] = n.matches && n.matches(FRAMES) ? [n] : []
+          if (n.querySelectorAll) found = found.concat(Array.prototype.slice.call(n.querySelectorAll(FRAMES)))
+          /* The frame itself may come before its picture while the page is read: a picture added later finds its frame. */
+          if (n.tagName === "IMG" && n.closest) {
+            var f = n.closest(FRAMES)
+            if (f) found.push(f)
+          }
+          for (var q = 0; q < found.length; q++) {
             try {
-              reshape(im)
+              place(found[q] as HTMLElement)
             } catch {
               /* The theme's shape. */
             }
@@ -455,12 +462,8 @@ export function installPicFit(doc: Document, win: Window): void {
       }
     })
     parsing.observe(doc.documentElement, { childList: true, subtree: true })
-    doc.addEventListener("DOMContentLoaded", function () {
-      parsing.disconnect()
-    })
   }
   var early = function () {
-    watchSizes()
     var imgs = doc.images
     for (var i = 0; i < imgs.length; i++) if (imgs[i].complete && imgs[i].naturalWidth > 0) paint(imgs[i])
   }

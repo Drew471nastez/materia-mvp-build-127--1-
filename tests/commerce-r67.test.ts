@@ -89,7 +89,9 @@ console.log("\nPICTURES")
   check("a mixed row takes its middle picture's shape", Math.abs((p.shapeOf([1.78, 1.33, 1, 0.67, 0.67], 0.75) ?? 0) - 1) < 0.001)
   check("snapped: 1500x1000 is 3:2, a 0.7 poster is 2:3, a 21:9 banner is 16:9", p.snap(1.5) === 3 / 2 && p.snap(0.7) === 2 / 3 && p.snap(21 / 9) === 16 / 9)
   check("the fill is drawn as cover", /img\[data-pic-fit="fill"\]\{object-fit:cover!important\}/.test(read("lib/images/pic-fit.ts").replace(/'\s*\+\s*\n\s*"/g, "")) || read("lib/images/pic-fit.ts").includes(`img[data-pic-fit="fill"]{object-fit:cover!important}`))
-  check("a theme whose frames already differ (Adapt) is left as it is", /if \(own\.length !== 1\) return/.test(read("lib/images/pic-fit.ts")))
+  const fit = read("lib/images/pic-fit.ts")
+  check("a frame on screen never changes shape: shapes are placed only as a frame is put in the page, from shapes kept before", /new MutationObserver[\s\S]{0,900}place\(found\[q\]/.test(fit) && !/setShape\(/.test(fit.slice(fit.indexOf("var learn"), fit.indexOf("var place"))) && /var v = seen\[keyOf\(pic, own\)\]\s*if \(v > 0\) setShape\(frame, v\)/.test(fit))
+  check("a theme whose frames already differ (Adapt) is left as it is", /if \(own\.length !== 1 \|\| !ratios\.length\) return/.test(read("lib/images/pic-fit.ts")))
 }
 
 console.log("\nROWS")
