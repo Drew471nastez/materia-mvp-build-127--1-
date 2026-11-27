@@ -34,7 +34,8 @@ export async function GET(_req: Request, { params }: Params) {
   let { data, error } = await read("id, status, prompt, options, created_at")
   if (error && isMissingColumn(error)) ({ data, error } = await read("id, status, prompt, created_at"))
   if (error && !isMissingTable(error)) return NextResponse.json({ error: "Could not read the AI job" }, { status: 503 })
-  const row = (data ?? null) as { id: string; status: string; prompt: string; options?: unknown } | null
+  /* r69: read through unknown; the select string is built at run time, so the client types it as a string error. */
+  const row = (data ?? null) as unknown as { id: string; status: string; prompt: string; options?: unknown } | null
   return NextResponse.json(
     { job: row ? { id: row.id, status: row.status, prompt: row.prompt, options: row.options ?? null } : null },
     { headers: { "cache-control": "no-store" } },

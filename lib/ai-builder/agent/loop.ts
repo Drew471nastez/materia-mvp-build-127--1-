@@ -59,6 +59,7 @@ import { themeSettingsToTokens } from "../tokens"
 import { roleFor } from "./model-routing"
 import { blockIssues, imageSlotIssues } from "./content-check"
 import { fewShotExamples, templateBlock, templateIssues, templateSlotSkip, templatesOf } from "./templates"
+import { applyBlueprint, blueprintIssues, wantsBlueprint } from "./blueprint"
 import { imageBriefNote, makingWords } from "@/lib/storelib-ai/images/prompt"
 import { DEFAULT_MAX_IMAGES } from "./tools-impl"
 
@@ -264,9 +265,25 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
       order, scheme rhythm, fonts) and the catalogue with its sections in detail; on an edit of a Materia site, its own
       sections and what it can add. Deterministic, no model call; the rules themselves are in AGENT_SYSTEM.
     */
+    /*
+      ROUND 69: THE TEMPLATE IS THE FRAME, NEVER THE SITE (./blueprint.ts). A new website on Materia gets a site plan
+      composed from all of Storelib's templates for this business, written before the first turn (from a template:
+      home, fonts, schemes and motion; from scratch: the look only), and the model reads that plan in place of the
+      template's own running order. Nothing poured from the bank: the bank's site is the plan then.
+    */
+    const planMode = cp.template ? null : wantsBlueprint(job, isMateriaInstall(filesNow))
+    const plan = planMode ? await applyBlueprint({ job, store: deps.store, cp, caps, files: filesNow, pages: pagesNow, mode: planMode }).catch(() => null) : null
+    if (plan) {
+      cp.blueprint = plan.state
+      pagesNow = plan.pages
+      if (planMode === "template") {
+        cp.pagesTouched = addUnique(cp.pagesTouched, "home")
+        emit({ kind: "note", text: `Composed a ${plan.blueprint.archetype} site from Storelib's templates: ${plan.blueprint.home.length} sections on home, ${plan.blueprint.type.display} with ${plan.blueprint.type.body}.` })
+      }
+    }
     const materia = (() => {
       try {
-        return materiaBrief({ job, files: filesNow, pages: pagesNow, caps, withRules: false })
+        return materiaBrief({ job, files: filesNow, pages: pagesNow, caps, withRules: false, ...(plan ? { plan: { text: plan.text, focus: plan.state.types } } : {}) })
       } catch {
         return { text: "", choice: null, install: false }
       }
@@ -787,6 +804,8 @@ export async function verify(job: AgentJobInput, deps: AgentDeps, cp: LoopCheckp
     issues.push(...imageSlotIssues({ pages: placed, sources: src, picturesAvailable: pictures, ...(template ? { skip: templateSlotSkip(template) } : {}) }))
     if (template) issues.push(...templateIssues(template, { files: src, pages: stored }, lib, pictures))
   }
+  /* Round 69: a site made from a Materia template is its own, and says none of the template's sample words (./blueprint.ts). */
+  if (!job.edit && !job.redesign && cp.blueprint) issues.push(...blueprintIssues(cp.blueprint, stored, await deps.store.readSettings()))
   /* A redesign may be done with the site's own sections and tokens: writing a component is not required of it. */
   if (!job.edit && !job.redesign && !cp.filesTouched.some((p) => p.startsWith("sections/ai_"))) issues.push({ severity: "error", code: "build.nothing", message: "No component was written. A new website is made of components you write." })
   return issues

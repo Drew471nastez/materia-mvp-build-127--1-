@@ -761,7 +761,8 @@ const ROW_THEME_CARDS = 12
  * the marketplace's own order fills what is left.
  */
 /* Round 67, the owner: the Ebook in Clothing's place, and a fourth row of Notion creator, Digital studio and Fitness. Round 68, the owner: Digital studio and Digital products swap places, so Digital products is eleventh. */
-export const BROWSE_THEMES_FIRST = ["storelib-default", "author-book", "merch", "digital-studio", "art-books", "templates-shop", "space-clothing", "posters", "print-on-demand", "notion-creator", "digital-products", "fitness"] as const
+/* Round 69, the owner: never the old Storelib Default first; the starter template (Creator Landing) takes its place, and Storelib Default stays further down the marketplace. */
+export const BROWSE_THEMES_FIRST = ["creator-landing", "author-book", "merch", "digital-studio", "art-books", "templates-shop", "space-clothing", "posters", "print-on-demand", "notion-creator", "digital-products", "fitness"] as const
 
 /** Browse themes' cards: BROWSE_THEMES_FIRST that are there, then the others in the marketplace's order, `count` in all. */
 export function browseThemes<T extends { slug: string }>(listings: readonly T[], count: number = ROW_THEME_CARDS): T[] {
@@ -1159,8 +1160,8 @@ export function WebsiteBuilderClient({
         .sort((a, b) => (Date.parse(b.published_at ?? "") || 0) - (Date.parse(a.published_at ?? "") || 0))[0] ?? null)
   /**
    * NOTHING LIVE, AND NOTHING THAT WAS: the draft to open and publish takes
-   * the big card. That is the website a new account starts with (Storelib
-   * Default, installed as a draft by the server: lib/website-builder/
+   * the big card. That is the website a new account starts with (Creator
+   * Landing since round 69, installed as a draft by the server: lib/website-builder/
    * starter-website.ts), or the first draft in the library. "Nothing is
    * live" over a list somewhere below was a dead end with no door in it.
    */
@@ -1656,8 +1657,8 @@ export function WebsiteBuilderClient({
    *  CREATE A WEBSITE: WITH AI, OR FROM BLANK (./start-website.tsx)
    * ===========================================================================
    * Not through `make`: the new website opens in the editor at once, so it
-   * never needs a row of its own here. The request makes a Storelib Default
-   * website (app/api/website-builder/themes/create); with AI, the
+   * never needs a row of its own here. The request makes a Materia template
+   * website (Creator Landing's frame from blank, round 69) (app/api/website-builder/themes/create); with AI, the
    * description waits in this tab for the editor's Ask panel
    * (lib/website-builder/start-handoff.ts). A library the server says is full
    * opens the full library sheet, as every other way in does.

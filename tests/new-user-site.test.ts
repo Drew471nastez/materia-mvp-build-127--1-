@@ -80,7 +80,8 @@ async function main() {
   section("1. A new account has a website to open")
   {
     /* Changed on purpose (r63): the starter is the Materia Storelib Default (the template Browse themes shows), imported as Add imports it, not the native registry theme's preset rows. tests/default-theme-images-r63.test.ts runs the real import. */
-    check("the starter is Storelib Default, the current template", STARTER_TEMPLATE === "default" && STARTER_NAME === "Storelib Default")
+    /* Changed on purpose (r69): the owner, "it should not use the old Storelib default": the starter is Creator Landing, named as the creator's own website. */
+    check("the starter is Creator Landing, never Storelib Default", STARTER_TEMPLATE === "creator" && STARTER_NAME === "My website")
     /* A stand-in for the template's import (lib/themes/template-install.ts), writing what it writes: a draft install, its settings, its pages. */
     const imports: { template: string; name: string; userId: string }[] = []
     const fakeImport = (async (db: { from: (t: string) => any }, who: { userId: string; creatorId: string }, template: string, opts: { name: string }) => { // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -109,10 +110,11 @@ async function main() {
     const first = await ensureStarterWebsite(db as never, CREATOR, WHO, deps)
     const installs = db.tables.store_theme_installs
     check("an empty library: one install, made", first.created && installs.length === 1 && installs[0].id === first.installId)
-    check("  as a draft of Storelib Default, first in the library",
-      installs[0].status === "draft" && installs[0].name === "Storelib Default" && installs[0].sort_order === 0 && installs[0].creator_id === CREATOR)
-    check("  imported from the default template, into the owner's media folder",
-      imports.length === 1 && imports[0].template === "default" && imports[0].name === "Storelib Default" && imports[0].userId === WHO.userId, JSON.stringify(imports))
+    /* Changed on purpose (r69): named My website, from Creator Landing. */
+    check("  as a draft named My website, first in the library",
+      installs[0].status === "draft" && installs[0].name === "My website" && installs[0].sort_order === 0 && installs[0].creator_id === CREATOR)
+    check("  imported from Creator Landing, into the owner's media folder",
+      imports.length === 1 && imports[0].template === "creator" && imports[0].name === "My website" && imports[0].userId === WHO.userId, JSON.stringify(imports))
     check("  with its settings and its two pages",
       db.tables.store_theme_settings.length === 1 && db.tables.store_theme_pages.length === 2 &&
         db.tables.store_theme_pages.every((p) => p.install_id === first.installId))

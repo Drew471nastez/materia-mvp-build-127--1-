@@ -161,9 +161,16 @@ export async function driveTurns(w: AiWorld, jobId: string, maxTurns = 12, stopW
   const { jobToken } = await import("@/lib/website-builder/ai-site/server")
   let turns = 0
   for (; turns < maxTurns; ) {
-    const pending = w.kicks.findIndex((k) => k.jobId === jobId)
-    if (pending < 0) break
-    const kick = w.kicks.splice(pending, 1)[0]
+    /*
+      Changed on purpose (r69): the NEWEST hand over for this job, the older ones dropped. A hand over asked for
+      before the job stopped (its working time spent) carries a token minted then; after Continue, 20 fake minutes
+      later, it has expired (jobToken's 10 minutes) and the run route rightly answers 404, as Vercel would see it.
+      The benchmark's H drove that stale one first and failed on base ("run route answered 404").
+    */
+    const mine = w.kicks.map((k, i) => (k.jobId === jobId ? i : -1)).filter((i) => i >= 0)
+    if (!mine.length) break
+    const kick = w.kicks[mine[mine.length - 1]]
+    for (const i of mine.reverse()) w.kicks.splice(i, 1)
     const r = await w.j.call(`POST /api/website-builder/ai-jobs/${jobId}/run`, { headers: { "x-ai-job-token": kick.token ?? jobToken(jobId) ?? "" } })
     if (r.status !== 202) throw new Error(`run route answered ${r.status}`)
     turns++

@@ -115,6 +115,25 @@ export const DEFAULT_TEMPLATE_PACKAGE = `${CODE_THEME_PACKAGE}/${DEFAULT_CODE_TE
 /** The name a starter website is given: the listing's own. */
 export const DEFAULT_TEMPLATE_NAME = "Storelib Default"
 
+/**
+ * THE STARTING POINT (round 69, the owner: "when entering the website builder,
+ * it should not use the old Storelib default; get rid of that"). A new
+ * account's first website and Start from blank begin in Creator Landing
+ * (theme-packages/materia/templates/creator), not Storelib Default's Sundry
+ * homeware shop. Why this one: Storelib is for creators, and it is the one
+ * template made for any creator rather than one kind of product: a personal
+ * home page (who they are, what they help with, shelves of whatever they
+ * sell, a letter to sign up for), calm type (Lora on Karla) and light
+ * schemes that suit a coach, a writer, a shop or a studio alike. Storelib
+ * Default stays in Browse themes for anyone who picks it; nothing made from
+ * it is changed.
+ */
+export const STARTER_CODE_TEMPLATE = "creator"
+/** Its listing's address in Browse themes. */
+export const STARTER_LISTING_SLUG = "creator-landing"
+/** The name a new account's first website is given: theirs, not a template's. */
+export const STARTER_WEBSITE_NAME = "My website"
+
 /** One starting website: its address, its overlay folder, its name and where it is filed. */
 export interface CodeTemplate {
   slug: string

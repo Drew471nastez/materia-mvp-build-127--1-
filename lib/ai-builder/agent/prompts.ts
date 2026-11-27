@@ -180,7 +180,12 @@ export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilit
   /* The creator's choices on Describe your website, in L1's words (start-options.ts startContext): kind, blank or theme, preset, preferences. */
   const choices = job.redesign ? "" : startContext(job.options ?? null)
   const own = input.files.filter((f) => /^(sections|blocks|snippets)\/ai_/.test(f.path)).map((f) => f.path)
-  const pages = input.pages.map((p) => `${p.key}: ${p.sections.map((s) => `${s.type}${s.group ? `(${s.group})` : ""} [${s.id}]`).join(", ") || "(empty)"}`)
+  /* Round 69: the frame (header, footer, overlays) once, on home: a template site repeats it on every page, 14,000 characters of the first turn. */
+  const pages = input.pages.map((p) => {
+    const list = p.key === "home" ? p.sections : p.sections.filter((s) => !s.group)
+    const framed = list.length < p.sections.length ? " (+ the frame as on home)" : ""
+    return `${p.key}: ${list.map((s) => `${s.type}${s.group ? `(${s.group})` : ""} [${s.id}]`).join(", ") || "(empty)"}${framed}`
+  })
   const mode = job.edit
     ? "EDIT MODE: this website exists. Change only what the request asks for; everything else stays byte for byte as it is. Read before you edit."
     : job.redesign === "changes"
@@ -188,7 +193,7 @@ export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilit
       : job.redesign === "full"
         ? "EXISTING WEBSITE, FULL REDESIGN: this website exists and the creator asked for a new look for all of it. Keep its content: every page, the words the creator wrote, the pictures, products, collections, forms and menus it is bound to (read them with list_pages and read_file and carry them over by value or id). Change the look: tokens, layout, your own ai_ components in place of sections that do not fit the concept. Do not delete a page or invent content. A backup was taken before you started; the creator can undo this job."
         : input.materiaInstall && job.mode !== "blank"
-          ? "NEW WEBSITE FROM A STORELIB TEMPLATE: this website is one of Storelib's templates on the Materia theme, imported for this creator before you started. Build on it the way the template was built: its Materia sections, header and footer are the site's; adapt every one to this business (words, pictures, real products, colour schemes), drop or swap what does not fit, add the Materia sections the plan needs, and write your own ai_ components only for the edge."
+          ? /* Changed on purpose (r69): the template is the frame and the vocabulary; home and the look are the site plan's. */ "NEW WEBSITE FROM A STORELIB TEMPLATE: this website is on the Materia theme, in one of Storelib's templates as its frame (header, footer, other pages). Home is the site plan composed for this business before you started, in its own fonts, schemes and motion. Make every section this business's (words, pictures, real products), keep the plan's composition unless a better section does the same job, rewrite the other pages the same way, and write your own ai_ components only for the edge."
           : job.mode === "blank"
       ? "NEW WEBSITE, BLANK: there is no theme layout, no header and no footer, and the page draws no built-in cart drawer, search or switches. Everything a visitor sees is a component you write, on every page and template, the site's own header and footer included (with its own cart drawer, search window and language and currency switches through the hooks)."
       : "NEW WEBSITE INSIDE A THEME: the theme's settings and any sections already on the pages are there, but they are not the design. Build the site from your own ai_ components for the concept; keep an existing section only where it already fits, and replace the rest. Write the site's own header and footer and put them in place of the theme's: its frame is not this site's."
