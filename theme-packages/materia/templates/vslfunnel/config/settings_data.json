@@ -180,7 +180,7 @@
     "font_heading_google_family": "Plus Jakarta Sans",
     "heading_font_weight": 800,
     "heading_font_scale": 92,
-    "heading_letter_spacing": "negative",
+    "heading_letter_spacing": "unset",
     "heading_text_transform": "unset",
     "body_font_size": 17,
     "body_font_weight": 400,
