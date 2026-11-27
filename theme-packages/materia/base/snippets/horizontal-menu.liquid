@@ -616,11 +616,9 @@
           {%- endfor -%}
         {%- endif -%}
         {%- endcapture -%}
-      {%- comment -%} data-hs-wait: unseen on desktop until snippets/header-menu-fit has fitted the line (a moment, before the first paint on a return visit); header-layout.css shows it anyway after 2.5s and the noscript rule shows it at once without script. {%- endcomment -%}
-      <noscript><style>.header__menu .horizontal-list[data-hs-wait] { opacity: 1 !important; animation: none !important; }</style></noscript>
+      {%- comment -%} The menu shows from the first frame (round 67). It waited unseen (data-hs-wait) for its font on every page, up to 1.5s, then faded in: the owner saw the header's links vanish and pop back on each page change and reload. snippets/header-menu-fit fits the line in the size-matched stand-in font and again when the font arrives. {%- endcomment -%}
       <ul
         class="horizontal-list{% if menu_items contains 'class="menu_label' %} has-menu-label{% endif %} list-unstyled inline-flex-1025 flex-wrap row-gap-0 horizontal px-30 px-1025-0 show-localization animation-{{ section_st.dropdowns_animation }}"
-        {% if section_st.mega_menu.links.size > 1 %}data-hs-wait{% endif %}
       >
         <svg hidden>
           <symbol id="icon-arrow-down">

@@ -562,6 +562,9 @@
       the page's ready event waited on them. Requested here, with the others;
       the drawer's at low priority so the first screen comes first.
     {%- endcomment -%}
+    {%- comment -%} The header's own two sheets too (round 67): linked in the header section, the browser found them only as it reached the header, and drew the logo before the menu's links. {%- endcomment -%}
+    <link rel="preload" as="style" href="{{ 'header-section.css' | asset_url }}">
+    <link rel="preload" as="style" href="{{ 'header-layout.css' | asset_url }}">
     <link rel="preload" as="style" href="{{ 'navigation.css' | asset_url }}">
     <link rel="preload" as="style" href="{{ 'minicart.css' | asset_url }}" fetchpriority="low">
     <link rel="preload" as="style" href="{{ 'materia-experience.css' | asset_url }}" fetchpriority="low">
