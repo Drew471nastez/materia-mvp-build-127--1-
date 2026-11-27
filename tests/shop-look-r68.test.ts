@@ -115,7 +115,8 @@ async function tryTheLook(browser: Browser, touchBrowser: Browser, base: string)
     let moved = 0, opened = 0
     const DRAGS = 10
     for (let k = 0; k < DRAGS; k++) {
-      await sleep(900)
+      await sleep(600)
+      await p.waitForFunction(() => !document.querySelector("try-the-look [data-stage]")!.classList.contains("is-drag"), { timeout: 4000 }).catch(() => undefined)
       const s0 = await state(), [x, y] = await fitAt(0), d = rnd(70, 220) * (k % 2 ? 1 : -1)
       await p.mouse.move(x, y); await p.mouse.down(); await p.mouse.move(x + d, y + rnd(-10, 10), { steps: 8 }); await p.mouse.up()
       await sleep(1100); const s1 = await state(); if (s1.open) opened++; if (s1.i !== s0.i) moved++; await closeLb()
@@ -189,7 +190,8 @@ async function tryTheLook(browser: Browser, touchBrowser: Browser, base: string)
     for (let k = 0; k < 12; k++) { await sleep(700); const [x, y] = await fitAt(), j = rnd(0, 7); await touch([[x, y], [x + j, y + rnd(-3, 3)]], 30); await sleep(700); if ((await state()).open) ok++; await closeLb() }
     check(`touch at 4x CPU: a tap with up to 7 px of jitter always opens the look in focus (${ok}/12)`, ok === 12)
     let moved = 0, opened = 0
-    for (let k = 0; k < 8; k++) { await sleep(900); const s0 = await state(), [x, y] = await fitAt(), d = rnd(70, 180) * (k % 2 ? 1 : -1); const pts: number[][] = []; for (let s = 0; s <= 8; s++) pts.push([x + (d * s) / 8, y + rnd(-6, 6)]); await touch(pts); await sleep(1100); const s1 = await state(); if (s1.open) opened++; if (s1.i !== s0.i) moved++; await closeLb() }
+    const rest = () => p.waitForFunction(() => !document.querySelector("try-the-look [data-stage]")!.classList.contains("is-drag"), { timeout: 4000 }).catch(() => undefined)
+    for (let k = 0; k < 8; k++) { await sleep(600); await rest(); const s0 = await state(), [x, y] = await fitAt(), d = rnd(70, 180) * (k % 2 ? 1 : -1); const pts: number[][] = []; for (let s = 0; s <= 8; s++) pts.push([x + (d * s) / 8, y + rnd(-6, 6)]); await touch(pts); await sleep(1100); const s1 = await state(); if (s1.open) opened++; if (s1.i !== s0.i) moved++; await closeLb() }
     check(`  a swipe never opens the look and always moves the lineup (moved ${moved}/8, opened ${opened})`, moved === 8 && opened === 0)
     await sleep(600)
     const s0 = await state(), [x, y] = await fitAt(); const pts: number[][] = []; for (let s = 0; s <= 10; s++) pts.push([x + rnd(-3, 3), y + 120 - s * 24])
@@ -287,7 +289,7 @@ async function redline(browser: Browser, base: string) {
       const tick = (t: number) => { if (!W.__on) return; W.__s.push({ t, fly: !!document.querySelector(".bf__fly"), front: +getComputedStyle(fr).opacity, side: +getComputedStyle(sd).opacity, vis: getComputedStyle(pic).visibility === "visible", shadow: alpha(getComputedStyle(fr).filter) }); requestAnimationFrame(tick) }
       requestAnimationFrame(tick)
     })
-    await p.keyboard.press("Escape"); await sleep(1800)
+    await p.keyboard.press("Escape"); await sleep(3000)
     const r = await p.evaluate(() => { const W = window as unknown as { __s: { t: number; fly: boolean; front: number; side: number; vis: boolean; shadow: number }[]; __k: number; __on: boolean }; W.__on = false; return { s: W.__s, k: W.__k } })
     const first = r.s.find((f) => f.t > r.k)
     const wait = first ? first.t - r.k : 9999

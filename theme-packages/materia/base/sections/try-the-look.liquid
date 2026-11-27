@@ -863,15 +863,17 @@
         const t = getComputedStyle(m).transform, w = Math.max(60, m.offsetWidth * 0.55);
         const mt = /^matrix\(([^)]+)\)$/.exec(t); return mt ? (+mt[1].split(',')[4] || 0) / w : 0;
       }
-      // One frame loop for both springs (semi-implicit Euler, four steps a frame, in looks and looks a second).
+      // One frame loop for both springs (semi-implicit Euler in steps of 8 ms or less, in looks and looks a second).
       spring() {
         if (this._raf) return; let t0 = performance.now();
         const tick = now => {
-          const dt = Math.min(0.05, Math.max(0, (now - t0) / 1000)); t0 = now;
+          // A slow frame (a busy phone) still moves the spring by the time that passed, up to a fifth of a second.
+          const dt = Math.min(0.2, Math.max(0, (now - t0) / 1000)); t0 = now;
           const held = this._grab != null, goal = held ? this._grab : this._goal;
           if (goal == null) { this._raf = 0; return; }
           const k = held ? 900 : 200, c = 2 * Math.sqrt(k); let x = this._pos, v = this._v;
-          for (let s = 0, h = dt / 4; s < 4; s++) { v += (-k * (x - goal) - c * v) * h; x += v * h; }
+          const steps = Math.max(4, Math.ceil(dt / 0.008));
+          for (let s = 0, h = dt / steps; s < steps; s++) { v += (-k * (x - goal) - c * v) * h; x += v * h; }
           this._pos = x; this._v = v;
           if (!held && Math.abs(x - goal) < 0.003 && Math.abs(v) < 0.05) { this._raf = 0; return this.land(); }
           this.layout(x, true); this._raf = requestAnimationFrame(tick);
