@@ -2675,16 +2675,33 @@ export const CANVAS_BRIDGE = `
       ran.add(key);
       var s = document.createElement("script");
       Array.prototype.slice.call(old.attributes).forEach(function (a) { s.setAttribute(a.name, a.value); });
+      var own = rerun ? window.__slOwn : null, mine = own ? own.get(key) : null;
       if (rerun) {
-        var own = window.__slOwn, mine = own && own.get(key);
-        if (mine) {
-          own.delete(key);
-          mine.forEach(function (r) { try { if (r[0] === null) clearInterval(r[1]); else r[0].removeEventListener(r[1], r[2], r[3]); } catch (e) {} });
-        }
+        if (mine) own.delete(key);
         s.__slKey = key;
         s.textContent = /^module$/i.test(type) ? key : "{try{" + key + "\\n}catch(e){}}";
       } else s.textContent = old.textContent;
       old.replaceWith(s);
+      /*
+        ROUND 69: WHAT THE RUN AGAIN DID NOT ADD AGAIN STAYS. The run again is
+        done first, then what its last run added is taken off, but only where
+        this run added the same again (a listener for the same event on the
+        same target, an interval). A script that runs once per page behind a
+        guard of its own (Materia's sticky header: if (!window.StorelibHeaderSticky))
+        adds nothing the second time; its scroll, resize and load listeners
+        were taken off all the same, and the header stayed in the mode it had
+        ("Show on scroll up" back from "Always sticky" never hid again).
+      */
+      if (mine) {
+        var now = own.get(key) || [];
+        var again2 = function (r) { return now.some(function (n) { return r[0] === null ? n[0] === null : n[0] === r[0] && n[1] === r[1]; }); };
+        var kept = [];
+        mine.forEach(function (r) {
+          if (!again2(r)) { kept.push(r); return; }
+          try { if (r[0] === null) clearInterval(r[1]); else r[0].removeEventListener(r[1], r[2], r[3]); } catch (e) {}
+        });
+        if (kept.length) own.set(key, kept.concat(now));
+      }
     });
   };
   /* A section new to the page goes in with its stylesheets applied (A SECTION ADDED ARRIVES): waited for here, the whole patch at once after. */
@@ -2768,6 +2785,7 @@ export const CANVAS_BRIDGE = `
     var added = [];
     /* Where everything was, for a section arriving (A SECTION ADDED ARRIVES): read before anything moves. */
     var tops = m.order.some(function (x) { return arriving[x.id] && !byId(x.id); }) ? pageTops() : null;
+    var mainBox = document.querySelector("main, #MainContent, [role=main]");
     for (var i = 0; i < m.order.length; i++) {
       var it = m.order[i];
       var el = byId(it.id);
@@ -2780,8 +2798,18 @@ export const CANVAS_BRIDGE = `
       }
       /* Placed after the section before it in its group, or else before the one after it. */
       var prev = null, next = null;
-      for (var j = i - 1; j >= 0 && !prev; j--) if (m.order[j].group === it.group) prev = byId(m.order[j].id);
-      for (var k = i + 1; k < m.order.length && !next; k++) if (m.order[k].group === it.group && byId(m.order[k].id) && byId(m.order[k].id) !== el) next = byId(m.order[k].id);
+      /*
+        ROUND 69: ONLY A NEIGHBOUR IN THE SAME PLACE. A section the layout draws
+        by itself (Materia's custom-colors, after the footer) carries no group
+        either, so it was taken for a neighbour of the page's own sections:
+        on a page of one section (Space), adding a second moved the first out
+        of <main> to the end of the body, and both were drawn zero tall over
+        the footer. A page's section is placed only beside one in <main> (or
+        wherever the page keeps them), the layout's own beside its own.
+      */
+      var home = function (n) { if (!n || it.group || !mainBox) return !!n; return mainBox.contains(n) === (el.isConnected ? mainBox.contains(el) : true); };
+      for (var j = i - 1; j >= 0 && !prev; j--) if (m.order[j].group === it.group && home(byId(m.order[j].id))) prev = byId(m.order[j].id);
+      for (var k = i + 1; k < m.order.length && !next; k++) if (m.order[k].group === it.group && byId(m.order[k].id) && byId(m.order[k].id) !== el && home(byId(m.order[k].id))) next = byId(m.order[k].id);
       if (prev) { if (prev.nextElementSibling !== el) prev.after(el); }
       else if (next) { if (el.nextElementSibling !== next) next.before(el); }
       else if (!el.isConnected) {
@@ -2892,7 +2920,60 @@ export const CANVAS_BRIDGE = `
     person scrolling, and ends it; so does the builder, or two seconds.
   */
   var holding = null;
+  /*
+    ROUND 69: THE SWITCH NEVER HIDES THE HEADER. The page keeps the place
+    under the eye through a switch by scrolling (above), and the page is
+    taller on a phone: Materia's "Show on scroll up" header read that scroll
+    as the person's, going down, and slid away as the canvas changed size
+    ("it hides the header section really abruptly"). New theme files no
+    longer do (snippets/header-sticky-controller.liquid, settleUntil); for
+    the files a store already has, a header bar that was showing when the
+    switch began is not let go of until the switch is over, or the person
+    scrolls, taps or types.
+  */
+  var barsHeld = null;
+  var holdBars = function (on) {
+    if (on) {
+      if (barsHeld) { clearTimeout(barsHeld.t); barsHeld.t = 0; return; }
+      if (typeof MutationObserver !== "function") return;
+      var shown = Array.prototype.filter.call(document.querySelectorAll(".shopify-section[data-storelib-sticky]"), function (x) { return !x.classList.contains("shopify-section-header-hidden"); });
+      if (!shown.length) return;
+      /* Held in place too: the switch lays the page out inside its own frames, so a class can be seen before it is taken off. */
+      if (!document.querySelector("style[data-sl-bar-held]")) {
+        var hs = document.createElement("style");
+        hs.setAttribute("data-sl-bar-held", "");
+        hs.setAttribute("data-sl", "");
+        hs.textContent = ".shopify-section.shopify-section.shopify-section-header-hidden[data-sl-bar-held][data-sl-bar-held]:is(#_,[data-sl-bar-held]){transform:none!important;pointer-events:auto!important}";
+        document.head.appendChild(hs);
+      }
+      shown.forEach(function (x) { x.setAttribute("data-sl-bar-held", ""); });
+      var keepShown = function () {
+        shown.forEach(function (x) { if (x.classList.contains("shopify-section-header-hidden")) x.classList.remove("shopify-section-header-hidden"); });
+        if (document.documentElement.hasAttribute("data-header-hidden")) document.documentElement.removeAttribute("data-header-hidden");
+      };
+      var mo = new MutationObserver(keepShown);
+      shown.forEach(function (x) { mo.observe(x, { attributes: true, attributeFilter: ["class"] }); });
+      var letGo = function () {
+        if (!barsHeld) return;
+        clearTimeout(barsHeld.t);
+        mo.disconnect();
+        keepShown();
+        shown.forEach(function (x) { x.removeAttribute("data-sl-bar-held"); });
+        removeEventListener("wheel", letGo, true);
+        removeEventListener("touchstart", letGo, true);
+        removeEventListener("keydown", letGo, true);
+        barsHeld = null;
+      };
+      addEventListener("wheel", letGo, { capture: true, passive: true });
+      addEventListener("touchstart", letGo, { capture: true, passive: true });
+      addEventListener("keydown", letGo, true);
+      barsHeld = { t: 0, letGo: letGo };
+      return;
+    }
+    if (barsHeld && !barsHeld.t) barsHeld.t = setTimeout(barsHeld.letGo, 700);
+  };
   var holdView = function (on) {
+    holdBars(!!on);
     if (holding) { holding.stop(); holding = null; }
     /* The theme's own scripts through the switch, and a moment after it (canvas-bridge.ts, CANVAS_SWITCH). */
     if (window.__slSwitch) window.__slSwitch(!!on);
@@ -3743,7 +3824,16 @@ export const CANVAS_SWITCH = `
     });
     take.forEach(function (item) {
       var s = item.section;
-      s.style.containIntrinsicHeight = Math.round(item.height) + "px";
+      /*
+        "auto" first (round 69): a section already resting far from the screen
+        (A SECTION FAR FROM THE SCREEN RESTS, data-sl-rest) keeps the size it
+        last had only while its intrinsic size says auto. Held at a plain
+        length it lost it, and let go it was zero tall: after one switch to
+        the phone the page was 2,264px long instead of 6,891px, everything
+        below the screen gone until it was scrolled to
+        (scripts/check-editor-stability-r69.ts).
+      */
+      s.style.containIntrinsicHeight = "auto " + Math.round(item.height) + "px";
       s.style.contentVisibility = "hidden";
       held.push(s);
     });
