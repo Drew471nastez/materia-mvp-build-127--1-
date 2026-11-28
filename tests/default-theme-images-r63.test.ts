@@ -91,7 +91,7 @@ async function main() {
     check("a listing row naming the native theme is retired: never offered", !shown.some((l) => l.builtinThemeId) && shown.filter((l) => l.name === "Storelib Default").length === 1 && shown.find((l) => l.name === "Storelib Default")?.id === DEFAULT_TEMPLATE_LISTING_ID)
     check("Add theme takes no native theme any more (the old default is not offered)", BROWSABLE_THEME_IDS.length === 0 && /BROWSABLE_THEME_IDS\.includes\(def\.id\)/.test(code("app/api/website-builder/themes/add/route.ts")))
     /* Changed on purpose (r69): the owner, "when entering the website builder, it should not use the old Storelib default": a first visit starts on Creator Landing. */
-    check("a first visit never starts on it (Creator Landing, named My website)", STARTER_TEMPLATE === "creator" && STARTER_TEMPLATE !== DEFAULT_CODE_TEMPLATE && STARTER_NAME === "My website" && STARTER_NAME !== DEFAULT_TEMPLATE_NAME && !/getThemeDefinition|buildThemePreset|STORELIB_DEFAULT_ID/.test(code("lib/website-builder/starter-website.ts")))
+    check("a first visit never starts on it (Creator Landing, named My website)", STARTER_TEMPLATE === "creator" && (STARTER_TEMPLATE as string) !== DEFAULT_CODE_TEMPLATE && STARTER_NAME === "My website" && (STARTER_NAME as string) !== DEFAULT_TEMPLATE_NAME && !/getThemeDefinition|buildThemePreset|STORELIB_DEFAULT_ID/.test(code("lib/website-builder/starter-website.ts")))
     /* Changed on purpose (r69): the owner, "the AI should not use the old Storelib default": never its fallback. */
     check("the AI builder's fallback is never it", chooseMateriaTemplate({ prompt: "zzqx" }).template.template !== DEFAULT_CODE_TEMPLATE)
     /* Changed on purpose (r69): Start from blank is the starter template's frame. */
