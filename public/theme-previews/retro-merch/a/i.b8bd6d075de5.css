@@ -1,0 +1,100 @@
+
+  .r98 { --r-face: #c0c0c0; --r-light: #dfdfdf; --r-hi: #ffffff; --r-shadow: #808080; --r-dark: #0a0a0a; --r-t1: #000080; --r-t2: #1084d0; --r-sel: #000080;
+    --r-px: 'Pixelify Sans', ui-monospace, 'Courier New', monospace; color: #111; font-family: var(--body-font, Arial, sans-serif); font-size: 14px; line-height: 1.5; }
+  .r98 *, .r98 *::before, .r98 *::after { box-sizing: border-box; }
+  .r98-win { position: relative; background: var(--r-face); padding: 3px; box-shadow: inset -1px -1px var(--r-dark), inset 1px 1px var(--r-light), inset -2px -2px var(--r-shadow), inset 2px 2px var(--r-hi), 6px 6px 0 rgba(0,0,0,.18); }
+  .r98-bar { display: flex; align-items: center; gap: 6px; min-height: 26px; padding: 2px 3px 2px 5px; background: linear-gradient(90deg, var(--r-t1), var(--r-t2)); color: #fff; font-family: var(--r-px); font-size: 15px; font-weight: 600; letter-spacing: .01em; user-select: none; -webkit-user-select: none; }
+  .r98-bar .r98-ico { width: 16px; height: 16px; flex: none; }
+  .r98-bar__title { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin: 0; font: inherit; color: inherit; }
+  .r98-bar__btns { display: flex; gap: 2px; flex: none; }
+  .r98-ctl { display: grid; place-items: center; width: 22px; height: 20px; margin: 0; padding: 0; border: 0; border-radius: 0; cursor: pointer; color: #000; background: var(--r-face);
+    box-shadow: inset -1px -1px var(--r-dark), inset 1px 1px var(--r-hi), inset -2px -2px var(--r-shadow), inset 2px 2px var(--r-light); }
+  .r98-ctl svg { width: 10px; height: 10px; }
+  .r98-ctl:active { box-shadow: inset 1px 1px var(--r-dark), inset -1px -1px var(--r-hi), inset 2px 2px var(--r-shadow), inset -2px -2px var(--r-light); }
+  .r98-ctl:active svg { transform: translate(1px, 1px); }
+  .r98-ctl:focus-visible, .r98-btn:focus-visible { outline: 1px dotted #000; outline-offset: -5px; }
+  .r98-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; min-width: 96px; margin: 0; padding: 0 18px; border: 0; border-radius: 0; cursor: pointer;
+    background: var(--r-face); color: #111; font-family: var(--r-px); font-size: 16px; font-weight: 500; line-height: 1; text-decoration: none; white-space: nowrap;
+    box-shadow: inset -1px -1px var(--r-dark), inset 1px 1px var(--r-hi), inset -2px -2px var(--r-shadow), inset 2px 2px var(--r-light); }
+  .r98-btn:hover { background: #cacaca; color: #111; }
+  .r98-btn:active, .r98-btn[aria-pressed="true"] { box-shadow: inset 1px 1px var(--r-dark), inset -1px -1px var(--r-hi), inset 2px 2px var(--r-shadow), inset -2px -2px var(--r-light); padding-top: 2px; padding-left: 20px; padding-right: 16px; }
+  .r98-btn--default { outline: 1px solid #000; outline-offset: 0; }
+  .r98-btn--blue { background: var(--r-t1); color: #fff; box-shadow: inset -1px -1px var(--r-dark), inset 1px 1px #5a7ad8, inset -2px -2px #00004a, inset 2px 2px #2f4fb0; }
+  .r98-btn--blue:hover { background: #0a0a9a; color: #fff; }
+  .r98-btn .r98-ico { width: 20px; height: 20px; }
+  .r98-field { background: #fff; box-shadow: inset -1px -1px var(--r-hi), inset 1px 1px var(--r-shadow), inset -2px -2px var(--r-light), inset 2px 2px var(--r-dark); }
+  .r98-sunken { box-shadow: inset -1px -1px var(--r-hi), inset 1px 1px var(--r-shadow); }
+  .r98-raised { box-shadow: inset -1px -1px var(--r-shadow), inset 1px 1px var(--r-hi); }
+  .r98-h { margin: 0; font-family: var(--r-px); font-weight: 600; color: #000; line-height: 1.1; letter-spacing: 0; }
+  .r98 .r98-ico { image-rendering: pixelated; }
+  .r98-win.is-min .r98-body, .r98-win.is-min .r98-hide-min { display: none; }
+  .r98-win.is-max { position: relative; z-index: 3; }
+  .r98-win[data-r98-window] { transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .25s; }
+  .r98-win.is-closing { opacity: 0; transform: scale(.96); }
+  html.r98-js .r98 [data-motion][data-r98-armed] { opacity: 0; transform: translate3d(0, 12px, 0); transition: opacity .45s cubic-bezier(.25,.6,.3,1), transform .45s cubic-bezier(.25,.6,.3,1); transition-delay: var(--d, 0ms); }
+  html.r98-js .r98 [data-motion][data-r98-armed].is-in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    html.r98-js .r98 [data-motion] { opacity: 1; transform: none; transition: none; }
+    .r98-win[data-r98-window] { transition: none; }
+  }
+
+  #shopify-section-more .r98 { padding: 0px 10px 14px; }
+  @media (min-width: 750px) { #shopify-section-more .r98 { padding: 0px 24px 24px; } }
+
+  #shopify-section-more .r98-place { max-width: 1120px; margin: 0 auto; }
+  @media (min-width: 1100px) {}
+
+  .r98-addr { display: flex; align-items: center; gap: 6px; padding: 4px 2px 6px; font-size: 13px; }
+  .r98-addr__label { font-family: var(--r-px); color: #333; }
+  .r98-addr__box { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 6px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-family: var(--r-px); font-size: 14px; color: #000; }
+  .r98-addr__box .r98-ico { width: 16px; height: 16px; flex: none; }
+  .r98-addr a.r98-btn { min-width: 0; min-height: 26px; padding: 0 10px; font-size: 14px; }
+  .r98-files { list-style: none; margin: 0; padding: 14px; display: grid; gap: 16px 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); background: #fff; }
+  @media (min-width: 750px) { #shopify-section-more .r98-files { grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 18px; gap: 22px 18px; } }
+  @media (min-width: 1100px) { #shopify-section-more .r98-files { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  .r98-file { position: relative; display: flex; flex-direction: column; min-width: 0; }
+  .r98-file__pic { position: relative; display: block; aspect-ratio: 1 / 1; background: #ececec; overflow: hidden; border: 1px solid transparent; }
+  .r98-file__pic img, .r98-file__pic svg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .5s cubic-bezier(.2,.7,.2,1); }
+  .r98-file__pic svg { fill: #bdbdbd; background: #ececec; }
+  .r98-file:hover .r98-file__pic img { transform: scale(1.03); }
+  .r98-file__pic:focus-visible { outline: 1px dotted #000; outline-offset: 2px; }
+  .r98-file__tag { position: absolute; left: 6px; top: 6px; z-index: 1; padding: 1px 6px; background: #ffffe1; color: #000; font-family: var(--r-px); font-size: 12px; box-shadow: 0 0 0 1px #000; }
+  .r98-file__tag--sale { background: #e0201b; color: #fff; }
+  .r98-file__name { align-self: flex-start; margin: 8px 0 0; padding: 0 3px; color: #000; font-family: var(--r-px); font-size: 16px; line-height: 1.25; text-decoration: none; border: 1px dotted transparent; }
+  .r98-file:hover .r98-file__name, .r98-file__name:focus-visible { background: var(--r-sel); color: #fff; border-color: #ffff80; outline: none; }
+  .r98-file__price { margin: 2px 0 0; padding: 0 3px; font-size: 14px; color: #222; font-variant-numeric: tabular-nums; }
+  .r98-file__price s { color: #808080; margin-left: 6px; }
+  .r98-file__acts { display: flex; gap: 6px; margin-top: 8px; }
+  .r98-file__acts .r98-btn { flex: 1 1 0; min-width: 0; min-height: 32px; padding: 0 6px; font-size: 14px; }
+  .r98-file__acts .r98-btn[disabled] { color: #808080; text-shadow: 1px 1px #fff; cursor: default; }
+  .r98-shop .r98-status { padding-top: 3px; font-family: var(--r-px); font-size: 13px; }
+  .r98-dlg { padding: 0; border: 0; background: transparent; max-width: calc(100vw - 16px); max-height: calc(100dvh - 70px); overflow: visible; color: #111; }
+  .r98-dlg::backdrop { background: rgba(0, 0, 40, .28); }
+  .r98-dlg[open] .r98-win { animation: r98-pop .18s steps(3) both; }
+  @keyframes r98-pop { from { transform: scale(.94); opacity: .2; } to { transform: none; opacity: 1; } }
+  .r98-qv { width: min(760px, calc(100vw - 16px)); }
+  .r98-qv .r98-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 12px; max-height: calc(100dvh - 120px); overflow: auto; }
+  @media (min-width: 750px) { .r98-qv .r98-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; padding: 14px; } }
+  .r98-qv__pic { position: relative; aspect-ratio: 1 / 1; background: #ececec; }
+  .r98-qv__pic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .r98-qv__info { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .r98-qv__title { font-size: 26px; }
+  .r98-qv__price { font-family: var(--r-px); font-size: 20px; }
+  .r98-qv__price s { color: #808080; font-size: 16px; margin-left: 8px; }
+  .r98-qv__opts { display: grid; gap: 10px; margin: 0; padding: 10px 10px 12px; border: 0; box-shadow: inset 1px 1px var(--r-shadow), inset -1px -1px var(--r-hi), inset 2px 2px var(--r-hi), inset -2px -2px var(--r-shadow); }
+  .r98-qv label { display: block; margin-bottom: 4px; font-family: var(--r-px); font-size: 14px; }
+  .r98-qv select, .r98-qv input { width: 100%; height: 32px; padding: 0 8px; border: 0; border-radius: 0; font: inherit; font-size: 15px; color: #000; background-color: #fff; box-shadow: inset -1px -1px var(--r-hi), inset 1px 1px var(--r-shadow), inset -2px -2px var(--r-light), inset 2px 2px var(--r-dark); }
+  .r98-qv__row { display: flex; gap: 8px; align-items: flex-end; }
+  .r98-qv__row > div:first-child { width: 84px; flex: none; }
+  .r98-qv__row .r98-btn { flex: 1; min-height: 32px; }
+  .r98-qv__more { font-size: 14px; color: #000080; }
+  .r98-qv__msg { margin: 0; font-size: 13px; color: #a00; min-height: 1em; }
+  .r98-ok { width: min(420px, calc(100vw - 16px)); }
+  .r98-ok .r98-body { padding: 16px 16px 14px; }
+  .r98-ok__row { display: flex; gap: 16px; align-items: flex-start; }
+  .r98-ok__row .r98-ico { width: 40px; height: 40px; flex: none; }
+  .r98-ok__text { margin: 4px 0 0; font-size: 15px; line-height: 1.5; }
+  .r98-ok__acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
+  .r98-ok.is-error [data-r98-ok-cart] { display: none; }
+  .r98-more { display: flex; justify-content: center; padding: 14px 0 6px; }
+  @media (prefers-reduced-motion: reduce) { .r98-dlg[open] .r98-win { animation: none; } .r98-file__pic img { transition: none; } }
