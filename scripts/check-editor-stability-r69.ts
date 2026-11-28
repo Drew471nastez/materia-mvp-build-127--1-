@@ -304,7 +304,7 @@ async function editor(browser: Browser, template: string) {
     const tick = () => {
       const h = document.querySelector<HTMLElement>("header.header")
       /* Scrolled into the page with the bar showing: a switch never takes it away. */
-      if (h && scrollY >= 2) {
+      if (h && scrollY >= 2 && (h.closest(".shopify-section") as HTMLElement | null)?.dataset.storelibSticky !== "none") {
         const b = h.getBoundingClientRect()
         const shown = b.bottom > 10 && b.top > -5 && b.top < 260
         if (wasShown === null) wasShown = shown
